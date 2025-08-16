@@ -60,6 +60,24 @@ export const N8nIntegration = () => {
     console.log("Triggering n8n workflow:", webhookUrl);
 
     try {
+      // Parse specific teams into array format if provided
+      const parseSpecificTeams = (teams: string) => {
+        if (!teams || teams.trim() === '') return null;
+        
+        // Check if it contains "vs" indicating a matchup
+        if (teams.toLowerCase().includes(' vs ')) {
+          return teams.split(' vs ').map(team => team.trim());
+        }
+        
+        // Check if it's comma-separated teams
+        if (teams.includes(',')) {
+          return teams.split(',').map(team => team.trim());
+        }
+        
+        // Single team or free text
+        return [teams.trim()];
+      };
+
       const response = await fetch(webhookUrl, {
         method: "POST",
         headers: {
@@ -73,7 +91,7 @@ export const N8nIntegration = () => {
             sports: selectedSports,
             risk_level: riskLevel,
             max_recommendations: parseInt(maxRecommendations),
-            specific_teams: specificTeams.trim() || null,
+            specific_teams: parseSpecificTeams(specificTeams),
             focus_areas: ["odds_analysis", "injury_reports", "weather_conditions"]
           }
         }),
