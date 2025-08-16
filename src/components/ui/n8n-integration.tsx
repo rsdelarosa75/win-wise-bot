@@ -66,10 +66,19 @@ export const N8nIntegration = () => {
       });
 
       if (response.ok) {
-        const result = await response.json();
+        const contentType = response.headers.get('content-type');
+        let result;
+        
+        if (contentType && contentType.includes('application/json')) {
+          result = await response.json();
+          setBriefContent(result.recommendation || result.analysis || JSON.stringify(result, null, 2));
+        } else {
+          // Handle HTML or text responses
+          const htmlContent = await response.text();
+          setBriefContent(htmlContent);
+        }
         
         setLastTriggered(new Date());
-        setBriefContent(result.recommendation || result.analysis || JSON.stringify(result, null, 2));
         
         toast({
           title: "Recommendation Received",
