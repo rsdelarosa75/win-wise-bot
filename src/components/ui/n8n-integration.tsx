@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Settings, 
@@ -21,6 +24,10 @@ export const N8nIntegration = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastTriggered, setLastTriggered] = useState<Date | null>(null);
   const [briefContent, setBriefContent] = useState("");
+  const [selectedSports, setSelectedSports] = useState<string[]>(["NBA"]);
+  const [specificTeams, setSpecificTeams] = useState("");
+  const [riskLevel, setRiskLevel] = useState("medium");
+  const [maxRecommendations, setMaxRecommendations] = useState("3");
   const { toast } = useToast();
 
   const handleTriggerWorkflow = async (e: React.FormEvent) => {
@@ -49,8 +56,10 @@ export const N8nIntegration = () => {
           triggered_from: window.location.origin,
           request_type: "betting_recommendation",
           user_preferences: {
-            sports: ["NBA", "NFL", "MLB"],
-            risk_level: "medium",
+            sports: selectedSports,
+            risk_level: riskLevel,
+            max_recommendations: parseInt(maxRecommendations),
+            specific_teams: specificTeams.trim() || null,
             focus_areas: ["odds_analysis", "injury_reports", "weather_conditions"]
           }
         }),
@@ -148,6 +157,73 @@ export const N8nIntegration = () => {
             <p className="text-xs text-muted-foreground">
               Copy the webhook URL from your n8n workflow and paste it here
             </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Sports</Label>
+              <div className="space-y-2">
+                {["NBA", "NFL", "MLB", "NHL", "Soccer"].map((sport) => (
+                  <div key={sport} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={sport}
+                      checked={selectedSports.includes(sport)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedSports([...selectedSports, sport]);
+                        } else {
+                          setSelectedSports(selectedSports.filter(s => s !== sport));
+                        }
+                      }}
+                    />
+                    <Label htmlFor={sport} className="text-sm">{sport}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="risk-level">Risk Level</Label>
+              <Select value={riskLevel} onValueChange={setRiskLevel}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="conservative">Conservative</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="aggressive">Aggressive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="specific-teams">Specific Teams/Games (Optional)</Label>
+            <Textarea
+              id="specific-teams"
+              placeholder="e.g., Lakers vs Warriors, Chiefs vs Bills, Liverpool vs Arsenal..."
+              value={specificTeams}
+              onChange={(e) => setSpecificTeams(e.target.value)}
+              className="bg-background/50 min-h-[80px]"
+            />
+            <p className="text-xs text-muted-foreground">
+              Enter specific teams or matchups you want recommendations for. Leave blank for general recommendations.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="max-recommendations">Max Recommendations</Label>
+            <Select value={maxRecommendations} onValueChange={setMaxRecommendations}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1 Recommendation</SelectItem>
+                <SelectItem value="3">3 Recommendations</SelectItem>
+                <SelectItem value="5">5 Recommendations</SelectItem>
+                <SelectItem value="10">10 Recommendations</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
