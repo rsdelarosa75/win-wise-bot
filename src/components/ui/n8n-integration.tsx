@@ -19,6 +19,20 @@ import {
   AlertCircle 
 } from "lucide-react";
 
+const cleanHtmlContent = (htmlString: string): string => {
+  // Remove HTML tags and convert common HTML entities
+  return htmlString
+    .replace(/<[^>]*>/g, '') // Remove HTML tags
+    .replace(/&nbsp;/g, ' ') // Convert non-breaking spaces
+    .replace(/&amp;/g, '&') // Convert ampersands
+    .replace(/&lt;/g, '<') // Convert less than
+    .replace(/&gt;/g, '>') // Convert greater than
+    .replace(/&quot;/g, '"') // Convert quotes
+    .replace(/<br\s*\/?>/gi, '\n') // Convert br tags to newlines
+    .replace(/\n\s*\n/g, '\n\n') // Clean up multiple newlines
+    .trim(); // Remove leading/trailing whitespace
+};
+
 export const N8nIntegration = () => {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -75,7 +89,8 @@ export const N8nIntegration = () => {
         } else {
           // Handle HTML or text responses
           const htmlContent = await response.text();
-          setBriefContent(htmlContent);
+          const cleanedContent = cleanHtmlContent(htmlContent);
+          setBriefContent(cleanedContent);
         }
         
         setLastTriggered(new Date());
