@@ -27,6 +27,9 @@ export const Navigation = () => {
             <a href="#dashboard" className="text-sm hover:text-primary transition-colors">
               Dashboard
             </a>
+            <a href="#automation" className="text-sm hover:text-primary transition-colors">
+              Automation
+            </a>
             <a href="#personas" className="text-sm hover:text-primary transition-colors">
               AI Personas
             </a>
@@ -63,6 +66,9 @@ export const Navigation = () => {
               </a>
               <a href="#dashboard" className="py-2 hover:text-primary transition-colors">
                 Dashboard
+              </a>
+              <a href="#automation" className="py-2 hover:text-primary transition-colors">
+                Automation
               </a>
               <a href="#personas" className="py-2 hover:text-primary transition-colors">
                 AI Personas

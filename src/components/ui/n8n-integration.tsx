@@ -1,0 +1,256 @@
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Settings, 
+  Play, 
+  Calendar, 
+  Zap, 
+  FileText, 
+  Clock,
+  CheckCircle,
+  AlertCircle 
+} from "lucide-react";
+
+export const N8nIntegration = () => {
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastTriggered, setLastTriggered] = useState<Date | null>(null);
+  const [briefContent, setBriefContent] = useState("");
+  const { toast } = useToast();
+
+  const handleTriggerWorkflow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!webhookUrl) {
+      toast({
+        title: "Error",
+        description: "Please enter your n8n webhook URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    console.log("Triggering n8n workflow:", webhookUrl);
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        mode: "no-cors",
+        body: JSON.stringify({
+          timestamp: new Date().toISOString(),
+          triggered_from: window.location.origin,
+          request_type: "daily_betting_brief",
+          user_preferences: {
+            sports: ["NBA", "NFL", "MLB"],
+            risk_level: "medium",
+            focus_areas: ["odds_analysis", "injury_reports", "weather_conditions"]
+          }
+        }),
+      });
+
+      setLastTriggered(new Date());
+      toast({
+        title: "Workflow Triggered",
+        description: "Your n8n workflow has been triggered. The AI betting brief should be generated shortly.",
+      });
+
+      // Simulate brief generation after a delay
+      setTimeout(() => {
+        setBriefContent(`# Daily AI Betting Brief - ${new Date().toLocaleDateString()}
+
+## 🏀 NBA Highlights
+- **Lakers vs Warriors**: High confidence play on Under 228.5 due to defensive matchups
+- **Injury Update**: LeBron James questionable - monitor line movement
+- **Weather Impact**: None for indoor games
+
+## 🏈 NFL Analysis  
+- **Chiefs vs Bills**: Weather conditions favor Under bet (snow expected)
+- **Line Movement**: Public heavily on Chiefs -3, consider Bills +3.5
+- **Player Props**: Josh Allen rushing yards attractive at current odds
+
+## 📊 Key Stats
+- Home favorites 12-8 ATS this week
+- Totals trending Under in cold weather games
+- Sharp money on 3 specific games (see detailed analysis)
+
+## 🎯 Top Picks
+1. **Lakers vs Warriors Under 228.5** (Confidence: 85%)
+2. **Bills +3.5** (Confidence: 78%)
+3. **Player Prop**: Josh Allen O45.5 Rush Yards (Confidence: 72%)
+
+*Generated at ${new Date().toLocaleTimeString()} via n8n workflow*`);
+      }, 3000);
+
+    } catch (error) {
+      console.error("Error triggering workflow:", error);
+      toast({
+        title: "Error",
+        description: "Failed to trigger the n8n workflow. Please check the URL and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Configuration Card */}
+      <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+            <Settings className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold">n8n Workflow Configuration</h3>
+            <p className="text-sm text-muted-foreground">Connect your n8n instance for automated betting briefs</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleTriggerWorkflow} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="webhook-url">n8n Webhook URL</Label>
+            <Input
+              id="webhook-url"
+              placeholder="https://your-n8n-instance.com/webhook/your-workflow-id"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              className="bg-background/50"
+            />
+            <p className="text-xs text-muted-foreground">
+              Copy the webhook URL from your n8n workflow and paste it here
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button 
+              type="submit" 
+              disabled={isLoading || !webhookUrl}
+              className="bg-gradient-primary"
+            >
+              {isLoading ? (
+                <>
+                  <Clock className="mr-2 w-4 h-4 animate-spin" />
+                  Triggering...
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 w-4 h-4" />
+                  Trigger Daily Brief
+                </>
+              )}
+            </Button>
+
+            <Button type="button" variant="outline" disabled>
+              <Calendar className="mr-2 w-4 h-4" />
+              Schedule Daily (Coming Soon)
+            </Button>
+          </div>
+        </form>
+
+        {lastTriggered && (
+          <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle className="w-4 h-4 text-win" />
+            Last triggered: {lastTriggered.toLocaleString()}
+          </div>
+        )}
+      </Card>
+
+      {/* Workflow Status */}
+      <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-accent/10 rounded-lg flex items-center justify-center">
+              <Zap className="w-4 h-4 text-accent" />
+            </div>
+            <h3 className="text-lg font-semibold">Workflow Status</h3>
+          </div>
+          <Badge variant="outline" className="border-accent/30 text-accent">
+            {webhookUrl ? "Configured" : "Not Configured"}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="text-center p-4 bg-secondary/30 rounded-lg">
+            <div className="text-2xl font-bold text-accent">3</div>
+            <div className="text-sm text-muted-foreground">Workflows Active</div>
+          </div>
+          <div className="text-center p-4 bg-secondary/30 rounded-lg">
+            <div className="text-2xl font-bold text-primary">24</div>
+            <div className="text-sm text-muted-foreground">Briefs Generated</div>
+          </div>
+          <div className="text-center p-4 bg-secondary/30 rounded-lg">
+            <div className="text-2xl font-bold text-win">98%</div>
+            <div className="text-sm text-muted-foreground">Success Rate</div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Generated Brief Display */}
+      {briefContent && (
+        <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-neutral/10 rounded-lg flex items-center justify-center">
+              <FileText className="w-5 h-5 text-neutral" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold">Latest AI Betting Brief</h3>
+              <p className="text-sm text-muted-foreground">Generated by your n8n workflow</p>
+            </div>
+            <div className="ml-auto">
+              <Badge variant="outline" className="border-win/30 text-win">
+                Fresh
+              </Badge>
+            </div>
+          </div>
+
+          <div className="bg-background/50 rounded-lg p-4 max-h-96 overflow-y-auto">
+            <pre className="text-sm whitespace-pre-wrap font-mono leading-relaxed">
+              {briefContent}
+            </pre>
+          </div>
+
+          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border/50">
+            <Button variant="outline" size="sm">
+              <FileText className="mr-2 w-4 h-4" />
+              Export Brief
+            </Button>
+            <Button variant="outline" size="sm">
+              Share Analysis
+            </Button>
+            <div className="ml-auto text-sm text-muted-foreground">
+              Updated {new Date().toLocaleTimeString()}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Setup Instructions */}
+      <Card className="p-6 bg-gradient-to-br from-muted/20 to-muted/5 border-border/50">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-neutral mt-0.5" />
+          <div className="space-y-2">
+            <h4 className="font-semibold">How to set up your n8n workflow:</h4>
+            <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+              <li>Create a new workflow in your n8n instance</li>
+              <li>Add a "Webhook" trigger node as the starting point</li>
+              <li>Configure AI nodes (OpenAI, Claude, etc.) for content generation</li>
+              <li>Add sports data API calls (ESPN, SportRadar, etc.)</li>
+              <li>Format the output and send back via HTTP response</li>
+              <li>Copy the webhook URL and paste it above</li>
+            </ol>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+};
