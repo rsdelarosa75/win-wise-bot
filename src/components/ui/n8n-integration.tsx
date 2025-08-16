@@ -7,11 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import { 
   Settings, 
   Play, 
-  Calendar, 
+  CalendarIcon, 
   Zap, 
   FileText, 
   Clock,
@@ -42,6 +46,7 @@ export const N8nIntegration = () => {
   const [specificTeams, setSpecificTeams] = useState("");
   const [riskLevel, setRiskLevel] = useState("medium");
   const [maxRecommendations, setMaxRecommendations] = useState("3");
+  const [selectedDate, setSelectedDate] = useState<Date>();
   const { toast } = useToast();
 
   const handleTriggerWorkflow = async (e: React.FormEvent) => {
@@ -87,6 +92,7 @@ export const N8nIntegration = () => {
           timestamp: new Date().toISOString(),
           triggered_from: window.location.origin,
           request_type: "betting_recommendation",
+          target_date: selectedDate ? selectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           user_preferences: {
             sports: selectedSports,
             risk_level: riskLevel,
@@ -253,19 +259,52 @@ export const N8nIntegration = () => {
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="max-recommendations">Max Recommendations</Label>
-            <Select value={maxRecommendations} onValueChange={setMaxRecommendations}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1 Recommendation</SelectItem>
-                <SelectItem value="3">3 Recommendations</SelectItem>
-                <SelectItem value="5">5 Recommendations</SelectItem>
-                <SelectItem value="10">10 Recommendations</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Target Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal bg-background/50",
+                      !selectedDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date (default: today)</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                Select a future date for betting recommendations. Defaults to today if not selected.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="max-recommendations">Max Recommendations</Label>
+              <Select value={maxRecommendations} onValueChange={setMaxRecommendations}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 Recommendation</SelectItem>
+                  <SelectItem value="3">3 Recommendations</SelectItem>
+                  <SelectItem value="5">5 Recommendations</SelectItem>
+                  <SelectItem value="10">10 Recommendations</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
@@ -288,7 +327,7 @@ export const N8nIntegration = () => {
             </Button>
 
             <Button type="button" variant="outline" disabled>
-              <Calendar className="mr-2 w-4 h-4" />
+              <CalendarIcon className="mr-2 w-4 h-4" />
               Schedule Daily (Coming Soon)
             </Button>
           </div>
