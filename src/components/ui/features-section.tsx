@@ -52,25 +52,25 @@ export const FeaturesSection = () => {
   ];
 
   return (
-    <section className="py-20 bg-gradient-to-br from-background via-card/20 to-background">
+    <section className="py-20 bg-gradient-to-br from-background via-card/10 to-background">
       <div className="container mx-auto px-6">
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-2 text-sm mb-6">
             <Zap className="w-4 h-4 text-primary" />
-            <span className="text-primary font-medium">Powered by AI</span>
+            <span className="text-primary font-medium">Advanced Analytics</span>
           </div>
           
           <h2 className="text-4xl lg:text-5xl font-bold mb-6">
-            Everything You Need for
+            Professional Sports Betting
             <br />
-            <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-              Smart Betting Decisions
+            <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Analytics Platform
             </span>
           </h2>
           
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            Our comprehensive platform combines real-time data, advanced analytics, and personalized AI to give you 
-            the edge you need in sports betting.
+            Our comprehensive platform combines real-time data, market analysis, and intelligent insights 
+            to give you the edge you need in sports betting.
           </p>
         </div>
 
@@ -80,9 +80,9 @@ export const FeaturesSection = () => {
             return (
               <Card 
                 key={index} 
-                className="p-8 bg-gradient-to-br from-card to-card/50 border-primary/20 hover:shadow-card-hover transition-all duration-300 group"
+                className="p-8 bg-card border-border hover:shadow-card-hover transition-all duration-200 group"
               >
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 ${
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-105 transition-transform duration-200 ${
                   feature.color === 'primary' ? 'bg-primary/10' :
                   feature.color === 'accent' ? 'bg-accent/10' :
                   'bg-neutral/10'

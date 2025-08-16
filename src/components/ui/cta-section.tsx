@@ -20,20 +20,20 @@ export const CTASection = () => {
             <h2 className="text-4xl lg:text-6xl font-bold mb-6">
               Start Making
               <br />
-              <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-                Smarter Bets Today
+              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                Better Bets Today
               </span>
             </h2>
             
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed">
-              Join thousands of successful bettors who use our AI-powered platform to make 
-              data-driven decisions and maximize their returns.
+              Join thousands of successful bettors who use our professional analytics platform to make 
+              informed decisions and improve their betting performance.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-6 justify-center mb-12">
               <Button 
                 size="lg" 
-                className="bg-gradient-primary hover:shadow-primary transition-all duration-300 text-lg px-8 py-6"
+                className="bg-gradient-primary hover:shadow-primary transition-all duration-200 text-lg px-8 py-6"
               >
                 Start Free Trial
                 <ArrowRight className="ml-2 w-5 h-5" />
