@@ -134,8 +134,8 @@ export const DashboardPreview = () => {
               <h3 className="text-xl font-semibold mb-4">AI Personas</h3>
               <div className="space-y-3">
                 {[
-                  { name: "Conservative Carl", style: "Low Risk", active: true },
-                  { name: "Aggressive Alex", style: "High Risk", active: false },
+                  { name: "Money Making Mitch", style: "Low Risk", active: true },
+                  { name: "Bobby Vegas", style: "High Risk", active: false },
                   { name: "Value Finder Vic", style: "Value Betting", active: false }
                 ].map((persona, index) => (
                   <div key={index} className={`p-3 rounded-lg border transition-all duration-200 ${
