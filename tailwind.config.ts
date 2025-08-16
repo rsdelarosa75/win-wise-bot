@@ -52,6 +52,9 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				win: 'hsl(var(--win))',
+				loss: 'hsl(var(--loss))',
+				neutral: 'hsl(var(--neutral))',
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
@@ -88,7 +91,19 @@ export default {
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+				'fade-in': 'fadeIn 0.5s ease-in-out',
+				'slide-up': 'slideUp 0.6s ease-out'
+			},
+			backgroundImage: {
+				'gradient-primary': 'var(--gradient-primary)',
+				'gradient-accent': 'var(--gradient-accent)',
+				'gradient-hero': 'var(--gradient-hero)'
+			},
+			boxShadow: {
+				'primary': 'var(--shadow-primary)',
+				'card-hover': 'var(--shadow-card)'
 			}
 		}
 	},
