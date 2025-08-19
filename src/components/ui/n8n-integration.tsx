@@ -65,50 +65,22 @@ export const N8nIntegration = () => {
     console.log("Triggering n8n workflow:", webhookUrl);
 
     try {
-      // Parse specific teams and structure them for n8n workflow
-      const parseTeamsForWorkflow = (teams: string) => {
-        if (!teams || teams.trim() === '') {
-          return {
-            specific_teams: null,
-            home_team: null,
-            away_team: null,
-            teams_array: null
-          };
-        }
+      // Simple team parsing - send all possible formats for easy n8n filtering
+      const parseTeams = (teams: string) => {
+        if (!teams || teams.trim() === '') return [];
         
-        // Check if it contains "vs" indicating a matchup
         if (teams.toLowerCase().includes(' vs ')) {
-          const teamsParts = teams.split(' vs ').map(team => team.trim());
-          return {
-            specific_teams: teamsParts,
-            away_team: teamsParts[0] || null,
-            home_team: teamsParts[1] || null,
-            teams_array: teamsParts
-          };
+          return teams.split(' vs ').map(team => team.trim());
         }
         
-        // Check if it's comma-separated teams
         if (teams.includes(',')) {
-          const teamsParts = teams.split(',').map(team => team.trim());
-          return {
-            specific_teams: teamsParts,
-            home_team: null,
-            away_team: null,
-            teams_array: teamsParts
-          };
+          return teams.split(',').map(team => team.trim());
         }
         
-        // Single team
-        const singleTeam = teams.trim();
-        return {
-          specific_teams: [singleTeam],
-          home_team: null,
-          away_team: singleTeam,
-          teams_array: [singleTeam]
-        };
+        return [teams.trim()];
       };
 
-      const teamData = parseTeamsForWorkflow(specificTeams);
+      const teamsList = parseTeams(specificTeams);
 
       const response = await fetch(webhookUrl, {
         method: "POST",
@@ -124,10 +96,7 @@ export const N8nIntegration = () => {
             sports: selectedSports,
             risk_level: riskLevel,
             max_recommendations: parseInt(maxRecommendations),
-            specific_teams: teamData.specific_teams,
-            home_team: teamData.home_team,
-            away_team: teamData.away_team,
-            teams_array: teamData.teams_array,
+            teams: teamsList,
             focus_areas: ["odds_analysis", "injury_reports", "weather_conditions"]
           }
         }),
