@@ -65,22 +65,31 @@ export const N8nIntegration = () => {
     console.log("Triggering n8n workflow:", webhookUrl);
 
     try {
-      // Simple team parsing - send all possible formats for easy n8n filtering
-      const parseTeams = (teams: string) => {
-        if (!teams || teams.trim() === '') return [];
+      // Format teams for n8n workflow - expects "Team A vs Team B" format in message.text
+      const formatTeamsForWorkflow = (teams: string) => {
+        if (!teams || teams.trim() === '') {
+          return "MLB betting recommendations"; // Default message when no specific teams
+        }
         
+        // If already in "vs" format, use as-is
         if (teams.toLowerCase().includes(' vs ')) {
-          return teams.split(' vs ').map(team => team.trim());
+          return teams.trim();
         }
         
+        // If comma-separated, convert to "vs" format (take first two teams)
         if (teams.includes(',')) {
-          return teams.split(',').map(team => team.trim());
+          const teamsParts = teams.split(',').map(team => team.trim());
+          if (teamsParts.length >= 2) {
+            return `${teamsParts[0]} vs ${teamsParts[1]}`;
+          }
+          return teamsParts[0]; // Single team case
         }
         
-        return [teams.trim()];
+        // Single team case
+        return teams.trim();
       };
 
-      const teamsList = parseTeams(specificTeams);
+      const formattedMessage = formatTeamsForWorkflow(specificTeams);
 
       const response = await fetch(webhookUrl, {
         method: "POST",
@@ -88,16 +97,8 @@ export const N8nIntegration = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          timestamp: new Date().toISOString(),
-          triggered_from: window.location.origin,
-          request_type: "betting_recommendation",
-          target_date: selectedDate ? selectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          user_preferences: {
-            sports: selectedSports,
-            risk_level: riskLevel,
-            max_recommendations: parseInt(maxRecommendations),
-            teams: teamsList,
-            focus_areas: ["odds_analysis", "injury_reports", "weather_conditions"]
+          message: {
+            text: formattedMessage
           }
         }),
       });
