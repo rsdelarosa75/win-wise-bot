@@ -1,0 +1,219 @@
+{
+  "name": "AI Sports Betting Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "betting-trigger",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "betting-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "away-team-id",
+              "name": "away_team",
+              "value": "={{ \n  (() => {\n    const raw =\n      $json?.message?.text ??\n      $json?.text ??\n      $json?.teams ??\n      $json?.body?.text ??\n      '';\n    \n    const input = String(raw).trim();\n    \n    if (input.toLowerCase().includes('general') || input === '') {\n      return 'General';\n    }\n    \n    const vsMatch = input.match(/^(.+?)\\s*(?:vs|@| v | versus )\\s*(.+?)$/i);\n    if (vsMatch && vsMatch[1]) {\n      return vsMatch[1].trim();\n    }\n    \n    if (input.includes(',')) {\n      return input.split(',')[0].trim();\n    }\n    \n    return input;\n  })()\n}}",
+              "type": "string"
+            },
+            {
+              "id": "home-team-id", 
+              "name": "home_team",
+              "value": "={{ \n  (() => {\n    const raw =\n      $json?.message?.text ??\n      $json?.text ??\n      $json?.teams ??\n      $json?.body?.text ??\n      '';\n    \n    const input = String(raw).trim();\n    \n    if (input.toLowerCase().includes('general') || input === '') {\n      return 'General';\n    }\n    \n    const vsMatch = input.match(/^(.+?)\\s*(?:vs|@| v | versus )\\s*(.+?)$/i);\n    if (vsMatch && vsMatch[2]) {\n      return vsMatch[2].trim();\n    }\n    \n    if (input.includes(',')) {\n      const parts = input.split(',');\n      return parts.length >= 2 ? parts[1].trim() : input;\n    }\n    \n    return input;\n  })()\n}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "edit-fields", 
+      "name": "Parse Teams",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "regions",
+              "value": "us"
+            },
+            {
+              "name": "markets",
+              "value": "h2h"
+            },
+            {
+              "name": "oddsFormat", 
+              "value": "american"
+            },
+            {
+              "name": "apiKey",
+              "value": "YOUR_API_KEY_HERE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-odds",
+      "name": "Get MLB Odds", 
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "away-condition",
+              "leftValue": "={{ $json.away_team || $json.awayTeam }}",
+              "rightValue": "={{ $('Parse Teams').item.json.away_team }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "home-condition", 
+              "leftValue": "={{ $json.home_team || $json.homeTeam }}",
+              "rightValue": "={{ $('Parse Teams').item.json.home_team }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        }
+      },
+      "id": "filter-teams",
+      "name": "Filter Teams",
+      "type": "n8n-nodes-base.filter", 
+      "typeVersion": 2.2,
+      "position": [840, 300]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a professional sports betting analyst.\n\nAnalyze this MLB game: {{ $('Parse Teams').item.json.away_team }} (away) vs {{ $('Parse Teams').item.json.home_team }} (home)\n\nOdds Data:\n{{ JSON.stringify($json.bookmakers || $json) }}\n\nProvide analysis in this JSON format:\n{\n  \"away_team\": \"{{ $('Parse Teams').item.json.away_team }}\",\n  \"home_team\": \"{{ $('Parse Teams').item.json.home_team }}\",\n  \"favorite\": \"<team_name>\",\n  \"underdog\": \"<team_name>\", \n  \"away_odds_avg\": \"<average_odds>\",\n  \"home_odds_avg\": \"<average_odds>\",\n  \"recommendation\": \"<detailed_betting_recommendation>\",\n  \"confidence\": \"<high|medium|low>\",\n  \"reasoning\": \"<analysis_reasoning>\"\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "analyze-game",
+      "name": "AI Analysis",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [1040, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CRED_ID",
+          "name": "OpenAI Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Return Results",
+      "type": "n8n-nodes-base.respondToWebhook", 
+      "typeVersion": 1.1,
+      "position": [1240, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Teams": {
+      "main": [
+        [
+          {
+            "node": "Get MLB Odds",
+            "type": "main", 
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get MLB Odds": {
+      "main": [
+        [
+          {
+            "node": "Filter Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Teams": {
+      "main": [
+        [
+          {
+            "node": "AI Analysis", 
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Return Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-08-23T04:19:26.000Z",
+  "versionId": "1"
+}
