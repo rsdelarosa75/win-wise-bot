@@ -65,13 +65,42 @@ export const N8nIntegration = () => {
     console.log("Triggering n8n workflow via webhook");
 
     try {
+      // Format teams to match what your n8n Edit Fields node expects
+      const formatTeamsForN8n = (teams: string) => {
+        if (!teams || teams.trim() === '') {
+          return "general recommendations";
+        }
+        
+        // If already in "vs" format, use as-is
+        if (teams.toLowerCase().includes(' vs ')) {
+          return teams.trim();
+        }
+        
+        // If comma-separated, convert to "vs" format (take first two teams)
+        if (teams.includes(',')) {
+          const teamsParts = teams.split(',').map(team => team.trim());
+          if (teamsParts.length >= 2) {
+            return `${teamsParts[0]} vs ${teamsParts[1]}`;
+          }
+          return teamsParts[0]; // Single team case
+        }
+        
+        // Single team case
+        return teams.trim();
+      };
+
+      const formattedTeams = formatTeamsForN8n(specificTeams);
+      
       const payload = {
         sports: selectedSports,
-        teams: specificTeams || "general recommendations",
+        teams: formattedTeams,
+        text: formattedTeams, // Also send as 'text' for your current regex
         riskLevel,
         maxRecommendations: parseInt(maxRecommendations),
         targetDate: selectedDate ? format(selectedDate, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
       };
+
+      console.log("Sending payload to n8n:", payload);
 
       const response = await fetch(webhookUrl, {
         method: "POST",
