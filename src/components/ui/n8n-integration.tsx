@@ -153,55 +153,28 @@ export const N8nIntegration = () => {
 *Generated via n8n workflow triggered by Telegram at ${new Date().toLocaleTimeString()}*`);
         }, 2000);
       } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Parse the error response from Telegram API
+        const errorResponse = await response.json();
+        const errorMessage = errorResponse.description || `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage);
       }
 
     } catch (error) {
       console.error("Error sending Telegram message:", error);
       
-      // Fallback - show that message was attempted
-      setLastTriggered(new Date());
-      toast({
-        title: "Message Sent",
-        description: "Telegram message sent to trigger workflow. Check your n8n instance for results.",
-        variant: "default",
-      });
+      // Try to get the actual error message from Telegram API
+      let errorMessage = "Failed to send message to Telegram";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       
-      // Simulate receiving data after delay (for demo purposes)
-      setTimeout(() => {
-        setBriefContent(`# AI Betting Recommendation - ${new Date().toLocaleDateString()}
-
-## 🎯 Today's Top Recommendations
-
-### **Game 1: Lakers vs Warriors**
-- **Recommended Bet**: Under 228.5 Total Points
-- **Confidence Level**: 85%
-- **Reasoning**: Both teams on back-to-back games, strong defensive matchup
-- **Unit Allocation**: 2 units
-
-### **Game 2: Chiefs vs Bills** 
-- **Recommended Bet**: Bills +3.5
-- **Confidence Level**: 78%
-- **Reasoning**: Weather conditions favor ground game, Bills at home
-- **Unit Allocation**: 1.5 units
-
-## 📊 Market Analysis
-- **Sharp Money**: 67% on Bills spread
-- **Public Betting**: 73% on Chiefs
-- **Line Movement**: Chiefs opened -2.5, now -3.5
-
-## ⚡ Live Updates
-- LeBron James listed as PROBABLE
-- Weather: 15mph winds in Buffalo
-- Key injuries monitored
-
-## 🏆 Model Performance
-- **Yesterday's Record**: 3-1 (+2.1 units)
-- **Week Record**: 18-12 (+8.4 units)
-- **Model Accuracy**: 67.8%
-
-*Generated via n8n workflow at ${new Date().toLocaleTimeString()}*`);
-      }, 2000);
+      toast({
+        title: "Telegram Error",
+        description: errorMessage.includes("chat not found") 
+          ? "Chat not found. Make sure the bot is started and the Chat ID is correct."
+          : errorMessage,
+        variant: "destructive",
+      });
       
     } finally {
       setIsLoading(false);
@@ -249,7 +222,7 @@ export const N8nIntegration = () => {
                 className="bg-background/50"
               />
               <p className="text-xs text-muted-foreground">
-                Your chat/channel ID where the bot will send messages
+                Your chat/channel ID. Use your user ID for direct messages, or get your chat ID from @userinfobot
               </p>
             </div>
           </div>
