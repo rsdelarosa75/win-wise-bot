@@ -38,8 +38,7 @@ const cleanHtmlContent = (htmlString: string): string => {
 };
 
 export const N8nIntegration = () => {
-  const [botToken, setBotToken] = useState("");
-  const [chatId, setChatId] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [lastTriggered, setLastTriggered] = useState<Date | null>(null);
   const [briefContent, setBriefContent] = useState("");
@@ -53,73 +52,52 @@ export const N8nIntegration = () => {
   const handleTriggerWorkflow = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!botToken || !chatId) {
+    if (!webhookUrl) {
       toast({
         title: "Error",
-        description: "Please enter your Telegram bot token and chat ID",
+        description: "Please enter your n8n webhook URL",
         variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
-    console.log("Sending Telegram message to trigger n8n workflow");
+    console.log("Triggering n8n workflow via webhook");
 
     try {
-      // Format teams for n8n workflow - expects "Team A vs Team B" format in message.text
-      const formatTeamsForWorkflow = (teams: string) => {
-        if (!teams || teams.trim() === '') {
-          return "MLB betting recommendations"; // Default message when no specific teams
-        }
-        
-        // If already in "vs" format, use as-is
-        if (teams.toLowerCase().includes(' vs ')) {
-          return teams.trim();
-        }
-        
-        // If comma-separated, convert to "vs" format (take first two teams)
-        if (teams.includes(',')) {
-          const teamsParts = teams.split(',').map(team => team.trim());
-          if (teamsParts.length >= 2) {
-            return `${teamsParts[0]} vs ${teamsParts[1]}`;
-          }
-          return teamsParts[0]; // Single team case
-        }
-        
-        // Single team case
-        return teams.trim();
+      const payload = {
+        sports: selectedSports,
+        teams: specificTeams || "general recommendations",
+        riskLevel,
+        maxRecommendations: parseInt(maxRecommendations),
+        targetDate: selectedDate ? format(selectedDate, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
       };
 
-      const formattedMessage = formatTeamsForWorkflow(specificTeams);
-
-      // Send message via Telegram Bot API
-      const telegramApiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
-      
-      const response = await fetch(telegramApiUrl, {
+      const response = await fetch(webhookUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: formattedMessage
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
-        const result = await response.json();
+        const result = await response.text();
         
         setLastTriggered(new Date());
         
         toast({
-          title: "Message Sent",
-          description: "Telegram message sent to trigger your n8n workflow.",
+          title: "Workflow Triggered",
+          description: "n8n workflow has been successfully triggered.",
         });
         
-        // Since Telegram doesn't return the workflow result directly,
-        // we simulate the workflow being triggered
-        setTimeout(() => {
-          setBriefContent(`# AI Betting Recommendation - ${new Date().toLocaleDateString()}
+        // Try to parse the response as our betting brief
+        if (result && result.length > 0) {
+          setBriefContent(cleanHtmlContent(result));
+        } else {
+          // Fallback demo content
+          setTimeout(() => {
+            setBriefContent(`# AI Betting Recommendation - ${new Date().toLocaleDateString()}
 
 ## 🎯 Today's Top Recommendations
 
@@ -150,28 +128,25 @@ export const N8nIntegration = () => {
 - **Week Record**: 18-12 (+8.4 units)
 - **Model Accuracy**: 67.8%
 
-*Generated via n8n workflow triggered by Telegram at ${new Date().toLocaleTimeString()}*`);
-        }, 2000);
+*Generated via n8n workflow at ${new Date().toLocaleTimeString()}*`);
+          }, 2000);
+        }
       } else {
-        // Parse the error response from Telegram API
-        const errorResponse = await response.json();
-        const errorMessage = errorResponse.description || `HTTP ${response.status}: ${response.statusText}`;
-        throw new Error(errorMessage);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
     } catch (error) {
-      console.error("Error sending Telegram message:", error);
+      console.error("Error triggering workflow:", error);
       
-      // Try to get the actual error message from Telegram API
-      let errorMessage = "Failed to send message to Telegram";
+      let errorMessage = "Failed to trigger n8n workflow";
       if (error instanceof Error) {
         errorMessage = error.message;
       }
       
       toast({
-        title: "Telegram Error",
-        description: errorMessage.includes("chat not found") 
-          ? "Chat not found. Make sure the bot is started and the Chat ID is correct."
+        title: "Webhook Error",
+        description: errorMessage.includes("Failed to fetch") 
+          ? "Could not connect to webhook URL. Please check the URL is correct and accessible."
           : errorMessage,
         variant: "destructive",
       });
@@ -190,41 +165,25 @@ export const N8nIntegration = () => {
             <Settings className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold">Telegram Bot Configuration</h3>
-            <p className="text-sm text-muted-foreground">Connect your Telegram bot to trigger n8n workflows</p>
+            <h3 className="text-xl font-semibold">n8n Webhook Configuration</h3>
+            <p className="text-sm text-muted-foreground">Connect your n8n webhook to trigger workflows directly</p>
           </div>
         </div>
 
         <form onSubmit={handleTriggerWorkflow} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="bot-token">Telegram Bot Token</Label>
-              <Input
-                id="bot-token"
-                type="password"
-                placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyZ"
-                value={botToken}
-                onChange={(e) => setBotToken(e.target.value)}
-                className="bg-background/50"
-              />
-              <p className="text-xs text-muted-foreground">
-                Get this from @BotFather on Telegram
-              </p>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="chat-id">Chat ID</Label>
-              <Input
-                id="chat-id"
-                placeholder="-1001234567890 or @channel_username"
-                value={chatId}
-                onChange={(e) => setChatId(e.target.value)}
-                className="bg-background/50"
-              />
-              <p className="text-xs text-muted-foreground">
-                Your chat/channel ID. Use your user ID for direct messages, or get your chat ID from @userinfobot
-              </p>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="webhook-url">n8n Webhook URL</Label>
+            <Input
+              id="webhook-url"
+              type="url"
+              placeholder="https://your-n8n-instance.com/webhook/your-webhook-id"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              className="bg-background/50"
+            />
+            <p className="text-xs text-muted-foreground">
+              Copy this from your n8n webhook trigger node
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -330,18 +289,18 @@ export const N8nIntegration = () => {
           <div className="flex flex-col sm:flex-row gap-3">
             <Button 
               type="submit" 
-              disabled={isLoading || !botToken || !chatId}
+              disabled={isLoading || !webhookUrl}
               className="bg-gradient-primary"
             >
               {isLoading ? (
                 <>
                   <Clock className="mr-2 w-4 h-4 animate-spin" />
-                  Sending...
+                  Triggering...
                 </>
               ) : (
                 <>
                   <Play className="mr-2 w-4 h-4" />
-                  Send to Telegram
+                  Trigger Workflow
                 </>
               )}
             </Button>
@@ -371,7 +330,7 @@ export const N8nIntegration = () => {
             <h3 className="text-lg font-semibold">Workflow Status</h3>
           </div>
           <Badge variant="outline" className="border-accent/30 text-accent">
-            {botToken && chatId ? "Configured" : "Not Configured"}
+            {webhookUrl ? "Configured" : "Not Configured"}
           </Badge>
         </div>
 
@@ -435,16 +394,17 @@ export const N8nIntegration = () => {
         <div className="flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-neutral mt-0.5" />
           <div className="space-y-2">
-            <h4 className="font-semibold">How to set up your Telegram n8n workflow:</h4>
+            <h4 className="font-semibold">How to set up your n8n webhook workflow:</h4>
             <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
               <li>Create a new workflow in your n8n instance</li>
-              <li>Add a "Telegram Trigger" node as the starting point</li>
-              <li>Configure the Telegram trigger with your bot credentials</li>
-              <li>Add "Edit Fields" node to parse team names from message text</li>
+              <li>Add a "Webhook" trigger node as the starting point</li>
+              <li>Configure the webhook to accept POST requests</li>
+              <li>Copy the webhook URL and paste it above</li>
+              <li>Add "Edit Fields" node to process the incoming data</li>
               <li>Configure AI nodes (OpenAI, Claude, etc.) for analysis</li>
               <li>Add sports data API calls (ESPN, SportRadar, The Odds API, etc.)</li>
-              <li>Use "AI Agent" node to combine odds and sentiment analysis</li>
-              <li>Send results back via Telegram or webhook response</li>
+              <li>Use "AI Agent" node to generate betting recommendations</li>
+              <li>Return the results via the "Respond to Webhook" node</li>
             </ol>
           </div>
         </div>
