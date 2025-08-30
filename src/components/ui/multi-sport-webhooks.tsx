@@ -71,7 +71,7 @@ export const MultiSportWebhooks = () => {
   ]);
 
   const [activeTab, setActiveTab] = useState('MLB');
-  const [testTeams, setTestTeams] = useState('Alabama vs Georgia');
+  const [testTeams, setTestTeams] = useState('Alabama vs Florida State');
   const [testPersona, setTestPersona] = useState('analytical');
   const [testDate, setTestDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const { toast } = useToast();
@@ -250,7 +250,7 @@ export const MultiSportWebhooks = () => {
                   <Label htmlFor={`${webhook.sport}-teams`}>Teams</Label>
                   <Input
                     id={`${webhook.sport}-teams`}
-                    placeholder={`e.g., ${webhook.sport === 'College Football' ? 'Alabama vs Georgia' : webhook.sport === 'NFL' ? 'Eagles vs Cowboys' : webhook.sport === 'MLB' ? 'Yankees vs Red Sox' : 'Team A vs Team B'}`}
+                    placeholder={`e.g., ${webhook.sport === 'College Football' ? 'Alabama vs Florida State' : webhook.sport === 'NFL' ? 'Eagles vs Cowboys' : webhook.sport === 'MLB' ? 'Yankees vs Red Sox' : 'Team A vs Team B'}`}
                     value={testTeams}
                     onChange={(e) => setTestTeams(e.target.value)}
                   />
