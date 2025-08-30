@@ -49,6 +49,8 @@ export const useOddsApi = () => {
   const saveApiKey = useCallback((key: string) => {
     localStorage.setItem('odds_api_key', key);
     setApiKey(key);
+    setError(null); // Clear any previous errors
+    setGames([]); // Clear old data
   }, []);
 
   const removeApiKey = useCallback(() => {
