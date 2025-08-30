@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -70,6 +71,9 @@ export const MultiSportWebhooks = () => {
   ]);
 
   const [activeTab, setActiveTab] = useState('MLB');
+  const [testTeams, setTestTeams] = useState('Alabama vs Georgia');
+  const [testPersona, setTestPersona] = useState('analytical');
+  const [testDate, setTestDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const { toast } = useToast();
 
   const updateWebhookUrl = (sport: string, url: string) => {
@@ -96,10 +100,10 @@ export const MultiSportWebhooks = () => {
     try {
       const testPayload = {
         sport,
-        teams: 'Test Team A vs Test Team B',
-        text: 'Test Team A vs Test Team B',
-        persona: 'analytical',
-        targetDate: new Date().toISOString().split('T')[0],
+        teams: testTeams,
+        text: testTeams,
+        persona: testPersona,
+        targetDate: testDate,
         test: true
       };
 
@@ -236,6 +240,48 @@ export const MultiSportWebhooks = () => {
                   Last triggered: {webhook.lastTriggered.toLocaleString()}
                 </div>
               )}
+            </div>
+
+            {/* Test Payload */}
+            <div className="p-4 bg-secondary/30 rounded-lg border border-border/50">
+              <h4 className="font-semibold mb-3">Test payload</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor={`${webhook.sport}-teams`}>Teams</Label>
+                  <Input
+                    id={`${webhook.sport}-teams`}
+                    placeholder={`e.g., ${webhook.sport === 'College Football' ? 'Alabama vs Georgia' : webhook.sport === 'NFL' ? 'Eagles vs Cowboys' : webhook.sport === 'MLB' ? 'Yankees vs Red Sox' : 'Team A vs Team B'}`}
+                    value={testTeams}
+                    onChange={(e) => setTestTeams(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Format: Team A vs Team B</p>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor={`${webhook.sport}-persona`}>Persona</Label>
+                  <Select value={testPersona} onValueChange={setTestPersona}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="analytical">Data-Driven Analyst</SelectItem>
+                      <SelectItem value="sharp">Sharp Bettor</SelectItem>
+                      <SelectItem value="contrarian">Contrarian Expert</SelectItem>
+                      <SelectItem value="cautious">Risk-Averse Advisor</SelectItem>
+                      <SelectItem value="aggressive">High-Stakes Gambler</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor={`${webhook.sport}-date`}>Target Date</Label>
+                  <Input
+                    id={`${webhook.sport}-date`}
+                    type="date"
+                    value={testDate}
+                    onChange={(e) => setTestDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">The Test button will send this payload.</p>
             </div>
 
             {/* Usage Instructions */}
