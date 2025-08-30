@@ -128,6 +128,45 @@ export const MultiSportWebhooks = () => {
           title: `${sport} Webhook Success`,
           description: 'Test payload sent successfully',
         });
+        
+        // Try to parse and store the response
+        const responseText = await response.text();
+        let analysisResult = null;
+        
+        try {
+          analysisResult = JSON.parse(responseText);
+          
+          // Store the result in localStorage for the dashboard to display
+          const newAnalysis = {
+            id: Date.now().toString(),
+            timestamp: new Date().toISOString(),
+            command: '/webhook',
+            teams: analysisResult.teams || `${sport} Analysis`,
+            persona: analysisResult.persona || 'analytical',
+            analysis: analysisResult.analysis || responseText,
+            confidence: 'High',
+            status: 'win',
+            odds: 'Live Analysis',
+            sport: sport
+          };
+          
+          // Get existing analyses
+          const existingAnalyses = JSON.parse(localStorage.getItem('webhook_analyses') || '[]');
+          
+          // Add new analysis to the beginning
+          const updatedAnalyses = [newAnalysis, ...existingAnalyses.slice(0, 9)]; // Keep last 10
+          
+          // Store back
+          localStorage.setItem('webhook_analyses', JSON.stringify(updatedAnalyses));
+          
+          // Trigger a custom event to notify other components
+          window.dispatchEvent(new CustomEvent('webhookAnalysisAdded', { 
+            detail: newAnalysis 
+          }));
+          
+        } catch (error) {
+          console.log('Response received but not JSON:', responseText);
+        }
       } else {
         throw new Error(`HTTP ${response.status}`);
       }

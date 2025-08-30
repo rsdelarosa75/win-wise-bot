@@ -15,51 +15,59 @@ interface TelegramAnalysis {
   confidence: 'High' | 'Medium' | 'Low';
   status: 'win' | 'neutral' | 'loss';
   odds?: string;
+  sport?: string;
 }
 
 export const TelegramAnalyses = () => {
-  const [analyses, setAnalyses] = useState<TelegramAnalysis[]>([
-    {
-      id: '1',
-      timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(), // 10 mins ago
-      command: '/analyze',
-      teams: 'Chiefs vs Bills',
-      persona: 'Sharp Bettor',
-      analysis: '🎯 **Chiefs vs Bills Analysis** \n\n**Recommendation:** Bills +3.5 \n**Confidence:** 85% \n**Reasoning:** Weather conditions favor ground game, Bills strong at home. Sharp money moving toward Buffalo despite public on KC.',
-      confidence: 'High',
-      status: 'win',
-      odds: 'Bills +3.5 (-110)'
-    },
-    {
-      id: '2', 
-      timestamp: new Date(Date.now() - 25 * 60 * 1000).toISOString(), // 25 mins ago
-      command: '/quick',
-      teams: 'Yankees vs Red Sox',
-      persona: 'Data-Driven Analyst',
-      analysis: '⚾ **Yankees vs Red Sox** \n\n**Recommendation:** Under 9.5 runs \n**Confidence:** 72% \n**Reasoning:** Strong pitching matchup, wind blowing in at Fenway. Historical under trend in rivalry games.',
-      confidence: 'Medium',
-      status: 'neutral',
-      odds: 'Under 9.5 (-115)'
-    },
-    {
-      id: '3',
-      timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(), // 45 mins ago  
-      command: '/persona contrarian',
-      teams: 'Lakers vs Warriors',
-      persona: 'Contrarian Expert',
-      analysis: '🏀 **Lakers vs Warriors** \n\n**Recommendation:** AVOID \n**Confidence:** Low \n**Reasoning:** Too much public hype, inflated lines. Wait for better spots with less media attention.',
-      confidence: 'Low', 
-      status: 'loss',
-      odds: 'No Play'
-    }
-  ]);
-  
+  const [analyses, setAnalyses] = useState<TelegramAnalysis[]>(() => {
+    // Load from localStorage on mount
+    const stored = localStorage.getItem('webhook_analyses');
+    const webhookAnalyses = stored ? JSON.parse(stored) : [];
+    
+    // Default mock data if no webhook analyses
+    const mockData = [
+      {
+        id: 'mock1',
+        timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        command: '/analyze',
+        teams: 'Chiefs vs Bills',
+        persona: 'Sharp Bettor',
+        analysis: '🎯 **Chiefs vs Bills Analysis** \n\n**Recommendation:** Bills +3.5 \n**Confidence:** 85% \n**Reasoning:** Weather conditions favor ground game, Bills strong at home. Sharp money moving toward Buffalo despite public on KC.',
+        confidence: 'High' as const,
+        status: 'win' as const,
+        odds: 'Bills +3.5 (-110)'
+      }
+    ];
+    
+    return webhookAnalyses.length > 0 ? webhookAnalyses : mockData;
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Listen for new webhook analyses
+  useEffect(() => {
+    const handleNewAnalysis = (event: CustomEvent) => {
+      const newAnalysis = event.detail;
+      setAnalyses(prev => [newAnalysis, ...prev.slice(0, 9)]);
+    };
+    
+    window.addEventListener('webhookAnalysisAdded', handleNewAnalysis as EventListener);
+    
+    return () => {
+      window.removeEventListener('webhookAnalysisAdded', handleNewAnalysis as EventListener);
+    };
+  }, []);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    // Simulate API call to fetch latest analyses
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Reload from localStorage
+    const stored = localStorage.getItem('webhook_analyses');
+    if (stored) {
+      const webhookAnalyses = JSON.parse(stored);
+      setAnalyses(webhookAnalyses);
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
     setIsRefreshing(false);
   };
 
@@ -155,6 +163,11 @@ export const TelegramAnalyses = () => {
                   {analysis.teams}
                   {analysis.odds && (
                     <span className="text-muted-foreground">• {analysis.odds}</span>
+                  )}
+                  {analysis.sport && (
+                    <Badge variant="outline" className="text-xs">
+                      {analysis.sport}
+                    </Badge>
                   )}
                 </h4>
               </div>
