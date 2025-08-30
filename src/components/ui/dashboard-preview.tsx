@@ -1,8 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LiveOdds } from "@/components/ui/live-odds";
+import { OddsApiSettings } from "@/components/ui/odds-api-settings";
+import { useOddsApi } from "@/hooks/use-odds-api";
 import { TrendingUp, TrendingDown, Activity, DollarSign } from "lucide-react";
 
 export const DashboardPreview = () => {
+  const { apiKey, saveApiKey, removeApiKey, hasApiKey } = useOddsApi();
   return (
     <section className="py-20 bg-background">
       <div className="container mx-auto px-6">
@@ -64,39 +68,16 @@ export const DashboardPreview = () => {
             {/* Live Games */}
             <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20">
               <h3 className="text-xl font-semibold mb-4">Live Games & Odds</h3>
-              <div className="space-y-3">
-                {[
-                  { team1: "Lakers", team2: "Warriors", odds1: "+150", odds2: "-180", confidence: "High", status: "win" },
-                  { team1: "Celtics", team2: "Heat", odds1: "-120", odds2: "+100", confidence: "Medium", status: "neutral" },
-                  { team1: "Nuggets", team2: "Suns", odds1: "+200", odds2: "-250", confidence: "Low", status: "loss" }
-                ].map((game, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border/50">
-                    <div className="flex items-center gap-4">
-                      <div className="text-sm">
-                        <span className="font-medium">{game.team1}</span> vs <span className="font-medium">{game.team2}</span>
-                      </div>
-                      <div className="flex gap-2 text-sm">
-                        <span className="text-muted-foreground">{game.odds1}</span>
-                        <span className="text-muted-foreground">/</span>
-                        <span className="text-muted-foreground">{game.odds2}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge 
-                        variant="outline" 
-                        className={`
-                          ${game.status === 'win' ? 'border-win/30 text-win' : ''}
-                          ${game.status === 'neutral' ? 'border-neutral/30 text-neutral' : ''}
-                          ${game.status === 'loss' ? 'border-loss/30 text-loss' : ''}
-                        `}
-                      >
-                        {game.confidence}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <LiveOdds />
             </Card>
+            
+            {/* Odds API Settings */}
+            <OddsApiSettings
+              apiKey={apiKey}
+              onSaveApiKey={saveApiKey}
+              onRemoveApiKey={removeApiKey}
+              hasApiKey={hasApiKey}
+            />
           </div>
           
           {/* News & Insights */}
