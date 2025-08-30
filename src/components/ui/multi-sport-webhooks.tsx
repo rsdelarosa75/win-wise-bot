@@ -139,37 +139,43 @@ export const MultiSportWebhooks = () => {
            analysisResult = JSON.parse(responseText);
            console.log("Parsed analysis result:", analysisResult);
            
-            // Store the result in localStorage for the dashboard to display
-            const newAnalysis = {
-              id: Date.now().toString(),
-              timestamp: new Date().toISOString(),
-              command: '/webhook',
-              teams: analysisResult.teams || `${sport} Analysis`,
-              persona: analysisResult.persona || 'analytical',
-              analysis: analysisResult.analysis || responseText,
-              confidence: analysisResult.confidence || 'High',
-              status: 'win',
-              odds: analysisResult.recommendation || 'Live Analysis',
-              sport: analysisResult.sport || sport
-            };
-           
-           console.log("Storing analysis:", newAnalysis);
-           
-           // Get existing analyses
-           const existingAnalyses = JSON.parse(localStorage.getItem('webhook_analyses') || '[]');
-           
-           // Add new analysis to the beginning
-           const updatedAnalyses = [newAnalysis, ...existingAnalyses.slice(0, 9)]; // Keep last 10
-           
-           // Store back
-           localStorage.setItem('webhook_analyses', JSON.stringify(updatedAnalyses));
-           console.log("Stored analyses count:", updatedAnalyses.length);
-           
-           // Trigger a custom event to notify other components
-           console.log("Dispatching webhookAnalysisAdded event");
-           window.dispatchEvent(new CustomEvent('webhookAnalysisAdded', { 
-             detail: newAnalysis 
-           }));
+           // Handle nested object structure from n8n
+           if (analysisResult && typeof analysisResult === 'object') {
+             // If the response has nested structure, extract the actual data
+             const actualData = analysisResult['object Object'] || analysisResult.output || analysisResult;
+             
+             // Store the result in localStorage for the dashboard to display
+             const newAnalysis = {
+               id: Date.now().toString(),
+               timestamp: new Date().toISOString(),
+               command: '/webhook',
+               teams: actualData.teams || `${sport} Analysis`,
+               persona: actualData.persona || 'analytical',
+               analysis: actualData.analysis || JSON.stringify(actualData),
+               confidence: actualData.confidence || 'High',
+               status: 'win',
+               odds: actualData.recommendation || 'Live Analysis',
+               sport: actualData.sport || sport
+             };
+             
+             console.log("Storing analysis:", newAnalysis);
+             
+             // Get existing analyses
+             const existingAnalyses = JSON.parse(localStorage.getItem('webhook_analyses') || '[]');
+             
+             // Add new analysis to the beginning
+             const updatedAnalyses = [newAnalysis, ...existingAnalyses.slice(0, 9)];
+             
+             // Store back
+             localStorage.setItem('webhook_analyses', JSON.stringify(updatedAnalyses));
+             console.log("Stored analyses count:", updatedAnalyses.length);
+             
+             // Trigger a custom event to notify other components
+             console.log("Dispatching webhookAnalysisAdded event");
+             window.dispatchEvent(new CustomEvent('webhookAnalysisAdded', { 
+               detail: newAnalysis 
+             }));
+           }
           
         } catch (error) {
           console.log('Response received but not JSON:', responseText);
