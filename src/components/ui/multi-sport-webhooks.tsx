@@ -14,7 +14,8 @@ import {
   CheckCircle, 
   Copy, 
   ExternalLink,
-  AlertCircle 
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 
 interface SportWebhook {
@@ -272,6 +273,13 @@ export const MultiSportWebhooks = () => {
               <p className="text-xs text-muted-foreground">
                 Enter the webhook URL from your {webhook.sport} n8n workflow
               </p>
+              
+              <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-md">
+                <Clock className="w-4 h-4 text-amber-600" />
+                <p className="text-xs text-amber-700">
+                  Betting analysis results typically take 1 minute to process
+                </p>
+              </div>
 
               {webhook.lastTriggered && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -304,6 +312,7 @@ export const MultiSportWebhooks = () => {
                     <SelectContent>
                       <SelectItem value="analytical">Data-Driven Analyst</SelectItem>
                       <SelectItem value="sharp">Sharp Bettor</SelectItem>
+                      <SelectItem value="bobby-vegas">Bobby Vegas</SelectItem>
                       <SelectItem value="contrarian">Contrarian Expert</SelectItem>
                       <SelectItem value="cautious">Risk-Averse Advisor</SelectItem>
                       <SelectItem value="aggressive">High-Stakes Gambler</SelectItem>
