@@ -45,7 +45,7 @@ export const N8nIntegration = () => {
   const [selectedSports, setSelectedSports] = useState<string[]>(["NBA"]);
   const [specificTeams, setSpecificTeams] = useState("");
   const [riskLevel, setRiskLevel] = useState("medium");
-  const [maxRecommendations, setMaxRecommendations] = useState("3");
+  
   const [selectedDate, setSelectedDate] = useState<Date>();
   const { toast } = useToast();
 
@@ -96,7 +96,7 @@ export const N8nIntegration = () => {
         teams: formattedTeams,
         text: formattedTeams, // Also send as 'text' for your current regex
         riskLevel,
-        maxRecommendations: parseInt(maxRecommendations),
+        
         targetDate: selectedDate ? format(selectedDate, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
       };
 
@@ -267,52 +267,35 @@ export const N8nIntegration = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Target Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal bg-background/50",
-                      !selectedDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date (default: today)</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    disabled={(date) => date < new Date()}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-              <p className="text-xs text-muted-foreground">
-                Select a future date for betting recommendations. Defaults to today if not selected.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="max-recommendations">Max Recommendations</Label>
-              <Select value={maxRecommendations} onValueChange={setMaxRecommendations}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 Recommendation</SelectItem>
-                  <SelectItem value="3">3 Recommendations</SelectItem>
-                  <SelectItem value="5">5 Recommendations</SelectItem>
-                  <SelectItem value="10">10 Recommendations</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>Target Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal bg-background/50",
+                    !selectedDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date (default: today)</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  disabled={(date) => date < new Date()}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+            <p className="text-xs text-muted-foreground">
+              Select a future date for betting recommendations. Defaults to today if not selected.
+            </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
