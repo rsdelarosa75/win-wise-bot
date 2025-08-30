@@ -173,18 +173,71 @@ export const TelegramAnalyses = () => {
               </div>
 
               <div className="bg-background/50 rounded p-3">
-                <div 
-                  className="text-xs leading-relaxed"
-                  dangerouslySetInnerHTML={{
-                    __html: analysis.analysis
-                      .replace(/\\n\\n/g, '<br><br>')
-                      .replace(/\\n/g, '<br>')
-                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                      .replace(/#{3}\s*(.*?)(?=<br>|$)/g, '<h3 class="font-semibold text-sm mb-2 mt-3">$1</h3>')
-                      .replace(/#{2}\s*(.*?)(?=<br>|$)/g, '<h2 class="font-semibold text-base mb-2 mt-4">$1</h2>')
-                      .replace(/#{1}\s*(.*?)(?=<br>|$)/g, '<h1 class="font-bold text-lg mb-3 mt-4">$1</h1>')
-                  }}
-                />
+                {(() => {
+                  try {
+                    // Try to parse as JSON first
+                    const parsed = typeof analysis.analysis === 'string' 
+                      ? JSON.parse(analysis.analysis) 
+                      : analysis.analysis;
+                    
+                    if (parsed && typeof parsed === 'object') {
+                      return (
+                        <div className="space-y-3">
+                          <div 
+                            className="text-sm leading-relaxed"
+                            dangerouslySetInnerHTML={{
+                              __html: (parsed.analysis || parsed.content || '')
+                                .replace(/\n\n/g, '<br><br>')
+                                .replace(/\n/g, '<br>')
+                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                .replace(/#{3}\s*(.*?)(?=<br>|$)/g, '<h3 class="font-semibold text-sm mb-2 mt-3">$1</h3>')
+                                .replace(/#{2}\s*(.*?)(?=<br>|$)/g, '<h2 class="font-semibold text-base mb-2 mt-4">$1</h2>')
+                                .replace(/#{1}\s*(.*?)(?=<br>|$)/g, '<h1 class="font-bold text-lg mb-3 mt-4">$1</h1>')
+                            }}
+                          />
+                          {parsed.recommendation && (
+                            <div className="mt-3 p-2 bg-primary/10 rounded border border-primary/20">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="font-medium">Recommendation:</span>
+                                <span className="text-primary">{parsed.recommendation}</span>
+                              </div>
+                              {parsed.confidence && (
+                                <div className="flex items-center justify-between text-xs mt-1">
+                                  <span>Confidence:</span>
+                                  <span>{parsed.confidence} ({parsed.confidence_percentage}%)</span>
+                                </div>
+                              )}
+                              {parsed.units && (
+                                <div className="flex items-center justify-between text-xs">
+                                  <span>Units:</span>
+                                  <span>{parsed.units}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                  } catch (e) {
+                    // Fallback to string formatting
+                  }
+                  
+                  // Original string formatting
+                  return (
+                    <div 
+                      className="text-xs leading-relaxed"
+                      dangerouslySetInnerHTML={{
+                        __html: analysis.analysis
+                          .replace(/\\n\\n/g, '<br><br>')
+                          .replace(/\\n/g, '<br>')
+                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                          .replace(/#{3}\s*(.*?)(?=<br>|$)/g, '<h3 class="font-semibold text-sm mb-2 mt-3">$1</h3>')
+                          .replace(/#{2}\s*(.*?)(?=<br>|$)/g, '<h2 class="font-semibold text-base mb-2 mt-4">$1</h2>')
+                          .replace(/#{1}\s*(.*?)(?=<br>|$)/g, '<h1 class="font-bold text-lg mb-3 mt-4">$1</h1>')
+                      }}
+                    />
+                  );
+                })()}
               </div>
             </div>
           ))}
