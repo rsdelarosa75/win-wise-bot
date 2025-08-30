@@ -46,13 +46,21 @@ export const TelegramAnalyses = () => {
   // Listen for new webhook analyses
   useEffect(() => {
     const handleNewAnalysis = (event: CustomEvent) => {
+      console.log("Received webhookAnalysisAdded event:", event.detail);
       const newAnalysis = event.detail;
-      setAnalyses(prev => [newAnalysis, ...prev.slice(0, 9)]);
+      setAnalyses(prev => {
+        console.log("Current analyses:", prev.length);
+        const updated = [newAnalysis, ...prev.slice(0, 9)];
+        console.log("Updated analyses:", updated.length);
+        return updated;
+      });
     };
     
+    console.log("Setting up webhookAnalysisAdded listener");
     window.addEventListener('webhookAnalysisAdded', handleNewAnalysis as EventListener);
     
     return () => {
+      console.log("Removing webhookAnalysisAdded listener");
       window.removeEventListener('webhookAnalysisAdded', handleNewAnalysis as EventListener);
     };
   }, []);
