@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { LiveOdds } from "@/components/ui/live-odds";
 import { OddsApiSettings } from "@/components/ui/odds-api-settings";
 import { TelegramAnalyses } from "@/components/ui/telegram-analyses";
+import { MultiSportWebhooks } from "@/components/ui/multi-sport-webhooks";
 import { useOddsApi } from "@/hooks/use-odds-api";
 import { TrendingUp, TrendingDown, Activity, DollarSign } from "lucide-react";
 
@@ -79,6 +80,9 @@ export const DashboardPreview = () => {
               onRemoveApiKey={removeApiKey}
               hasApiKey={hasApiKey}
             />
+            
+            {/* Multi-Sport Webhooks */}
+            <MultiSportWebhooks />
           </div>
           
           {/* News & Insights */}
