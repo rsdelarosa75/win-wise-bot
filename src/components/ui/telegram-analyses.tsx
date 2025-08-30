@@ -191,6 +191,50 @@ export const TelegramAnalyses = () => {
                     if (parsed && typeof parsed === 'object') {
                       return (
                         <div className="space-y-3">
+                          {/* Key Metrics Row */}
+                          {(parsed.recommendation || parsed.confidence_percentage || parsed.units) && (
+                            <div className="grid grid-cols-3 gap-3 mb-4">
+                              {parsed.recommendation && (
+                                <div className="text-center p-2 bg-primary/10 rounded border border-primary/20">
+                                  <div className="text-xs text-muted-foreground">Recommendation</div>
+                                  <div className="font-semibold text-primary text-sm">{parsed.recommendation}</div>
+                                  {parsed.bet_type && (
+                                    <div className="text-xs text-muted-foreground capitalize">{parsed.bet_type}</div>
+                                  )}
+                                </div>
+                              )}
+                              {parsed.confidence_percentage && (
+                                <div className="text-center p-2 bg-win/10 rounded border border-win/20">
+                                  <div className="text-xs text-muted-foreground">Confidence</div>
+                                  <div className="font-semibold text-win text-sm">{parsed.confidence_percentage}%</div>
+                                  <div className="text-xs text-muted-foreground">{parsed.confidence || 'High'}</div>
+                                </div>
+                              )}
+                              {parsed.units && (
+                                <div className="text-center p-2 bg-accent/10 rounded border border-accent/20">
+                                  <div className="text-xs text-muted-foreground">Units</div>
+                                  <div className="font-semibold text-accent text-sm">{parsed.units}</div>
+                                  <div className="text-xs text-muted-foreground">Recommended</div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Key Factors */}
+                          {parsed.key_factors && parsed.key_factors.length > 0 && (
+                            <div className="mb-3">
+                              <div className="text-xs font-medium text-muted-foreground mb-2">Key Factors</div>
+                              <div className="flex flex-wrap gap-1">
+                                {parsed.key_factors.map((factor: string, idx: number) => (
+                                  <Badge key={idx} variant="outline" className="text-xs">
+                                    {factor}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Analysis Content */}
                           <div 
                             className="text-sm leading-relaxed"
                             dangerouslySetInnerHTML={{
@@ -203,26 +247,6 @@ export const TelegramAnalyses = () => {
                                 .replace(/#{1}\s*(.*?)(?=<br>|$)/g, '<h1 class="font-bold text-lg mb-3 mt-4">$1</h1>')
                             }}
                           />
-                          {parsed.recommendation && (
-                            <div className="mt-3 p-2 bg-primary/10 rounded border border-primary/20">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="font-medium">Recommendation:</span>
-                                <span className="text-primary">{parsed.recommendation}</span>
-                              </div>
-                              {parsed.confidence && (
-                                <div className="flex items-center justify-between text-xs mt-1">
-                                  <span>Confidence:</span>
-                                  <span>{parsed.confidence} ({parsed.confidence_percentage}%)</span>
-                                </div>
-                              )}
-                              {parsed.units && (
-                                <div className="flex items-center justify-between text-xs">
-                                  <span>Units:</span>
-                                  <span>{parsed.units}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
                         </div>
                       );
                     }
