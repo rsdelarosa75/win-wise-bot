@@ -101,9 +101,9 @@ export const TelegramAnalyses = () => {
             <MessageSquare className="w-5 h-5 text-accent" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold">Recent Telegram Analyses</h3>
+            <h3 className="text-xl font-semibold">Recent Workflow Analyses</h3>
             <p className="text-sm text-muted-foreground">
-              Latest results from your n8n Telegram workflow
+              Latest results from your n8n webhook workflows
             </p>
           </div>
         </div>
@@ -173,9 +173,18 @@ export const TelegramAnalyses = () => {
               </div>
 
               <div className="bg-background/50 rounded p-3">
-                <pre className="text-xs whitespace-pre-wrap font-mono leading-relaxed text-muted-foreground">
-                  {analysis.analysis}
-                </pre>
+                <div 
+                  className="text-xs leading-relaxed"
+                  dangerouslySetInnerHTML={{
+                    __html: analysis.analysis
+                      .replace(/\\n\\n/g, '<br><br>')
+                      .replace(/\\n/g, '<br>')
+                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                      .replace(/#{3}\s*(.*?)(?=<br>|$)/g, '<h3 class="font-semibold text-sm mb-2 mt-3">$1</h3>')
+                      .replace(/#{2}\s*(.*?)(?=<br>|$)/g, '<h2 class="font-semibold text-base mb-2 mt-4">$1</h2>')
+                      .replace(/#{1}\s*(.*?)(?=<br>|$)/g, '<h1 class="font-bold text-lg mb-3 mt-4">$1</h1>')
+                  }}
+                />
               </div>
             </div>
           ))}
@@ -184,9 +193,9 @@ export const TelegramAnalyses = () => {
 
       <div className="mt-4 pt-4 border-t border-border/50">
         <div className="flex items-center justify-between text-sm">
-          <div className="text-muted-foreground">
-            Connected to your Telegram → n8n workflow
-          </div>
+        <div className="text-muted-foreground">
+          Connected to your n8n webhook workflows
+        </div>
           <div className="flex items-center gap-4">
             <div className="text-xs text-muted-foreground">
               Auto-refreshes when new analyses arrive
