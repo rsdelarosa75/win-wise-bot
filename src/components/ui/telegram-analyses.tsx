@@ -207,7 +207,7 @@ export const TelegramAnalyses = () => {
                                 <div className="text-center p-2 bg-win/10 rounded border border-win/20">
                                   <div className="text-xs text-muted-foreground">Confidence</div>
                                   <div className="font-semibold text-win text-sm">{parsed.confidence_percentage}%</div>
-                                  <div className="text-xs text-muted-foreground">{parsed.confidence || 'High'}</div>
+                                  <div className="text-xs text-muted-foreground">{parsed.confidence || "High"}</div>
                                 </div>
                               )}
                               {parsed.units && (
@@ -234,41 +234,110 @@ export const TelegramAnalyses = () => {
                             </div>
                           )}
                           
-                          {/* Analysis Content */}
-                          <div 
-                            className="text-sm leading-relaxed"
-                            dangerouslySetInnerHTML={{
-                              __html: (parsed.analysis || parsed.content || '')
-                                .replace(/\n\n/g, '<br><br>')
-                                .replace(/\n/g, '<br>')
-                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                .replace(/#{3}\s*(.*?)(?=<br>|$)/g, '<h3 class="font-semibold text-sm mb-2 mt-3">$1</h3>')
-                                .replace(/#{2}\s*(.*?)(?=<br>|$)/g, '<h2 class="font-semibold text-base mb-2 mt-4">$1</h2>')
-                                .replace(/#{1}\s*(.*?)(?=<br>|$)/g, '<h1 class="font-bold text-lg mb-3 mt-4">$1</h1>')
-                            }}
-                          />
+                          {/* Enhanced Analysis Content with Odds Extraction */}
+                          <div className="space-y-3">
+                            {/* Extract and display odds information */}
+                            {(() => {
+                              const analysisText = parsed.analysis || "";
+                              
+                              // Extract favorite/underdog info
+                              const favoriteMatch = analysisText.match(/\*\*Favorite:\*\*\s*([^(]+)\s*\(([^)]+)\)/);
+                              const underdogMatch = analysisText.match(/\*\*Underdog:\*\*\s*([^(]+)\s*\(([^)]+)\)/);
+                              
+                              if (favoriteMatch || underdogMatch) {
+                                return (
+                                  <div className="grid grid-cols-2 gap-3 mb-3">
+                                    {favoriteMatch && (
+                                      <div className="p-2 bg-loss/10 rounded border border-loss/20">
+                                        <div className="text-xs text-muted-foreground">Favorite</div>
+                                        <div className="font-semibold text-loss text-sm">{favoriteMatch[1].trim()}</div>
+                                        <div className="text-xs text-muted-foreground">{favoriteMatch[2]}</div>
+                                      </div>
+                                    )}
+                                    {underdogMatch && (
+                                      <div className="p-2 bg-win/10 rounded border border-win/20">
+                                        <div className="text-xs text-muted-foreground">Underdog</div>
+                                        <div className="font-semibold text-win text-sm">{underdogMatch[1].trim()}</div>
+                                        <div className="text-xs text-muted-foreground">{underdogMatch[2]}</div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                            
+                            <div 
+                              className="text-sm leading-relaxed prose-sm"
+                              dangerouslySetInnerHTML={{
+                                __html: (parsed.analysis || parsed.content || "")
+                                  .replace(/\n\n/g, "<br><br>")
+                                  .replace(/\n/g, "<br>")
+                                  .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold text-foreground'>$1</strong>")
+                                  .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
+                                  .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
+                                  .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
+                                  .replace(/"square money"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
+                                  .replace(/"sharp money"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
+                                  .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
+                              }}
+                            />
+                          </div>
                         </div>
                       );
                     }
                   } catch (e) {
-                    // Fallback to string formatting
+                    // Enhanced fallback string formatting for raw text analysis
+                    const analysisText = analysis.analysis || "";
+                    
+                    return (
+                      <div className="space-y-3">
+                        {/* Extract odds from raw text */}
+                        {(() => {
+                          const favoriteMatch = analysisText.match(/Favorite:\s*([^(]+)\s*\(([^)]+)\)/);
+                          const underdogMatch = analysisText.match(/Underdog:\s*([^(]+)\s*\(([^)]+)\)/);
+                          
+                          if (favoriteMatch || underdogMatch) {
+                            return (
+                              <div className="grid grid-cols-2 gap-3 mb-3">
+                                {favoriteMatch && (
+                                  <div className="p-2 bg-loss/10 rounded border border-loss/20">
+                                    <div className="text-xs text-muted-foreground">Favorite</div>
+                                    <div className="font-semibold text-loss text-sm">{favoriteMatch[1].trim()}</div>
+                                    <div className="text-xs text-muted-foreground">{favoriteMatch[2]}</div>
+                                  </div>
+                                )}
+                                {underdogMatch && (
+                                  <div className="p-2 bg-win/10 rounded border border-win/20">
+                                    <div className="text-xs text-muted-foreground">Underdog</div>
+                                    <div className="font-semibold text-win text-sm">{underdogMatch[1].trim()}</div>
+                                    <div className="text-xs text-muted-foreground">{underdogMatch[2]}</div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                        
+                        <div 
+                          className="text-sm leading-relaxed"
+                          dangerouslySetInnerHTML={{
+                            __html: analysisText
+                              .replace(/\n\n/g, "<br><br>")
+                              .replace(/\n/g, "<br>")
+                              .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold'>$1</strong>")
+                              .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
+                              .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
+                              .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
+                              .replace(/"square money"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
+                              .replace(/"sharp money"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
+                              .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
+                          }}
+                        />
+                      </div>
+                    );
                   }
-                  
-                  // Original string formatting
-                  return (
-                    <div 
-                      className="text-xs leading-relaxed"
-                      dangerouslySetInnerHTML={{
-                        __html: analysis.analysis
-                          .replace(/\\n\\n/g, '<br><br>')
-                          .replace(/\\n/g, '<br>')
-                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                          .replace(/#{3}\s*(.*?)(?=<br>|$)/g, '<h3 class="font-semibold text-sm mb-2 mt-3">$1</h3>')
-                          .replace(/#{2}\s*(.*?)(?=<br>|$)/g, '<h2 class="font-semibold text-base mb-2 mt-4">$1</h2>')
-                          .replace(/#{1}\s*(.*?)(?=<br>|$)/g, '<h1 class="font-bold text-lg mb-3 mt-4">$1</h1>')
-                      }}
-                    />
-                  );
                 })()}
               </div>
             </div>
