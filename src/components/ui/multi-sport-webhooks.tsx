@@ -173,6 +173,24 @@ export const MultiSportWebhooks = () => {
           
         } catch (error) {
           console.log('Response received but not JSON:', responseText);
+          // Fallback: store raw text response so it still appears in the dashboard
+          const newAnalysis = {
+            id: Date.now().toString(),
+            timestamp: new Date().toISOString(),
+            command: '/webhook',
+            teams: `${sport} Analysis`,
+            persona: 'analytical',
+            analysis: responseText,
+            confidence: 'High',
+            status: 'win',
+            odds: 'Live Analysis',
+            sport: sport
+          };
+
+          const existingAnalyses = JSON.parse(localStorage.getItem('webhook_analyses') || '[]');
+          const updatedAnalyses = [newAnalysis, ...existingAnalyses.slice(0, 9)];
+          localStorage.setItem('webhook_analyses', JSON.stringify(updatedAnalyses));
+          window.dispatchEvent(new CustomEvent('webhookAnalysisAdded', { detail: newAnalysis }));
         }
       } else {
         throw new Error(`HTTP ${response.status}`);
