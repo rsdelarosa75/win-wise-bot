@@ -139,19 +139,19 @@ export const MultiSportWebhooks = () => {
            analysisResult = JSON.parse(responseText);
            console.log("Parsed analysis result:", analysisResult);
            
-           // Store the result in localStorage for the dashboard to display
-           const newAnalysis = {
-             id: Date.now().toString(),
-             timestamp: new Date().toISOString(),
-             command: '/webhook',
-             teams: analysisResult.teams || `${sport} Analysis`,
-             persona: analysisResult.persona || 'analytical',
-             analysis: analysisResult.analysis || responseText,
-             confidence: 'High',
-             status: 'win',
-             odds: 'Live Analysis',
-             sport: sport
-           };
+            // Store the result in localStorage for the dashboard to display
+            const newAnalysis = {
+              id: Date.now().toString(),
+              timestamp: new Date().toISOString(),
+              command: '/webhook',
+              teams: analysisResult.teams || `${sport} Analysis`,
+              persona: analysisResult.persona || 'analytical',
+              analysis: analysisResult.analysis || responseText,
+              confidence: analysisResult.confidence || 'High',
+              status: 'win',
+              odds: analysisResult.recommendation || 'Live Analysis',
+              sport: analysisResult.sport || sport
+            };
            
            console.log("Storing analysis:", newAnalysis);
            
