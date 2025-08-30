@@ -44,7 +44,7 @@ export const N8nIntegration = () => {
   const [briefContent, setBriefContent] = useState("");
   const [selectedSports, setSelectedSports] = useState<string[]>(["NBA"]);
   const [specificTeams, setSpecificTeams] = useState("");
-  const [riskLevel, setRiskLevel] = useState("medium");
+  const [persona, setPersona] = useState("analytical");
   
   const [selectedDate, setSelectedDate] = useState<Date>();
   const { toast } = useToast();
@@ -95,7 +95,7 @@ export const N8nIntegration = () => {
         sports: selectedSports,
         teams: formattedTeams,
         text: formattedTeams, // Also send as 'text' for your current regex
-        riskLevel,
+        persona,
         
         targetDate: selectedDate ? format(selectedDate, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
       };
@@ -239,15 +239,17 @@ export const N8nIntegration = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="risk-level">Risk Level</Label>
-              <Select value={riskLevel} onValueChange={setRiskLevel}>
+              <Label htmlFor="persona">Analysis Persona</Label>
+              <Select value={persona} onValueChange={setPersona}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="conservative">Conservative</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="aggressive">Aggressive</SelectItem>
+                  <SelectItem value="analytical">Data-Driven Analyst</SelectItem>
+                  <SelectItem value="sharp">Sharp Bettor</SelectItem>
+                  <SelectItem value="contrarian">Contrarian Expert</SelectItem>
+                  <SelectItem value="cautious">Risk-Averse Advisor</SelectItem>
+                  <SelectItem value="aggressive">High-Stakes Gambler</SelectItem>
                 </SelectContent>
               </Select>
             </div>
