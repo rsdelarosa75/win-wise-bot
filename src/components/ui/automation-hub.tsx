@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { N8nIntegration } from "./n8n-integration";
+import { ZapierIntegration } from "./zapier-integration";
 import { 
   Bot, 
   Calendar, 
@@ -119,9 +120,12 @@ export const AutomationHub = () => {
         </div>
 
         <Tabs defaultValue="n8n" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 bg-card/50">
+          <TabsList className="grid w-full grid-cols-4 bg-card/50">
             <TabsTrigger value="n8n" className="data-[state=active]:bg-primary/10">
               n8n Integration
+            </TabsTrigger>
+            <TabsTrigger value="zapier" className="data-[state=active]:bg-primary/10">
+              Zapier
             </TabsTrigger>
             <TabsTrigger value="workflows" className="data-[state=active]:bg-primary/10">
               Active Workflows
@@ -133,6 +137,10 @@ export const AutomationHub = () => {
 
           <TabsContent value="n8n" className="space-y-6">
             <N8nIntegration />
+          </TabsContent>
+
+          <TabsContent value="zapier" className="space-y-6">
+            <ZapierIntegration />
           </TabsContent>
 
           <TabsContent value="workflows" className="space-y-6">
