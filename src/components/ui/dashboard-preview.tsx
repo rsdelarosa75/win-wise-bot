@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LiveOdds } from "@/components/ui/live-odds";
 import { OddsApiSettings } from "@/components/ui/odds-api-settings";
+import { TelegramAnalyses } from "@/components/ui/telegram-analyses";
 import { useOddsApi } from "@/hooks/use-odds-api";
 import { TrendingUp, TrendingDown, Activity, DollarSign } from "lucide-react";
 
@@ -82,6 +83,9 @@ export const DashboardPreview = () => {
           
           {/* News & Insights */}
           <div className="space-y-6">
+            {/* Telegram Analyses */}
+            <TelegramAnalyses />
+            
             <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20">
               <h3 className="text-xl font-semibold mb-4">Latest News Impact</h3>
               <div className="space-y-4">
