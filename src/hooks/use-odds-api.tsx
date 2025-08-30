@@ -33,8 +33,6 @@ interface ProcessedGame {
 }
 
 const SPORT_KEYS = {
-  MLB: 'baseball_mlb',
-  NFL: 'americanfootball_nfl', 
   'College Football': 'americanfootball_ncaaf'
 };
 
@@ -188,12 +186,10 @@ export const useOddsApi = () => {
     }
   }, [apiKey, processOddsData]);
 
-  // Auto-refresh every 2 minutes when API key is available
+  // Fetch once when API key is available (no auto-refresh)
   useEffect(() => {
     if (apiKey) {
       fetchOdds();
-      const interval = setInterval(fetchOdds, 2 * 60 * 1000);
-      return () => clearInterval(interval);
     }
   }, [apiKey, fetchOdds]);
 
