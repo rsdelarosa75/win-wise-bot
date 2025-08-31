@@ -15,6 +15,7 @@ interface OddsData {
       outcomes: Array<{
         name: string;
         price: number;
+        point?: number; // For spread markets
       }>;
     }>;
   }>;
@@ -27,6 +28,8 @@ interface ProcessedGame {
   team2: string;
   odds1: string;
   odds2: string;
+  spread1?: string;
+  spread2?: string;
   commence_time: string;
   confidence: 'High' | 'Medium' | 'Low';
   status: 'win' | 'neutral' | 'loss';
@@ -61,11 +64,16 @@ export const useOddsApi = () => {
       let homeOdds = 'N/A';
       let awayOdds = 'N/A';
       
-      // Extract moneyline odds from first available bookmaker
+      let homeSpread = 'N/A';
+      let awaySpread = 'N/A';
+      
+      // Extract moneyline and spread odds from first available bookmaker
       if (game.bookmakers?.length > 0) {
         const bookmaker = game.bookmakers[0];
         const h2hMarket = bookmaker.markets?.find(m => m.key === 'h2h');
+        const spreadMarket = bookmaker.markets?.find(m => m.key === 'spreads');
         
+        // Moneyline odds
         if (h2hMarket?.outcomes) {
           const homeOutcome = h2hMarket.outcomes.find(o => o.name === game.home_team);
           const awayOutcome = h2hMarket.outcomes.find(o => o.name === game.away_team);
@@ -75,6 +83,19 @@ export const useOddsApi = () => {
           }
           if (awayOutcome) {
             awayOdds = awayOutcome.price > 0 ? `+${awayOutcome.price}` : `${awayOutcome.price}`;
+          }
+        }
+        
+        // Spread odds
+        if (spreadMarket?.outcomes) {
+          const homeOutcome = spreadMarket.outcomes.find(o => o.name === game.home_team);
+          const awayOutcome = spreadMarket.outcomes.find(o => o.name === game.away_team);
+          
+          if (homeOutcome && homeOutcome.point !== undefined) {
+            homeSpread = homeOutcome.point > 0 ? `+${homeOutcome.point}` : `${homeOutcome.point}`;
+          }
+          if (awayOutcome && awayOutcome.point !== undefined) {
+            awaySpread = awayOutcome.point > 0 ? `+${awayOutcome.point}` : `${awayOutcome.point}`;
           }
         }
       }
@@ -110,6 +131,8 @@ export const useOddsApi = () => {
         team2: game.home_team,
         odds1: awayOdds,
         odds2: homeOdds,
+        spread1: awaySpread,
+        spread2: homeSpread,
         commence_time: game.commence_time,
         confidence,
         status
@@ -137,7 +160,7 @@ export const useOddsApi = () => {
             new URLSearchParams({
               apiKey: apiKey,
               regions: 'us',
-              markets: 'h2h',
+              markets: 'h2h,spreads',
               oddsFormat: 'american',
               dateFormat: 'iso'
             })

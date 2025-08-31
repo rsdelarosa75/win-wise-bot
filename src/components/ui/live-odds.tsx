@@ -179,10 +179,13 @@ export const LiveOdds = () => {
                   <div className="text-sm">
                     <span className="font-medium">{game.team1}</span> vs <span className="font-medium">{game.team2}</span>
                   </div>
-                  <div className="flex gap-2 text-sm">
-                    <span className="text-muted-foreground">{game.odds1}</span>
-                    <span className="text-muted-foreground">/</span>
-                    <span className="text-muted-foreground">{game.odds2}</span>
+                  <div className="flex flex-col gap-1 text-sm">
+                    <div className="flex gap-2">
+                      <span className="text-muted-foreground">{game.odds1}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="text-muted-foreground">{game.odds2}</span>
+                      <span className="text-xs text-muted-foreground/70">ML</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="w-3 h-3" />
@@ -263,10 +266,21 @@ export const LiveOdds = () => {
             <div className="text-sm">
               <span className="font-medium">{game.team1}</span> vs <span className="font-medium">{game.team2}</span>
             </div>
-            <div className="flex gap-2 text-sm">
-              <span className="text-muted-foreground">{game.odds1}</span>
-              <span className="text-muted-foreground">/</span>
-              <span className="text-muted-foreground">{game.odds2}</span>
+            <div className="flex flex-col gap-1 text-sm">
+              <div className="flex gap-2">
+                <span className="text-muted-foreground">{game.odds1}</span>
+                <span className="text-muted-foreground">/</span>
+                <span className="text-muted-foreground">{game.odds2}</span>
+                <span className="text-xs text-muted-foreground/70">ML</span>
+              </div>
+              {(game.spread1 && game.spread2 && game.spread1 !== 'N/A' && game.spread2 !== 'N/A') && (
+                <div className="flex gap-2">
+                  <span className="text-muted-foreground">{game.spread1}</span>
+                  <span className="text-muted-foreground">/</span>
+                  <span className="text-muted-foreground">{game.spread2}</span>
+                  <span className="text-xs text-muted-foreground/70">Spread</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="w-3 h-3" />
