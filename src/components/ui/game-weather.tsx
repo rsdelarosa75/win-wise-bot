@@ -63,14 +63,24 @@ export const GameWeather = ({ games }: GameWeatherProps) => {
     const fetchWeatherForGames = async () => {
       setLoading(true);
       
-      // Get unique locations from current games
+      // Get unique locations from current games - prioritize today's games
+      const now = new Date();
+      const relevantGames = games
+        .filter(game => new Date(game.commence_time) > now)
+        .sort((a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime())
+        .slice(0, 2); // Show weather for next 2 games only
+        
       const locations = new Set<string>();
-      games.forEach(game => {
+      console.log('Games for weather:', relevantGames);
+      relevantGames.forEach(game => {
+        console.log(`Processing game: ${game.team1} vs ${game.team2}, looking for location of ${game.team2}`);
         const homeLocation = TEAM_LOCATIONS[game.team2];
+        console.log(`Found location: ${homeLocation}`);
         if (homeLocation) {
           locations.add(homeLocation);
         }
       });
+      console.log('All locations:', Array.from(locations));
       
       if (locations.size === 0) {
         // Use mock data if no locations found
@@ -120,8 +130,18 @@ export const GameWeather = ({ games }: GameWeatherProps) => {
     const mockData: WeatherData[] = [];
     const processedLocations = new Set<string>();
     
-    games.forEach(game => {
+    // Filter for current/upcoming games only and prioritize today's games
+    const relevantGames = games.filter(game => {
+      const gameTime = new Date(game.commence_time);
+      const now = new Date();
+      return gameTime > now; // Only show future games
+    }).slice(0, 2); // Limit to 2 most relevant games
+    
+    console.log('Relevant games for weather:', relevantGames);
+    
+    relevantGames.forEach(game => {
       const location = TEAM_LOCATIONS[game.team2];
+      console.log(`Game: ${game.team1} vs ${game.team2}, Location: ${location}`);
       if (location && !processedLocations.has(location)) {
         processedLocations.add(location);
         
