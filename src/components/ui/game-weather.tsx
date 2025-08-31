@@ -24,6 +24,13 @@ interface GameWeatherProps {
   }>;
 }
 
+// Map specific games to neutral sites (matchup-based)
+const NEUTRAL_SITE_GAMES: { [key: string]: string } = {
+  'Virginia Tech Hokies vs South Carolina Gamecocks': 'Atlanta, GA',
+  'South Carolina Gamecocks vs Virginia Tech Hokies': 'Atlanta, GA',
+  // Add more neutral site games as needed
+};
+
 // Map team names to their home cities
 const TEAM_LOCATIONS: { [key: string]: string } = {
   // College Football Teams
@@ -73,11 +80,23 @@ export const GameWeather = ({ games }: GameWeatherProps) => {
       const locations = new Set<string>();
       console.log('Games for weather:', relevantGames);
       relevantGames.forEach(game => {
-        console.log(`Processing game: ${game.team1} vs ${game.team2}, looking for location of ${game.team2}`);
-        const homeLocation = TEAM_LOCATIONS[game.team2];
-        console.log(`Found location: ${homeLocation}`);
-        if (homeLocation) {
-          locations.add(homeLocation);
+        console.log(`Processing game: ${game.team1} vs ${game.team2}`);
+        
+        // Check for neutral site first
+        const matchupKey = `${game.team1} vs ${game.team2}`;
+        const reverseMatchupKey = `${game.team2} vs ${game.team1}`;
+        const neutralLocation = NEUTRAL_SITE_GAMES[matchupKey] || NEUTRAL_SITE_GAMES[reverseMatchupKey];
+        
+        if (neutralLocation) {
+          console.log(`Found neutral site: ${neutralLocation}`);
+          locations.add(neutralLocation);
+        } else {
+          // Use home team location
+          const homeLocation = TEAM_LOCATIONS[game.team2];
+          console.log(`Using home location: ${homeLocation}`);
+          if (homeLocation) {
+            locations.add(homeLocation);
+          }
         }
       });
       console.log('All locations:', Array.from(locations));
@@ -140,8 +159,13 @@ export const GameWeather = ({ games }: GameWeatherProps) => {
     console.log('Relevant games for weather:', relevantGames);
     
     relevantGames.forEach(game => {
-      const location = TEAM_LOCATIONS[game.team2];
-      console.log(`Game: ${game.team1} vs ${game.team2}, Location: ${location}`);
+      // Check for neutral site first
+      const matchupKey = `${game.team1} vs ${game.team2}`;
+      const reverseMatchupKey = `${game.team2} vs ${game.team1}`;
+      const neutralLocation = NEUTRAL_SITE_GAMES[matchupKey] || NEUTRAL_SITE_GAMES[reverseMatchupKey];
+      
+      const location = neutralLocation || TEAM_LOCATIONS[game.team2];
+      console.log(`Game: ${game.team1} vs ${game.team2}, Location: ${location} ${neutralLocation ? '(neutral site)' : '(home)'}`);
       if (location && !processedLocations.has(location)) {
         processedLocations.add(location);
         
