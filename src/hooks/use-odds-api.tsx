@@ -63,7 +63,6 @@ export const useOddsApi = () => {
     return rawGames.slice(0, 6).map((game) => {
       let homeOdds = 'N/A';
       let awayOdds = 'N/A';
-      
       let homeSpread = 'N/A';
       let awaySpread = 'N/A';
       
@@ -72,6 +71,9 @@ export const useOddsApi = () => {
         const bookmaker = game.bookmakers[0];
         const h2hMarket = bookmaker.markets?.find(m => m.key === 'h2h');
         const spreadMarket = bookmaker.markets?.find(m => m.key === 'spreads');
+        
+        console.log(`Processing ${game.home_team} vs ${game.away_team}`);
+        console.log(`Available markets:`, bookmaker.markets?.map(m => m.key));
         
         // Moneyline odds
         if (h2hMarket?.outcomes) {
@@ -84,6 +86,7 @@ export const useOddsApi = () => {
           if (awayOutcome) {
             awayOdds = awayOutcome.price > 0 ? `+${awayOutcome.price}` : `${awayOutcome.price}`;
           }
+          console.log(`Moneyline odds: ${game.away_team} ${awayOdds}, ${game.home_team} ${homeOdds}`);
         }
         
         // Spread odds
@@ -97,6 +100,9 @@ export const useOddsApi = () => {
           if (awayOutcome && awayOutcome.point !== undefined) {
             awaySpread = awayOutcome.point > 0 ? `+${awayOutcome.point}` : `${awayOutcome.point}`;
           }
+          console.log(`Spread odds: ${game.away_team} ${awaySpread}, ${game.home_team} ${homeSpread}`);
+        } else {
+          console.log(`No spread market found for ${game.home_team} vs ${game.away_team}`);
         }
       }
 

@@ -262,31 +262,31 @@ export const LiveOdds = () => {
       
       {games.map((game) => (
         <div key={game.id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border/50 hover:bg-secondary/40 transition-colors">
-          <div className="flex items-center gap-4">
-            <div className="text-sm">
-              <span className="font-medium">{game.team1}</span> vs <span className="font-medium">{game.team2}</span>
-            </div>
-            <div className="flex flex-col gap-1 text-sm">
-              <div className="flex gap-2">
-                <span className="text-muted-foreground">{game.odds1}</span>
-                <span className="text-muted-foreground">/</span>
-                <span className="text-muted-foreground">{game.odds2}</span>
-                <span className="text-xs text-muted-foreground/70">ML</span>
+            <div className="flex items-center gap-4">
+              <div className="text-sm">
+                <span className="font-medium">{game.team1}</span> vs <span className="font-medium">{game.team2}</span>
               </div>
-              {(game.spread1 && game.spread2 && game.spread1 !== 'N/A' && game.spread2 !== 'N/A') && (
-                <div className="flex gap-2">
-                  <span className="text-muted-foreground">{game.spread1}</span>
+              <div className="flex flex-col gap-1 text-sm">
+                <div className="flex gap-2 items-center">
+                  <span className="text-muted-foreground font-medium">{game.odds1}</span>
                   <span className="text-muted-foreground">/</span>
-                  <span className="text-muted-foreground">{game.spread2}</span>
-                  <span className="text-xs text-muted-foreground/70">Spread</span>
+                  <span className="text-muted-foreground font-medium">{game.odds2}</span>
+                  <span className="text-xs bg-primary/20 text-primary px-1 rounded">Moneyline</span>
                 </div>
-              )}
+                {(game.spread1 && game.spread2 && game.spread1 !== 'N/A' && game.spread2 !== 'N/A') && (
+                  <div className="flex gap-2 items-center">
+                    <span className="text-muted-foreground font-medium">{game.spread1}</span>
+                    <span className="text-muted-foreground">/</span>
+                    <span className="text-muted-foreground font-medium">{game.spread2}</span>
+                    <span className="text-xs bg-accent/20 text-accent px-1 rounded">Spread</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Clock className="w-3 h-3" />
+                {formatTime(game.commence_time)}
+              </div>
             </div>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="w-3 h-3" />
-              {formatTime(game.commence_time)}
-            </div>
-          </div>
           <div className="flex items-center gap-2">
             <Badge 
               variant="outline" 
