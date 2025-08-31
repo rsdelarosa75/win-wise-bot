@@ -16,6 +16,15 @@ interface TelegramAnalysis {
   status: 'win' | 'neutral' | 'loss';
   odds?: string;
   sport?: string;
+  // Optional enriched metrics coming from the AI/webhook
+  recommendation?: string;
+  bet_type?: string;
+  confidence_percentage?: number;
+  confidence_interval?: string;
+  expected_value?: string;
+  kelly_criterion?: number;
+  units?: number;
+  key_factors?: string[];
 }
 
 export const TelegramAnalyses = () => {
@@ -203,59 +212,71 @@ export const TelegramAnalyses = () => {
                   try {
                     // Try to parse as JSON first
                     const parsed = typeof analysis.analysis === 'string' 
-                      ? JSON.parse(analysis.analysis) 
+                      ? JSON.parse(analysis.analysis)
                       : analysis.analysis;
+
+                    const metrics = {
+                      recommendation: parsed?.recommendation ?? analysis.recommendation,
+                      bet_type: parsed?.bet_type ?? analysis.bet_type,
+                      confidence_percentage: parsed?.confidence_percentage ?? analysis.confidence_percentage,
+                      confidence_interval: parsed?.confidence_interval ?? analysis.confidence_interval,
+                      expected_value: parsed?.expected_value ?? analysis.expected_value,
+                      kelly_criterion: parsed?.kelly_criterion ?? analysis.kelly_criterion,
+                      units: parsed?.units ?? analysis.units,
+                      key_factors: parsed?.key_factors ?? analysis.key_factors,
+                      analysisText: parsed?.analysis ?? parsed?.content ?? analysis.analysis,
+                    };
                     
                     if (parsed && typeof parsed === 'object') {
                       return (
                         <div className="space-y-3">
                           {/* Enhanced Analysis with Confidence Metrics */}
-                          {(parsed.confidence_percentage || parsed.confidence_interval || parsed.expected_value) && (
+                          {(metrics.confidence_percentage || metrics.confidence_interval || metrics.expected_value) && (
                             <div className="grid grid-cols-3 gap-2 mb-4">
-                              {parsed.confidence_percentage && (
+                              {metrics.confidence_percentage && (
                                 <div className="text-center p-2 bg-win/10 rounded border border-win/20">
                                   <div className="text-xs text-muted-foreground">Win Probability</div>
-                                  <div className="font-semibold text-win text-sm">{parsed.confidence_percentage}%</div>
+                                  <div className="font-semibold text-win text-sm">{metrics.confidence_percentage}%</div>
                                 </div>
                               )}
-                              {parsed.confidence_interval && (
+                              {metrics.confidence_interval && (
                                 <div className="text-center p-2 bg-neutral/10 rounded border border-neutral/20">
                                   <div className="text-xs text-muted-foreground">95% CI</div>
-                                  <div className="font-semibold text-neutral text-sm">{parsed.confidence_interval}</div>
+                                  <div className="font-semibold text-neutral text-sm">{metrics.confidence_interval}</div>
                                 </div>
                               )}
-                              {parsed.expected_value && (
+                              {metrics.expected_value && (
                                 <div className="text-center p-2 bg-primary/10 rounded border border-primary/20">
                                   <div className="text-xs text-muted-foreground">Expected Value</div>
-                                  <div className="font-semibold text-primary text-sm">{parsed.expected_value}</div>
+                                  <div className="font-semibold text-primary text-sm">{metrics.expected_value}</div>
                                 </div>
                               )}
                             </div>
                           )}
 
                           {/* Betting Recommendation Row */}
-                          {(parsed.recommendation || parsed.units || parsed.bet_type) && (
+                          {(metrics.recommendation || metrics.units || metrics.bet_type || metrics.kelly_criterion) && (
                             <div className="grid grid-cols-3 gap-2 mb-4">
-                              {parsed.recommendation && (
+                              {metrics.recommendation && (
                                 <div className="text-center p-2 bg-primary/10 rounded border border-primary/20">
                                   <div className="text-xs text-muted-foreground">Recommendation</div>
-                                  <div className="font-semibold text-primary text-sm">{parsed.recommendation}</div>
-                                  {parsed.bet_type && (
-                                    <div className="text-xs text-muted-foreground capitalize">{parsed.bet_type}</div>
+                                  <div className="font-semibold text-primary text-sm">{metrics.recommendation}</div>
+                                  {metrics.bet_type && (
+                                    <div className="text-xs text-muted-foreground capitalize">{metrics.bet_type}</div>
                                   )}
                                 </div>
                               )}
-                              {parsed.units && (
+                              {metrics.units && (
                                 <div className="text-center p-2 bg-accent/10 rounded border border-accent/20">
                                   <div className="text-xs text-muted-foreground">Units</div>
-                                  <div className="font-semibold text-accent text-sm">{parsed.units}</div>
+                                  <div className="font-semibold text-accent text-sm">{metrics.units}</div>
                                   <div className="text-xs text-muted-foreground">Recommended</div>
                                 </div>
                               )}
-                              {parsed.kelly_criterion && (
+                              {metrics.kelly_criterion && (
                                 <div className="text-center p-2 bg-secondary/20 rounded border border-border/30">
                                   <div className="text-xs text-muted-foreground">Kelly %</div>
-                                  <div className="font-semibold text-foreground text-sm">{parsed.kelly_criterion}%</div>
+                                  <div className="font-semibold text-foreground text-sm">{metrics.kelly_criterion}%</div>
                                   <div className="text-xs text-muted-foreground">Optimal Size</div>
                                 </div>
                               )}
@@ -263,11 +284,11 @@ export const TelegramAnalyses = () => {
                           )}
 
                           {/* Key Factors */}
-                          {parsed.key_factors && parsed.key_factors.length > 0 && (
+                          {metrics.key_factors && metrics.key_factors.length > 0 && (
                             <div className="mb-3">
                               <div className="text-xs font-medium text-muted-foreground mb-2">Key Factors</div>
                               <div className="flex flex-wrap gap-1">
-                                {parsed.key_factors.map((factor: string, idx: number) => (
+                                {metrics.key_factors.map((factor: string, idx: number) => (
                                   <Badge key={idx} variant="outline" className="text-xs">
                                     {factor}
                                   </Badge>
@@ -280,7 +301,7 @@ export const TelegramAnalyses = () => {
                           <div className="space-y-3">
                             {/* Extract and display odds information */}
                             {(() => {
-                              const analysisText = parsed.analysis || "";
+                              const analysisText = metrics.analysisText || "";
                               
                               // Extract favorite/underdog info
                               const favoriteMatch = analysisText.match(/\*\*Favorite:\*\*\s*([^(]+)\s*\(([^)]+)\)/);
@@ -320,15 +341,15 @@ export const TelegramAnalyses = () => {
                             <div 
                               className="text-sm leading-relaxed prose-sm"
                               dangerouslySetInnerHTML={{
-                                __html: (parsed.analysis || parsed.content || "")
+                                __html: (metrics.analysisText || "")
                                   .replace(/\n\n/g, "<br><br>")
                                   .replace(/\n/g, "<br>")
                                   .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold text-foreground'>$1</strong>")
                                   .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
                                   .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
                                   .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
-                                  .replace(/"square money"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
-                                  .replace(/"sharp money"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
+                                  .replace(/\"square money\"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
+                                  .replace(/\"sharp money\"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
                                   .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
                               }}
                             />
