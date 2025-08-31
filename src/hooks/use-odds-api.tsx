@@ -66,43 +66,34 @@ export const useOddsApi = () => {
       let homeSpread = 'N/A';
       let awaySpread = 'N/A';
       
-      // Extract moneyline and spread odds from first available bookmaker
+      // Extract moneyline and spread odds by scanning bookmakers until both teams are found
       if (game.bookmakers?.length > 0) {
-        const bookmaker = game.bookmakers[0];
-        const h2hMarket = bookmaker.markets?.find(m => m.key === 'h2h');
-        const spreadMarket = bookmaker.markets?.find(m => m.key === 'spreads');
-        
-        console.log(`Processing ${game.home_team} vs ${game.away_team}`);
-        console.log(`Available markets:`, bookmaker.markets?.map(m => m.key));
-        
-        // Moneyline odds
-        if (h2hMarket?.outcomes) {
-          const homeOutcome = h2hMarket.outcomes.find(o => o.name === game.home_team);
-          const awayOutcome = h2hMarket.outcomes.find(o => o.name === game.away_team);
-          
-          if (homeOutcome) {
-            homeOdds = homeOutcome.price > 0 ? `+${homeOutcome.price}` : `${homeOutcome.price}`;
+        // Moneyline: find a bookmaker that has both outcomes
+        for (const bm of game.bookmakers) {
+          const h2h = bm.markets?.find(m => m.key === 'h2h');
+          if (h2h?.outcomes) {
+            const h = h2h.outcomes.find(o => o.name === game.home_team);
+            const a = h2h.outcomes.find(o => o.name === game.away_team);
+            if (h && a) {
+              homeOdds = h.price > 0 ? `+${h.price}` : `${h.price}`;
+              awayOdds = a.price > 0 ? `+${a.price}` : `${a.price}`;
+              break;
+            }
           }
-          if (awayOutcome) {
-            awayOdds = awayOutcome.price > 0 ? `+${awayOutcome.price}` : `${awayOutcome.price}`;
-          }
-          console.log(`Moneyline odds: ${game.away_team} ${awayOdds}, ${game.home_team} ${homeOdds}`);
         }
-        
-        // Spread odds
-        if (spreadMarket?.outcomes) {
-          const homeOutcome = spreadMarket.outcomes.find(o => o.name === game.home_team);
-          const awayOutcome = spreadMarket.outcomes.find(o => o.name === game.away_team);
-          
-          if (homeOutcome && homeOutcome.point !== undefined) {
-            homeSpread = homeOutcome.point > 0 ? `+${homeOutcome.point}` : `${homeOutcome.point}`;
+
+        // Spreads: find first market that has points for both teams
+        for (const bm of game.bookmakers) {
+          const spreads = bm.markets?.find(m => m.key === 'spreads');
+          if (spreads?.outcomes) {
+            const h = spreads.outcomes.find(o => o.name === game.home_team);
+            const a = spreads.outcomes.find(o => o.name === game.away_team);
+            if (h?.point !== undefined && a?.point !== undefined) {
+              homeSpread = h.point > 0 ? `+${h.point}` : `${h.point}`;
+              awaySpread = a.point > 0 ? `+${a.point}` : `${a.point}`;
+              break;
+            }
           }
-          if (awayOutcome && awayOutcome.point !== undefined) {
-            awaySpread = awayOutcome.point > 0 ? `+${awayOutcome.point}` : `${awayOutcome.point}`;
-          }
-          console.log(`Spread odds: ${game.away_team} ${awaySpread}, ${game.home_team} ${homeSpread}`);
-        } else {
-          console.log(`No spread market found for ${game.home_team} vs ${game.away_team}`);
         }
       }
 
