@@ -209,9 +209,33 @@ export const TelegramAnalyses = () => {
                     if (parsed && typeof parsed === 'object') {
                       return (
                         <div className="space-y-3">
-                          {/* Key Metrics Row */}
-                          {(parsed.recommendation || parsed.confidence_percentage || parsed.units) && (
-                            <div className="grid grid-cols-3 gap-3 mb-4">
+                          {/* Enhanced Analysis with Confidence Metrics */}
+                          {(parsed.confidence_percentage || parsed.confidence_interval || parsed.expected_value) && (
+                            <div className="grid grid-cols-3 gap-2 mb-4">
+                              {parsed.confidence_percentage && (
+                                <div className="text-center p-2 bg-win/10 rounded border border-win/20">
+                                  <div className="text-xs text-muted-foreground">Win Probability</div>
+                                  <div className="font-semibold text-win text-sm">{parsed.confidence_percentage}%</div>
+                                </div>
+                              )}
+                              {parsed.confidence_interval && (
+                                <div className="text-center p-2 bg-neutral/10 rounded border border-neutral/20">
+                                  <div className="text-xs text-muted-foreground">95% CI</div>
+                                  <div className="font-semibold text-neutral text-sm">{parsed.confidence_interval}</div>
+                                </div>
+                              )}
+                              {parsed.expected_value && (
+                                <div className="text-center p-2 bg-primary/10 rounded border border-primary/20">
+                                  <div className="text-xs text-muted-foreground">Expected Value</div>
+                                  <div className="font-semibold text-primary text-sm">{parsed.expected_value}</div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Betting Recommendation Row */}
+                          {(parsed.recommendation || parsed.units || parsed.bet_type) && (
+                            <div className="grid grid-cols-3 gap-2 mb-4">
                               {parsed.recommendation && (
                                 <div className="text-center p-2 bg-primary/10 rounded border border-primary/20">
                                   <div className="text-xs text-muted-foreground">Recommendation</div>
@@ -221,18 +245,18 @@ export const TelegramAnalyses = () => {
                                   )}
                                 </div>
                               )}
-                              {parsed.confidence_percentage && (
-                                <div className="text-center p-2 bg-win/10 rounded border border-win/20">
-                                  <div className="text-xs text-muted-foreground">Confidence</div>
-                                  <div className="font-semibold text-win text-sm">{parsed.confidence_percentage}%</div>
-                                  <div className="text-xs text-muted-foreground">{parsed.confidence || "High"}</div>
-                                </div>
-                              )}
                               {parsed.units && (
                                 <div className="text-center p-2 bg-accent/10 rounded border border-accent/20">
                                   <div className="text-xs text-muted-foreground">Units</div>
                                   <div className="font-semibold text-accent text-sm">{parsed.units}</div>
                                   <div className="text-xs text-muted-foreground">Recommended</div>
+                                </div>
+                              )}
+                              {parsed.kelly_criterion && (
+                                <div className="text-center p-2 bg-secondary/20 rounded border border-border/30">
+                                  <div className="text-xs text-muted-foreground">Kelly %</div>
+                                  <div className="font-semibold text-foreground text-sm">{parsed.kelly_criterion}%</div>
+                                  <div className="text-xs text-muted-foreground">Optimal Size</div>
                                 </div>
                               )}
                             </div>
