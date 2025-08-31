@@ -7,9 +7,11 @@ import { WeatherImpact } from "@/components/ui/weather-impact";
 import { MultiSportWebhooks } from "@/components/ui/multi-sport-webhooks";
 import { useOddsApi } from "@/hooks/use-odds-api";
 import { TrendingUp, TrendingDown, Activity, DollarSign } from "lucide-react";
+import { useState } from "react";
 
 export const DashboardPreview = () => {
   const { apiKey, saveApiKey, removeApiKey, hasApiKey } = useOddsApi();
+  const [activePersona, setActivePersona] = useState("Money Making Mitch");
   return (
     <section className="py-20 bg-background">
       <div className="container mx-auto px-6">
@@ -127,21 +129,25 @@ export const DashboardPreview = () => {
               <h3 className="text-xl font-semibold mb-4">AI Personas</h3>
               <div className="space-y-3">
                 {[
-                  { name: "Money Making Mitch", style: "Low Risk", active: true },
-                  { name: "Bobby Vegas", style: "High Risk", active: false },
-                  { name: "Value Finder Vic", style: "Value Betting", active: false }
+                  { name: "Money Making Mitch", style: "Low Risk" },
+                  { name: "Bobby Vegas", style: "High Risk" },
+                  { name: "Value Finder Vic", style: "Value Betting" }
                 ].map((persona, index) => (
-                  <div key={index} className={`p-3 rounded-lg border transition-all duration-200 ${
-                    persona.active 
-                      ? 'bg-primary/10 border-primary/30' 
-                      : 'bg-secondary/20 border-border/30 hover:border-primary/20'
-                  }`}>
+                  <div 
+                    key={index} 
+                    className={`p-3 rounded-lg border transition-all duration-200 cursor-pointer ${
+                      activePersona === persona.name
+                        ? 'bg-primary/10 border-primary/30' 
+                        : 'bg-secondary/20 border-border/30 hover:border-primary/20 hover:bg-primary/5'
+                    }`}
+                    onClick={() => setActivePersona(persona.name)}
+                  >
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="font-medium text-sm">{persona.name}</div>
                         <div className="text-xs text-muted-foreground">{persona.style}</div>
                       </div>
-                      <div className={`w-2 h-2 rounded-full ${persona.active ? 'bg-primary' : 'bg-muted'}`} />
+                      <div className={`w-2 h-2 rounded-full ${activePersona === persona.name ? 'bg-primary' : 'bg-muted'}`} />
                     </div>
                   </div>
                 ))}
