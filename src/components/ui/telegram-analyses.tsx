@@ -56,12 +56,30 @@ export const TelegramAnalyses = () => {
       });
     };
     
+    // Also refresh from localStorage periodically
+    const refreshFromStorage = () => {
+      const stored = localStorage.getItem('webhook_analyses');
+      if (stored) {
+        try {
+          const webhookAnalyses = JSON.parse(stored);
+          setAnalyses(webhookAnalyses);
+          console.log("Refreshed from storage, count:", webhookAnalyses.length);
+        } catch (e) {
+          console.error("Error parsing stored analyses:", e);
+        }
+      }
+    };
+    
     console.log("Setting up webhookAnalysisAdded listener");
     window.addEventListener('webhookAnalysisAdded', handleNewAnalysis as EventListener);
+    
+    // Refresh every 5 seconds to catch any missed updates
+    const interval = setInterval(refreshFromStorage, 5000);
     
     return () => {
       console.log("Removing webhookAnalysisAdded listener");
       window.removeEventListener('webhookAnalysisAdded', handleNewAnalysis as EventListener);
+      clearInterval(interval);
     };
   }, []);
 
