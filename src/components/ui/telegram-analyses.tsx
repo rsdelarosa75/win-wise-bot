@@ -264,21 +264,29 @@ export const TelegramAnalyses = () => {
                               
                               if (favoriteMatch || underdogMatch) {
                                 return (
-                                  <div className="grid grid-cols-2 gap-3 mb-3">
-                                    {favoriteMatch && (
-                                      <div className="p-2 bg-loss/10 rounded border border-loss/20">
-                                        <div className="text-xs text-muted-foreground">Favorite</div>
-                                        <div className="font-semibold text-loss text-sm">{favoriteMatch[1].trim()}</div>
-                                        <div className="text-xs text-muted-foreground">{favoriteMatch[2]}</div>
-                                      </div>
-                                    )}
-                                    {underdogMatch && (
-                                      <div className="p-2 bg-win/10 rounded border border-win/20">
-                                        <div className="text-xs text-muted-foreground">Underdog</div>
-                                        <div className="font-semibold text-win text-sm">{underdogMatch[1].trim()}</div>
-                                        <div className="text-xs text-muted-foreground">{underdogMatch[2]}</div>
-                                      </div>
-                                    )}
+                                  <div className="space-y-3">
+                                    <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                                      <span>AI Analysis Odds</span>
+                                      <Badge variant="outline" className="text-xs border-orange-500/30 text-orange-500">
+                                        Not Live Market
+                                      </Badge>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 mb-3">
+                                      {favoriteMatch && (
+                                        <div className="p-2 bg-loss/10 rounded border border-loss/20">
+                                          <div className="text-xs text-muted-foreground">AI: Favorite</div>
+                                          <div className="font-semibold text-loss text-sm">{favoriteMatch[1].trim()}</div>
+                                          <div className="text-xs text-muted-foreground">{favoriteMatch[2]}</div>
+                                        </div>
+                                      )}
+                                      {underdogMatch && (
+                                        <div className="p-2 bg-win/10 rounded border border-win/20">
+                                          <div className="text-xs text-muted-foreground">AI: Underdog</div>
+                                          <div className="font-semibold text-win text-sm">{underdogMatch[1].trim()}</div>
+                                          <div className="text-xs text-muted-foreground">{underdogMatch[2]}</div>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               }
@@ -310,33 +318,41 @@ export const TelegramAnalyses = () => {
                     
                     return (
                       <div className="space-y-3">
-                        {/* Extract odds from raw text */}
-                        {(() => {
-                          const favoriteMatch = analysisText.match(/Favorite:\s*([^(]+)\s*\(([^)]+)\)/);
-                          const underdogMatch = analysisText.match(/Underdog:\s*([^(]+)\s*\(([^)]+)\)/);
-                          
-                          if (favoriteMatch || underdogMatch) {
-                            return (
-                              <div className="grid grid-cols-2 gap-3 mb-3">
-                                {favoriteMatch && (
-                                  <div className="p-2 bg-loss/10 rounded border border-loss/20">
-                                    <div className="text-xs text-muted-foreground">Favorite</div>
-                                    <div className="font-semibold text-loss text-sm">{favoriteMatch[1].trim()}</div>
-                                    <div className="text-xs text-muted-foreground">{favoriteMatch[2]}</div>
-                                  </div>
-                                )}
-                                {underdogMatch && (
-                                  <div className="p-2 bg-win/10 rounded border border-win/20">
-                                    <div className="text-xs text-muted-foreground">Underdog</div>
-                                    <div className="font-semibold text-win text-sm">{underdogMatch[1].trim()}</div>
-                                    <div className="text-xs text-muted-foreground">{underdogMatch[2]}</div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
+                         {/* Extract odds from raw text */}
+                         {(() => {
+                           const favoriteMatch = analysisText.match(/Favorite:\s*([^(]+)\s*\(([^)]+)\)/);
+                           const underdogMatch = analysisText.match(/Underdog:\s*([^(]+)\s*\(([^)]+)\)/);
+                           
+                           if (favoriteMatch || underdogMatch) {
+                             return (
+                               <div className="space-y-3">
+                                 <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                                   <span>AI Analysis Odds</span>
+                                   <Badge variant="outline" className="text-xs border-orange-500/30 text-orange-500">
+                                     Not Live Market
+                                   </Badge>
+                                 </div>
+                                 <div className="grid grid-cols-2 gap-3 mb-3">
+                                   {favoriteMatch && (
+                                     <div className="p-2 bg-loss/10 rounded border border-loss/20">
+                                       <div className="text-xs text-muted-foreground">AI: Favorite</div>
+                                       <div className="font-semibold text-loss text-sm">{favoriteMatch[1].trim()}</div>
+                                       <div className="text-xs text-muted-foreground">{favoriteMatch[2]}</div>
+                                     </div>
+                                   )}
+                                   {underdogMatch && (
+                                     <div className="p-2 bg-win/10 rounded border border-win/20">
+                                       <div className="text-xs text-muted-foreground">AI: Underdog</div>
+                                       <div className="font-semibold text-win text-sm">{underdogMatch[1].trim()}</div>
+                                       <div className="text-xs text-muted-foreground">{underdogMatch[2]}</div>
+                                     </div>
+                                   )}
+                                 </div>
+                               </div>
+                             );
+                           }
+                           return null;
+                         })()}
                         
                         <div 
                           className="text-sm leading-relaxed"
