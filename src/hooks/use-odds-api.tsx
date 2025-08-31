@@ -146,7 +146,7 @@ export const useOddsApi = () => {
           if (response.ok) {
             const data = await response.json();
             if (Array.isArray(data)) {
-              allGames.push(...data.slice(0, 2)); // Limit per sport
+              allGames.push(...data);
             }
           } else if (response.status === 401) {
             throw new Error('Invalid API key');
@@ -158,8 +158,13 @@ export const useOddsApi = () => {
         }
       }
 
-      if (allGames.length === 0) {
-        setError('No games found for the selected sports');
+      const now = new Date();
+      const upcoming = allGames
+        .filter(g => new Date(g.commence_time) > now)
+        .sort((a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime());
+
+      if (upcoming.length === 0) {
+        setError('No upcoming games found');
         // Fallback to demo data if no real data available
         setGames([
           { id: 'demo1', sport: 'MLB', team1: 'Yankees', team2: 'Red Sox', odds1: '+120', odds2: '-140', commence_time: new Date().toISOString(), confidence: 'High', status: 'win' },
@@ -167,7 +172,7 @@ export const useOddsApi = () => {
           { id: 'demo3', sport: 'College Football', team1: 'Alabama', team2: 'Georgia', odds1: '+180', odds2: '-220', commence_time: new Date().toISOString(), confidence: 'Low', status: 'loss' }
         ]);
       } else {
-        const processedGames = processOddsData(allGames);
+        const processedGames = processOddsData(upcoming.slice(0, 6));
         setGames(processedGames);
       }
     } catch (err) {
