@@ -426,7 +426,11 @@ return null;
                                 correctedText = correctedText
                                   .replace(new RegExp(`\\*\\*Underdog:\\*\\*\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), `**Favorite:** ${team} ($1)`) // label swap
                                   .replace(new RegExp(`Underdog:\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), `Favorite: ${team} ($1)`) // label swap
-                                  .replace(new RegExp(`(${escapedTeam}[^\\.\\n]{0,120}?)\\bunderdog\\b`, 'gi'), `$1favorite`); // nearby wording
+                                  .replace(new RegExp(`(${escapedTeam}[^\\.\\n]{0,120}?)\\bunderdog\\b`, 'gi'), `$1favorite`) // nearby wording
+                                  // Upset/narrative cleanup when the pick is the favorite
+                                  .replace(/\b(pull(?:s|ing)?\s+off\s+the\s+upset|pulls?\s+the\s+upset|pull(?:s|ing)?\s+an\s+upset)\b/gi, 'secure the win')
+                                  .replace(new RegExp(`(${escapedTeam}[^\\.\\n]{0,200}?)(\\bupset\\b)`, 'gi'), '$1win')
+                                  .replace(new RegExp(`(${escapedTeam}[^\\.\\n]{0,200}?\\bas\\s+an\\s+)underdog\\b`, 'gi'), '$1favorite');
                                 if (correctedText !== originalText) note = `${team} is the favorite in this matchup.`;
                               } else if (recSide === 'Underdog' && underdogTeam) {
                                 const team = underdogTeam.team;
