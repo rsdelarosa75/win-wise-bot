@@ -226,7 +226,42 @@ export const TelegramAnalyses = () => {
                       key_factors: parsed?.key_factors ?? analysis.key_factors,
                       analysisText: parsed?.analysis ?? parsed?.content ?? analysis.analysis,
                     };
-                    
+
+                    // Derive favorite/underdog from American odds in the analysis text
+                    const analysisTextFull = metrics.analysisText || "";
+                    const favRegexA = /\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
+                    const dogRegexA = /\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
+                    const favRegexB = /Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
+                    const dogRegexB = /Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
+
+                    const favM = analysisTextFull.match(favRegexA) || analysisTextFull.match(favRegexB);
+                    const dogM = analysisTextFull.match(dogRegexA) || analysisTextFull.match(dogRegexB);
+
+                    const parseAmerican = (s: string) => {
+                      const m = s.replace(/,/g, '').match(/([+-]?\d+)/);
+                      return m ? parseInt(m[1], 10) : Number.NaN;
+                    };
+
+                    let favoriteTeam: { team: string; odds: string } | undefined = favM ? { team: favM[1].trim(), odds: favM[2].trim() } : undefined;
+                    let underdogTeam: { team: string; odds: string } | undefined = dogM ? { team: dogM[1].trim(), odds: dogM[2].trim() } : undefined;
+
+                    let inversionDetected = false;
+                    if (favoriteTeam && underdogTeam) {
+                      const fo = parseAmerican(favoriteTeam.odds);
+                      const doo = parseAmerican(underdogTeam.odds);
+                      if (!Number.isNaN(fo) && !Number.isNaN(doo) && fo > doo) {
+                        inversionDetected = true;
+                        const tmp = favoriteTeam; favoriteTeam = underdogTeam; underdogTeam = tmp;
+                      }
+                    }
+
+                    const recTeam = metrics.recommendation?.toLowerCase().trim();
+                    const recSide = recTeam
+                      ? (favoriteTeam && recTeam.includes(favoriteTeam.team.toLowerCase())) ? 'Favorite'
+                        : (underdogTeam && recTeam.includes(underdogTeam.team.toLowerCase())) ? 'Underdog'
+                        : undefined
+                      : undefined;
+
                     if (parsed && typeof parsed === 'object') {
                       return (
                         <div className="space-y-3">
@@ -258,13 +293,22 @@ export const TelegramAnalyses = () => {
                           {(metrics.recommendation || metrics.units || metrics.bet_type || metrics.kelly_criterion) && (
                             <div className="grid grid-cols-3 gap-2 mb-4">
                               {metrics.recommendation && (
-                                <div className="text-center p-2 bg-primary/10 rounded border border-primary/20">
-                                  <div className="text-xs text-muted-foreground">Recommendation</div>
-                                  <div className="font-semibold text-primary text-sm">{metrics.recommendation}</div>
-                                  {metrics.bet_type && (
-                                    <div className="text-xs text-muted-foreground capitalize">{metrics.bet_type}</div>
-                                  )}
-                                </div>
+                                  <div className="text-center p-2 bg-primary/10 rounded border border-primary/20">
+                                    <div className="text-xs text-muted-foreground">Recommendation</div>
+                                    <div className="font-semibold text-primary text-sm">
+                                      {metrics.recommendation}
+                                      {recSide && (
+                                        <span className="ml-1 text-xs text-muted-foreground">({recSide})</span>
+                                      )}
+                                    </div>
+                                    {(metrics.bet_type || recSide) && (
+                                      <div className="text-xs text-muted-foreground capitalize">
+                                        {metrics.bet_type}
+                                        {recSide === 'Favorite' && favoriteTeam ? ` • ${favoriteTeam.odds}` : ''}
+                                        {recSide === 'Underdog' && underdogTeam ? ` • ${underdogTeam.odds}` : ''}
+                                      </div>
+                                    )}
+                                  </div>
                               )}
                               {metrics.units && (
                                 <div className="text-center p-2 bg-accent/10 rounded border border-accent/20">
@@ -299,6 +343,11 @@ export const TelegramAnalyses = () => {
                           
                           {/* Enhanced Analysis Content with Odds Extraction */}
                           <div className="space-y-3">
+                            {inversionDetected && (
+                              <div className="text-xs p-2 bg-accent/10 rounded border border-accent/20">
+                                Note: Corrected favorite/underdog labels based on American odds.
+                              </div>
+                            )}
                             {/* Extract and display odds information */}
                             {(() => {
 const analysisText = metrics.analysisText || "";
