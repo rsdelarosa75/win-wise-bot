@@ -301,41 +301,67 @@ export const TelegramAnalyses = () => {
                           <div className="space-y-3">
                             {/* Extract and display odds information */}
                             {(() => {
-                              const analysisText = metrics.analysisText || "";
-                              
-                              // Extract favorite/underdog info
-                              const favoriteMatch = analysisText.match(/\*\*Favorite:\*\*\s*([^(]+)\s*\(([^)]+)\)/);
-                              const underdogMatch = analysisText.match(/\*\*Underdog:\*\*\s*([^(]+)\s*\(([^)]+)\)/);
-                              
-                              if (favoriteMatch || underdogMatch) {
-                                return (
-                                  <div className="space-y-3">
-                                    <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-                                      <span>AI Analysis Odds</span>
-                                      <Badge variant="outline" className="text-xs border-orange-500/30 text-orange-500">
-                                        Not Live Market
-                                      </Badge>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3 mb-3">
-                                      {favoriteMatch && (
-                                        <div className="p-2 bg-loss/10 rounded border border-loss/20">
-                                          <div className="text-xs text-muted-foreground">AI: Favorite</div>
-                                          <div className="font-semibold text-loss text-sm">{favoriteMatch[1].trim()}</div>
-                                          <div className="text-xs text-muted-foreground">{favoriteMatch[2]}</div>
-                                        </div>
-                                      )}
-                                      {underdogMatch && (
-                                        <div className="p-2 bg-win/10 rounded border border-win/20">
-                                          <div className="text-xs text-muted-foreground">AI: Underdog</div>
-                                          <div className="font-semibold text-win text-sm">{underdogMatch[1].trim()}</div>
-                                          <div className="text-xs text-muted-foreground">{underdogMatch[2]}</div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              }
-                              return null;
+const analysisText = metrics.analysisText || "";
+                               
+// Extract favorite/underdog info (supports **Favorite:** and Favorite:)
+const favoriteMatch = analysisText.match(/\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/) || analysisText.match(/Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/);
+const underdogMatch = analysisText.match(/\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/) || analysisText.match(/Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/);
+                               
+// Normalize by American odds: negative = favorite
+const parseAmerican = (s: string) => {
+  const m = s.replace(/,/g, '').match(/([+-]?\d+)/);
+  return m ? parseInt(m[1], 10) : Number.NaN;
+};
+
+const favCand = favoriteMatch ? { team: favoriteMatch[1].trim(), odds: favoriteMatch[2].trim() } : null;
+const dogCand = underdogMatch ? { team: underdogMatch[1].trim(), odds: underdogMatch[2].trim() } : null;
+
+let favorite = favCand || undefined;
+let underdog = dogCand || undefined;
+
+if (favCand && dogCand) {
+  const fo = parseAmerican(favCand.odds);
+  const doo = parseAmerican(dogCand.odds);
+  if (!Number.isNaN(fo) && !Number.isNaN(doo)) {
+    if (fo <= doo) {
+      favorite = favCand;
+      underdog = dogCand;
+    } else {
+      favorite = dogCand;
+      underdog = favCand;
+    }
+  }
+}
+
+if (favorite || underdog) {
+  return (
+    <div className="space-y-3">
+      <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+        <span>AI Analysis Odds</span>
+        <Badge variant="outline" className="text-xs border-orange-500/30 text-orange-500">
+          Not Live Market
+        </Badge>
+      </div>
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        {favorite && (
+          <div className="p-2 bg-loss/10 rounded border border-loss/20">
+            <div className="text-xs text-muted-foreground">AI: Favorite</div>
+            <div className="font-semibold text-loss text-sm">{favorite.team}</div>
+            <div className="text-xs text-muted-foreground">{favorite.odds}</div>
+          </div>
+        )}
+        {underdog && (
+          <div className="p-2 bg-win/10 rounded border border-win/20">
+            <div className="text-xs text-muted-foreground">AI: Underdog</div>
+            <div className="font-semibold text-win text-sm">{underdog.team}</div>
+            <div className="text-xs text-muted-foreground">{underdog.odds}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+return null;
                             })()}
                             
                             <div 
@@ -365,38 +391,64 @@ export const TelegramAnalyses = () => {
                       <div className="space-y-3">
                          {/* Extract odds from raw text */}
                          {(() => {
-                           const favoriteMatch = analysisText.match(/Favorite:\s*([^(]+)\s*\(([^)]+)\)/);
-                           const underdogMatch = analysisText.match(/Underdog:\s*([^(]+)\s*\(([^)]+)\)/);
+const favoriteMatch = analysisText.match(/\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/) || analysisText.match(/Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/);
+const underdogMatch = analysisText.match(/\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/) || analysisText.match(/Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/);
                            
-                           if (favoriteMatch || underdogMatch) {
-                             return (
-                               <div className="space-y-3">
-                                 <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-                                   <span>AI Analysis Odds</span>
-                                   <Badge variant="outline" className="text-xs border-orange-500/30 text-orange-500">
-                                     Not Live Market
-                                   </Badge>
-                                 </div>
-                                 <div className="grid grid-cols-2 gap-3 mb-3">
-                                   {favoriteMatch && (
-                                     <div className="p-2 bg-loss/10 rounded border border-loss/20">
-                                       <div className="text-xs text-muted-foreground">AI: Favorite</div>
-                                       <div className="font-semibold text-loss text-sm">{favoriteMatch[1].trim()}</div>
-                                       <div className="text-xs text-muted-foreground">{favoriteMatch[2]}</div>
-                                     </div>
-                                   )}
-                                   {underdogMatch && (
-                                     <div className="p-2 bg-win/10 rounded border border-win/20">
-                                       <div className="text-xs text-muted-foreground">AI: Underdog</div>
-                                       <div className="font-semibold text-win text-sm">{underdogMatch[1].trim()}</div>
-                                       <div className="text-xs text-muted-foreground">{underdogMatch[2]}</div>
-                                     </div>
-                                   )}
-                                 </div>
-                               </div>
-                             );
-                           }
-                           return null;
+// Normalize by American odds: negative = favorite
+const parseAmerican = (s: string) => {
+  const m = s.replace(/,/g, '').match(/([+-]?\d+)/);
+  return m ? parseInt(m[1], 10) : Number.NaN;
+};
+
+const favCand = favoriteMatch ? { team: favoriteMatch[1].trim(), odds: favoriteMatch[2].trim() } : null;
+const dogCand = underdogMatch ? { team: underdogMatch[1].trim(), odds: underdogMatch[2].trim() } : null;
+
+let favorite = favCand || undefined;
+let underdog = dogCand || undefined;
+
+if (favCand && dogCand) {
+  const fo = parseAmerican(favCand.odds);
+  const doo = parseAmerican(dogCand.odds);
+  if (!Number.isNaN(fo) && !Number.isNaN(doo)) {
+    if (fo <= doo) {
+      favorite = favCand;
+      underdog = dogCand;
+    } else {
+      favorite = dogCand;
+      underdog = favCand;
+    }
+  }
+}
+
+if (favorite || underdog) {
+  return (
+    <div className="space-y-3">
+      <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+        <span>AI Analysis Odds</span>
+        <Badge variant="outline" className="text-xs border-orange-500/30 text-orange-500">
+          Not Live Market
+        </Badge>
+      </div>
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        {favorite && (
+          <div className="p-2 bg-loss/10 rounded border border-loss/20">
+            <div className="text-xs text-muted-foreground">AI: Favorite</div>
+            <div className="font-semibold text-loss text-sm">{favorite.team}</div>
+            <div className="text-xs text-muted-foreground">{favorite.odds}</div>
+          </div>
+        )}
+        {underdog && (
+          <div className="p-2 bg-win/10 rounded border border-win/20">
+            <div className="text-xs text-muted-foreground">AI: Underdog</div>
+            <div className="font-semibold text-win text-sm">{underdog.team}</div>
+            <div className="text-xs text-muted-foreground">{underdog.odds}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+return null;
                          })()}
                         
                         <div 
