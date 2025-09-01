@@ -413,21 +413,56 @@ if (favorite || underdog) {
 return null;
                             })()}
                             
-                            <div 
-                              className="text-sm leading-relaxed prose-sm"
-                              dangerouslySetInnerHTML={{
-                                __html: (metrics.analysisText || "")
-                                  .replace(/\n\n/g, "<br><br>")
-                                  .replace(/\n/g, "<br>")
-                                  .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold text-foreground'>$1</strong>")
-                                  .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
-                                  .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
-                                  .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
-                                  .replace(/\"square money\"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
-                                  .replace(/\"sharp money\"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
-                                  .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
-                              }}
-                            />
+                            {(() => {
+                              // Language correction for mismatches in narrative text
+                              const originalText = metrics.analysisText || "";
+                              const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                              let correctedText = originalText;
+                              let note = '';
+
+                              if (recSide === 'Favorite' && favoriteTeam) {
+                                const team = favoriteTeam.team;
+                                const escapedTeam = escapeRegExp(team);
+                                correctedText = correctedText
+                                  .replace(new RegExp(`\\*\\*Underdog:\\*\\*\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), `**Favorite:** ${team} ($1)`) // label swap
+                                  .replace(new RegExp(`Underdog:\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), `Favorite: ${team} ($1)`) // label swap
+                                  .replace(new RegExp(`(${escapedTeam}[^\\.\\n]{0,120}?)\\bunderdog\\b`, 'gi'), `$1favorite`); // nearby wording
+                                if (correctedText !== originalText) note = `${team} is the favorite in this matchup.`;
+                              } else if (recSide === 'Underdog' && underdogTeam) {
+                                const team = underdogTeam.team;
+                                const escapedTeam = escapeRegExp(team);
+                                correctedText = correctedText
+                                  .replace(new RegExp(`\\*\\*Favorite:\\*\\*\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), `**Underdog:** ${team} ($1)`)
+                                  .replace(new RegExp(`Favorite:\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), `Underdog: ${team} ($1)`)
+                                  .replace(new RegExp(`(${escapedTeam}[^\\.\\n]{0,120}?)\\bfavorite\\b`, 'gi'), `$1underdog`);
+                                if (correctedText !== originalText) note = `${team} is the underdog in this matchup.`;
+                              }
+
+                              return (
+                                <>
+                                  {note && (
+                                    <div className="text-xs p-2 bg-primary/10 rounded border border-primary/20">
+                                      Correction: {note}
+                                    </div>
+                                  )}
+                                  <div 
+                                    className="text-sm leading-relaxed prose-sm"
+                                    dangerouslySetInnerHTML={{
+                                      __html: correctedText
+                                        .replace(/\n\n/g, "<br><br>")
+                                        .replace(/\n/g, "<br>")
+                                        .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold text-foreground'>$1</strong>")
+                                        .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
+                                        .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
+                                        .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
+                                        .replace(/\"square money\"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
+                                        .replace(/\"sharp money\"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
+                                        .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
+                                    }}
+                                  />
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                       );
@@ -500,21 +535,52 @@ if (favorite || underdog) {
 return null;
                          })()}
                         
-                        <div 
-                          className="text-sm leading-relaxed"
-                          dangerouslySetInnerHTML={{
-                            __html: analysisText
-                              .replace(/\n\n/g, "<br><br>")
-                              .replace(/\n/g, "<br>")
-                              .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold'>$1</strong>")
-                              .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
-                              .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
-                              .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
-                              .replace(/"square money"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
-                              .replace(/"sharp money"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
-                              .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
-                          }}
-                        />
+                        {(() => {
+                          // Correct mislabeling in narrative text when odds imply otherwise
+                          const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                          let correctedText = analysisText;
+
+                          const favoriteMatch2 = analysisText.match(/\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/) || analysisText.match(/Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/);
+                          const underdogMatch2 = analysisText.match(/\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/) || analysisText.match(/Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/);
+                          const parseAmerican2 = (s: string) => { const m = s.replace(/,/g, '').match(/([+-]?\d+)/); return m ? parseInt(m[1], 10) : Number.NaN; };
+                          const favCand2 = favoriteMatch2 ? { team: favoriteMatch2[1].trim(), odds: favoriteMatch2[2].trim() } : null;
+                          const dogCand2 = underdogMatch2 ? { team: underdogMatch2[1].trim(), odds: underdogMatch2[2].trim() } : null;
+
+                          if (favCand2 && dogCand2) {
+                            const fo = parseAmerican2(favCand2.odds);
+                            const doo = parseAmerican2(dogCand2.odds);
+                            if (!Number.isNaN(fo) && !Number.isNaN(doo) && fo > doo) {
+                              // Swap labels for correct display
+                              const favTeam = dogCand2.team;
+                              const dogTeam = favCand2.team;
+                              const favEsc = escapeRegExp(favTeam);
+                              const dogEsc = escapeRegExp(dogTeam);
+                              correctedText = correctedText
+                                .replace(new RegExp(`\\*\\*Favorite:\\*\\*\\s*${dogEsc}\\s*\\(([^)]+)\\)`, 'gi'), `**Favorite:** ${favTeam} ($1)`)
+                                .replace(new RegExp(`Favorite:\\s*${dogEsc}\\s*\\(([^)]+)\\)`, 'gi'), `Favorite: ${favTeam} ($1)`)
+                                .replace(new RegExp(`\\*\\*Underdog:\\*\\*\\s*${favEsc}\\s*\\(([^)]+)\\)`, 'gi'), `**Underdog:** ${dogTeam} ($1)`)
+                                .replace(new RegExp(`Underdog:\\s*${favEsc}\\s*\\(([^)]+)\\)`, 'gi'), `Underdog: ${dogTeam} ($1)`);
+                            }
+                          }
+
+                          return (
+                            <div 
+                              className="text-sm leading-relaxed"
+                              dangerouslySetInnerHTML={{
+                                __html: correctedText
+                                  .replace(/\n\n/g, "<br><br>")
+                                  .replace(/\n/g, "<br>")
+                                  .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold'>$1</strong>")
+                                  .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
+                                  .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
+                                  .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
+                                  .replace(/\"square money\"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
+                                  .replace(/\"sharp money\"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
+                                  .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
+                              }}
+                            />
+                          );
+                        })()}
                       </div>
                     );
                   }
