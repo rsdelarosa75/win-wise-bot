@@ -216,7 +216,7 @@ export const TelegramAnalyses = () => {
                       : analysis.analysis;
 
                     const metrics = {
-                      recommendation: parsed?.recommendation ?? analysis.recommendation,
+                      recommendation: parsed?.recommendation ?? parsed?.recommendation_team ?? analysis.recommendation,
                       bet_type: parsed?.bet_type ?? analysis.bet_type,
                       confidence_percentage: parsed?.confidence_percentage ?? analysis.confidence_percentage,
                       confidence_interval: parsed?.confidence_interval ?? analysis.confidence_interval,
@@ -225,25 +225,51 @@ export const TelegramAnalyses = () => {
                       units: parsed?.units ?? analysis.units,
                       key_factors: parsed?.key_factors ?? analysis.key_factors,
                       analysisText: parsed?.analysis ?? parsed?.content ?? analysis.analysis,
+                      recommendation_side: parsed?.recommendation_side,
                     };
 
-                    // Derive favorite/underdog from American odds in the analysis text
+                    // Handle both JSON structure and markdown parsing for favorite/underdog
                     const analysisTextFull = metrics.analysisText || "";
-                    const favRegexA = /\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
-                    const dogRegexA = /\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
-                    const favRegexB = /Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
-                    const dogRegexB = /Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
+                    
+                    // First try to get from JSON structure (for newer API responses)
+                    let favoriteTeam: { team: string; odds: string } | undefined;
+                    let underdogTeam: { team: string; odds: string } | undefined;
+                    
+                    if (parsed?.favorite_team && parsed?.favorite_odds) {
+                      favoriteTeam = { 
+                        team: parsed.favorite_team, 
+                        odds: parsed.favorite_odds.toString() 
+                      };
+                    }
+                    if (parsed?.underdog_team && parsed?.underdog_odds) {
+                      underdogTeam = { 
+                        team: parsed.underdog_team, 
+                        odds: parsed.underdog_odds.toString() 
+                      };
+                    }
+                    
+                    // Fallback to markdown parsing if JSON structure not available
+                    if (!favoriteTeam || !underdogTeam) {
+                      const favRegexA = /\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
+                      const dogRegexA = /\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
+                      const favRegexB = /Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
+                      const dogRegexB = /Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
 
-                    const favM = analysisTextFull.match(favRegexA) || analysisTextFull.match(favRegexB);
-                    const dogM = analysisTextFull.match(dogRegexA) || analysisTextFull.match(dogRegexB);
+                      const favM = analysisTextFull.match(favRegexA) || analysisTextFull.match(favRegexB);
+                      const dogM = analysisTextFull.match(dogRegexA) || analysisTextFull.match(dogRegexB);
+
+                      if (!favoriteTeam && favM) {
+                        favoriteTeam = { team: favM[1].trim(), odds: favM[2].trim() };
+                      }
+                      if (!underdogTeam && dogM) {
+                        underdogTeam = { team: dogM[1].trim(), odds: dogM[2].trim() };
+                      }
+                    }
 
                     const parseAmerican = (s: string) => {
                       const m = s.replace(/,/g, '').match(/([+-]?\d+)/);
                       return m ? parseInt(m[1], 10) : Number.NaN;
                     };
-
-                    let favoriteTeam: { team: string; odds: string } | undefined = favM ? { team: favM[1].trim(), odds: favM[2].trim() } : undefined;
-                    let underdogTeam: { team: string; odds: string } | undefined = dogM ? { team: dogM[1].trim(), odds: dogM[2].trim() } : undefined;
 
                     let inversionDetected = false;
                     if (favoriteTeam && underdogTeam) {
@@ -256,11 +282,12 @@ export const TelegramAnalyses = () => {
                     }
 
                     const recTeam = metrics.recommendation?.toLowerCase().trim();
-                    const recSide = recTeam
-                      ? (favoriteTeam && recTeam.includes(favoriteTeam.team.toLowerCase())) ? 'Favorite'
-                        : (underdogTeam && recTeam.includes(underdogTeam.team.toLowerCase())) ? 'Underdog'
-                        : undefined
-                      : undefined;
+                    const recSide = metrics.recommendation_side || 
+                      (recTeam
+                        ? (favoriteTeam && recTeam.includes(favoriteTeam.team.toLowerCase())) ? 'Favorite'
+                          : (underdogTeam && recTeam.includes(underdogTeam.team.toLowerCase())) ? 'Underdog'
+                          : undefined
+                        : undefined);
 
                     if (parsed && typeof parsed === 'object') {
                       return (
