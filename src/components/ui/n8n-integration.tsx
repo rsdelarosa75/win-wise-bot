@@ -92,12 +92,13 @@ export const N8nIntegration = () => {
       const formattedTeams = formatTeamsForN8n(specificTeams);
       
       const payload = {
+        sport: selectedSports[0] || "College Football",
         sports: selectedSports,
         teams: formattedTeams,
         text: formattedTeams, // Also send as 'text' for your current regex
         persona,
-        
         targetDate: selectedDate ? format(selectedDate, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
+        test: true // Add test flag for mock data
       };
 
       console.log("Sending payload to n8n:", payload);

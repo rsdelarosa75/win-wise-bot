@@ -62,17 +62,44 @@
             },
             {
               "name": "apiKey",
-              "value": "YOUR_API_KEY_HERE"
+              "value": "={{ $json.test ? 'demo_key' : 'YOUR_REAL_ODDS_API_KEY_HERE' }}"
             }
           ]
         },
-        "options": {}
+        "options": {
+          "ignore_ssl_issues": false,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "autodetect"
+            }
+          }
+        }
       },
       "id": "get-odds",
       "name": "Get NCAAF Odds", 
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "mock-odds-id",
+              "name": "mock_odds_data",
+              "value": "={{ $json.test ? [\n  {\n    \"id\": \"mock_game_1\",\n    \"sport_key\": \"americanfootball_ncaaf\",\n    \"commence_time\": \"2025-09-07T17:00:00Z\",\n    \"home_team\": $('Parse Teams').item.json.home_team,\n    \"away_team\": $('Parse Teams').item.json.away_team,\n    \"bookmakers\": [\n      {\n        \"key\": \"fanduel\",\n        \"title\": \"FanDuel\",\n        \"markets\": [\n          {\n            \"key\": \"h2h\",\n            \"outcomes\": [\n              {\n                \"name\": $('Parse Teams').item.json.away_team,\n                \"price\": 650\n              },\n              {\n                \"name\": $('Parse Teams').item.json.home_team,\n                \"price\": -900\n              }\n            ]\n          }\n        ]\n      },\n      {\n        \"key\": \"draftkings\",\n        \"title\": \"DraftKings\",\n        \"markets\": [\n          {\n            \"key\": \"h2h\",\n            \"outcomes\": [\n              {\n                \"name\": $('Parse Teams').item.json.away_team,\n                \"price\": 675\n              },\n              {\n                \"name\": $('Parse Teams').item.json.home_team,\n                \"price\": -1050\n              }\n            ]\n          }\n        ]\n      }\n    ]\n  }\n] : $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "handle-odds-fallback",
+      "name": "Handle Odds Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [740, 300]
     },
     {
       "parameters": {
@@ -119,7 +146,7 @@
         "messages": {
           "values": [
             {
-              "content": "You are a professional sports betting analyst.\n\nAnalyze this College Football game: {{ $('Parse Teams').item.json.away_team }} (away) vs {{ $('Parse Teams').item.json.home_team }} (home)\n\nOdds Data:\n{{ JSON.stringify($json.bookmakers || $json) }}\n\nProvide analysis in this JSON format:\n{\n  \"away_team\": \"{{ $('Parse Teams').item.json.away_team }}\",\n  \"home_team\": \"{{ $('Parse Teams').item.json.home_team }}\",\n  \"favorite\": \"<team_name>\",\n  \"underdog\": \"<team_name>\", \n  \"away_odds_avg\": \"<average_odds>\",\n  \"home_odds_avg\": \"<average_odds>\",\n  \"recommendation\": \"<detailed_betting_recommendation>\",\n  \"confidence\": \"<high|medium|low>\",\n  \"reasoning\": \"<analysis_reasoning>\"\n}"
+              "content": "You are a professional sports betting analyst.\n\nAnalyze this College Football game: {{ $('Parse Teams').item.json.away_team }} (away) vs {{ $('Parse Teams').item.json.home_team }} (home)\n\nOdds Data Available: {{ $json.mock_odds_data ? 'Yes (Mock Data for Testing)' : 'Yes (Live Data)' }}\nOdds Details:\n{{ JSON.stringify($json.mock_odds_data || $json.bookmakers || $json) }}\n\nProvide analysis in this JSON format:\n{\n  \"favorite_team\": \"<team_name>\",\n  \"favorite_odds\": <numeric_odds>,\n  \"underdog_team\": \"<team_name>\", \n  \"underdog_odds\": <numeric_odds>,\n  \"recommendation_team\": \"<team_to_bet_on>\",\n  \"recommendation_side\": \"<Favorite|Underdog>\",\n  \"confidence\": \"<High|Medium|Low>\",\n  \"reasoning\": \"<brief_analysis_reasoning>\"\n}"
             }
           ]
         },
@@ -129,7 +156,7 @@
       "name": "AI Analysis",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1.8,
-      "position": [1040, 300],
+      "position": [1140, 300],
       "credentials": {
         "openAiApi": {
           "id": "YOUR_OPENAI_CRED_ID",
@@ -147,7 +174,7 @@
       "name": "Return Results",
       "type": "n8n-nodes-base.respondToWebhook", 
       "typeVersion": 1.1,
-      "position": [1240, 300]
+      "position": [1340, 300]
     }
   ],
   "connections": {
@@ -174,6 +201,17 @@
       ]
     },
     "Get NCAAF Odds": {
+      "main": [
+        [
+          {
+            "node": "Handle Odds Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Odds Data": {
       "main": [
         [
           {
