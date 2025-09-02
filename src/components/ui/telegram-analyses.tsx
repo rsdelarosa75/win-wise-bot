@@ -129,30 +129,32 @@ export const TelegramAnalyses = () => {
   };
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20">
+    <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20 shadow-card-hover">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-accent" />
+          <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center shadow-sm">
+            <MessageSquare className="w-6 h-6 text-accent" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold">Recent Workflow Analyses</h3>
+            <h3 className="text-2xl font-bold">AI Workflow Analyses</h3>
             <p className="text-sm text-muted-foreground">
-              Latest results from your n8n webhook workflows
+              Live betting insights from your automated workflows
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="border-accent/30 text-accent">
-            {analyses.length} Recent
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="border-accent/30 text-accent px-3 py-1">
+            {analyses.length} Active
           </Badge>
           <Button 
-            variant="ghost" 
+            variant="outline" 
             size="sm" 
             onClick={handleRefresh}
             disabled={isRefreshing}
+            className="border-primary/30 hover:bg-primary/10"
           >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
           </Button>
         </div>
       </div>
@@ -162,52 +164,56 @@ export const TelegramAnalyses = () => {
           {analyses.map((analysis) => (
             <div 
               key={analysis.id}
-              className="p-4 bg-secondary/30 rounded-lg border border-border/50 hover:bg-secondary/40 transition-colors"
+              className="p-5 bg-gradient-to-br from-secondary/20 to-secondary/10 rounded-xl border border-border/30 hover:border-primary/30 hover:shadow-lg transition-all duration-300"
             >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="secondary" className="text-xs px-2 py-1">
                     {analysis.command}
                   </Badge>
                   <Badge 
                     variant="outline" 
-                    className={`text-xs ${getPersonaColor(analysis.persona)}`}
+                    className={`text-xs px-2 py-1 ${getPersonaColor(analysis.persona)}`}
                   >
                     {analysis.persona}
                   </Badge>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground bg-background/50 px-2 py-1 rounded">
                     <Clock className="w-3 h-3" />
                     {formatTimeAgo(analysis.timestamp)}
                   </div>
                 </div>
                 <Badge 
                   variant="outline"
-                  className={`text-xs
-                    ${analysis.status === 'win' ? 'border-win/30 text-win' : ''}
-                    ${analysis.status === 'neutral' ? 'border-neutral/30 text-neutral' : ''}
-                    ${analysis.status === 'loss' ? 'border-loss/30 text-loss' : ''}
+                  className={`text-sm px-3 py-1 font-semibold
+                    ${analysis.confidence === 'High' ? 'border-win/40 text-win bg-win/5' : ''}
+                    ${analysis.confidence === 'Medium' ? 'border-neutral/40 text-neutral bg-neutral/5' : ''}
+                    ${analysis.confidence === 'Low' ? 'border-loss/40 text-loss bg-loss/5' : ''}
                   `}
                 >
-                  {analysis.confidence}
+                  {analysis.confidence} Confidence
                 </Badge>
               </div>
 
-              <div className="mb-3">
-                <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
+              <div className="mb-4">
+                <h4 className="font-bold text-lg mb-2 flex items-center gap-3 text-foreground">
+                  <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 text-primary" />
+                  </div>
                   {analysis.teams}
-                  {analysis.odds && (
-                    <span className="text-muted-foreground">• {analysis.odds}</span>
-                  )}
                   {analysis.sport && (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="secondary" className="text-xs px-2 py-1">
                       {analysis.sport}
                     </Badge>
                   )}
                 </h4>
+                {analysis.odds && (
+                  <div className="text-sm text-muted-foreground bg-background/50 px-3 py-1 rounded-lg inline-block">
+                    <strong>Current Odds:</strong> {analysis.odds}
+                  </div>
+                )}
               </div>
 
-              <div className="bg-background/50 rounded p-3">
+              <div className="bg-background/70 rounded-xl p-4 border border-border/20">
                 {(() => {
                   try {
                     // Try to parse as JSON first
