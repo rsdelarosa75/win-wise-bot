@@ -7,11 +7,66 @@ import { GameWeather } from "@/components/ui/game-weather";
 import { MultiSportWebhooks } from "@/components/ui/multi-sport-webhooks";
 import { useOddsApi } from "@/hooks/use-odds-api";
 import { TrendingUp, TrendingDown, Activity, DollarSign } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+interface TelegramAnalysis {
+  id: string;
+  timestamp: string;
+  command: string;
+  teams: string;
+  persona: string;
+  analysis: string;
+  confidence: string;
+  status: string;
+  odds: string;
+  sport?: string;
+  recommendation?: string;
+  bet_type?: string;
+  confidence_percentage?: number;
+  units?: number;
+  key_factors?: string[];
+}
 
 export const DashboardPreview = () => {
   const { apiKey, saveApiKey, removeApiKey, hasApiKey, games } = useOddsApi();
   const [activePersona, setActivePersona] = useState("Money Making Mitch");
+  const [analyses, setAnalyses] = useState<TelegramAnalysis[]>([]);
+  
+  useEffect(() => {
+    const loadAnalyses = () => {
+      try {
+        const stored = localStorage.getItem('telegram-analyses');
+        if (stored) {
+          setAnalyses(JSON.parse(stored));
+        }
+      } catch (error) {
+        console.error('Failed to load analyses:', error);
+      }
+    };
+
+    loadAnalyses();
+    
+    // Listen for updates
+    const handleAnalysisUpdate = () => loadAnalyses();
+    window.addEventListener('webhookAnalysisAdded', handleAnalysisUpdate);
+    
+    return () => {
+      window.removeEventListener('webhookAnalysisAdded', handleAnalysisUpdate);
+    };
+  }, []);
+
+  // Calculate real metrics from analyses
+  const metrics = {
+    highConfidence: analyses.filter(a => a.confidence === 'High').length,
+    mediumRisk: analyses.filter(a => a.confidence === 'Medium').length,
+    avoid: analyses.filter(a => a.confidence === 'Low' || a.status === 'loss').length,
+    potentialValue: analyses.reduce((total, analysis) => {
+      // Extract estimated value from analysis or calculate based on units
+      const units = analysis.units || 1;
+      const baseValue = units * 100; // $100 per unit
+      return total + baseValue;
+    }, 0)
+  };
   return (
     <section className="py-20 bg-background">
       <div className="container mx-auto px-6">
@@ -40,7 +95,7 @@ export const DashboardPreview = () => {
                   <div className="w-12 h-12 bg-win/10 rounded-lg flex items-center justify-center mx-auto">
                     <TrendingUp className="w-6 h-6 text-win" />
                   </div>
-                  <div className="text-2xl font-bold text-win">8</div>
+                  <div className="text-2xl font-bold text-win">{metrics.highConfidence}</div>
                   <div className="text-sm text-muted-foreground">High Confidence</div>
                 </div>
                 
@@ -48,7 +103,7 @@ export const DashboardPreview = () => {
                   <div className="w-12 h-12 bg-neutral/10 rounded-lg flex items-center justify-center mx-auto">
                     <Activity className="w-6 h-6 text-neutral" />
                   </div>
-                  <div className="text-2xl font-bold text-neutral">15</div>
+                  <div className="text-2xl font-bold text-neutral">{metrics.mediumRisk}</div>
                   <div className="text-sm text-muted-foreground">Medium Risk</div>
                 </div>
                 
@@ -56,7 +111,7 @@ export const DashboardPreview = () => {
                   <div className="w-12 h-12 bg-loss/10 rounded-lg flex items-center justify-center mx-auto">
                     <TrendingDown className="w-6 h-6 text-loss" />
                   </div>
-                  <div className="text-2xl font-bold text-loss">3</div>
+                  <div className="text-2xl font-bold text-loss">{metrics.avoid}</div>
                   <div className="text-sm text-muted-foreground">Avoid</div>
                 </div>
                 
@@ -64,7 +119,11 @@ export const DashboardPreview = () => {
                   <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto">
                     <DollarSign className="w-6 h-6 text-primary" />
                   </div>
-                  <div className="text-2xl font-bold text-primary">$2.4K</div>
+                  <div className="text-2xl font-bold text-primary">
+                    ${metrics.potentialValue >= 1000 
+                      ? `${(metrics.potentialValue / 1000).toFixed(1)}K` 
+                      : metrics.potentialValue}
+                  </div>
                   <div className="text-sm text-muted-foreground">Potential Value</div>
                 </div>
               </div>
