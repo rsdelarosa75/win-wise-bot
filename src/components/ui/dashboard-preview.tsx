@@ -35,7 +35,7 @@ export const DashboardPreview = () => {
   useEffect(() => {
     const loadAnalyses = () => {
       try {
-        const stored = localStorage.getItem('telegram-analyses');
+        const stored = localStorage.getItem('webhook_analyses');
         if (stored) {
           setAnalyses(JSON.parse(stored));
         }
