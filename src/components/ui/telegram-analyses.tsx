@@ -3,7 +3,9 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
 import { MessageSquare, Clock, TrendingUp, RefreshCw } from 'lucide-react';
+import { testAddAnalysis } from '@/utils/webhook-handler';
 
 interface TelegramAnalysis {
   id: string;
@@ -51,6 +53,8 @@ export const TelegramAnalyses = () => {
     return webhookAnalyses.length > 0 ? webhookAnalyses : mockData;
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showImporter, setShowImporter] = useState(false);
+  const [jsonInput, setJsonInput] = useState('');
 
   // Listen for new webhook analyses
   useEffect(() => {
@@ -148,6 +152,14 @@ export const TelegramAnalyses = () => {
           </Badge>
           <Button 
             variant="outline" 
+            size="sm"
+            onClick={() => setShowImporter((v) => !v)}
+            className="border-accent/30 hover:bg-accent/10"
+          >
+            Import JSON
+          </Button>
+          <Button 
+            variant="outline" 
             size="sm" 
             onClick={handleRefresh}
             disabled={isRefreshing}
@@ -158,6 +170,23 @@ export const TelegramAnalyses = () => {
           </Button>
         </div>
       </div>
+
+      {showImporter && (
+        <div className="mb-4 rounded-lg border border-border/30 p-3 bg-background/60">
+          <div className="text-sm mb-2 text-muted-foreground">Paste n8n JSON analysis</div>
+          <Textarea
+            value={jsonInput}
+            onChange={(e) => setJsonInput(e.target.value)}
+            placeholder='{"favorite_team":"..."}'
+            className="mb-2"
+            rows={6}
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => { const ok = testAddAnalysis(jsonInput); if (ok) { setJsonInput(''); setShowImporter(false); } }}>Add</Button>
+            <Button size="sm" variant="outline" onClick={() => setShowImporter(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
 
       <ScrollArea className="h-[400px]">
         <div className="space-y-4">
