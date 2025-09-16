@@ -121,6 +121,23 @@ export const TelegramAnalyses = () => {
     return time.toLocaleDateString();
   };
 
+  const formatOddsAsWholeNumber = (odds: any): string => {
+    if (typeof odds === 'string') {
+      const match = odds.match(/([+-]?\d+(?:\.\d+)?)/);
+      if (match) {
+        const numericValue = parseFloat(match[1]);
+        if (!isNaN(numericValue)) {
+          return odds.replace(match[1], Math.round(numericValue).toString());
+        }
+      }
+      return odds;
+    }
+    if (typeof odds === 'number') {
+      return Math.round(odds).toString();
+    }
+    return odds?.toString() || '';
+  };
+
   const getPersonaColor = (persona: string) => {
     switch (persona.toLowerCase()) {
       case 'sharp bettor': return 'border-win/30 text-win';
@@ -273,13 +290,13 @@ export const TelegramAnalyses = () => {
                     if (parsed?.favorite_team && parsed?.favorite_odds) {
                       favoriteTeam = { 
                         team: parsed.favorite_team, 
-                        odds: parsed.favorite_odds.toString() 
+                        odds: formatOddsAsWholeNumber(parsed.favorite_odds)
                       };
                     }
                     if (parsed?.underdog_team && parsed?.underdog_odds) {
                       underdogTeam = { 
                         team: parsed.underdog_team, 
-                        odds: parsed.underdog_odds.toString() 
+                        odds: formatOddsAsWholeNumber(parsed.underdog_odds)
                       };
                     }
                     
@@ -294,10 +311,10 @@ export const TelegramAnalyses = () => {
                       const dogM = analysisTextFull.match(dogRegexA) || analysisTextFull.match(dogRegexB);
 
                       if (!favoriteTeam && favM) {
-                        favoriteTeam = { team: favM[1].trim(), odds: favM[2].trim() };
+                        favoriteTeam = { team: favM[1].trim(), odds: formatOddsAsWholeNumber(favM[2].trim()) };
                       }
                       if (!underdogTeam && dogM) {
-                        underdogTeam = { team: dogM[1].trim(), odds: dogM[2].trim() };
+                        underdogTeam = { team: dogM[1].trim(), odds: formatOddsAsWholeNumber(dogM[2].trim()) };
                       }
                     }
 
@@ -364,10 +381,10 @@ export const TelegramAnalyses = () => {
                                       )}
                                     </div>
                                     {(metrics.bet_type || recSide) && (
-                                      <div className="text-xs text-muted-foreground capitalize">
+                                       <div className="text-xs text-muted-foreground capitalize">
                                         {metrics.bet_type}
-                                        {recSide === 'Favorite' && favoriteTeam ? ` • ${favoriteTeam.odds}` : ''}
-                                        {recSide === 'Underdog' && underdogTeam ? ` • ${underdogTeam.odds}` : ''}
+                                        {recSide === 'Favorite' && favoriteTeam ? ` • ${formatOddsAsWholeNumber(favoriteTeam.odds)}` : ''}
+                                        {recSide === 'Underdog' && underdogTeam ? ` • ${formatOddsAsWholeNumber(underdogTeam.odds)}` : ''}
                                       </div>
                                     )}
                                   </div>
@@ -458,14 +475,14 @@ if (favorite || underdog) {
           <div className="p-2 bg-loss/10 rounded border border-loss/20">
             <div className="text-xs text-muted-foreground">AI: Favorite</div>
             <div className="font-semibold text-loss text-sm">{favorite.team}</div>
-            <div className="text-xs text-muted-foreground">{favorite.odds}</div>
+            <div className="text-xs text-muted-foreground">{formatOddsAsWholeNumber(favorite.odds)}</div>
           </div>
         )}
         {underdog && (
           <div className="p-2 bg-win/10 rounded border border-win/20">
             <div className="text-xs text-muted-foreground">AI: Underdog</div>
             <div className="font-semibold text-win text-sm">{underdog.team}</div>
-            <div className="text-xs text-muted-foreground">{underdog.odds}</div>
+            <div className="text-xs text-muted-foreground">{formatOddsAsWholeNumber(underdog.odds)}</div>
           </div>
         )}
       </div>
@@ -584,14 +601,14 @@ if (favorite || underdog) {
           <div className="p-2 bg-loss/10 rounded border border-loss/20">
             <div className="text-xs text-muted-foreground">AI: Favorite</div>
             <div className="font-semibold text-loss text-sm">{favorite.team}</div>
-            <div className="text-xs text-muted-foreground">{favorite.odds}</div>
+            <div className="text-xs text-muted-foreground">{formatOddsAsWholeNumber(favorite.odds)}</div>
           </div>
         )}
         {underdog && (
           <div className="p-2 bg-win/10 rounded border border-win/20">
             <div className="text-xs text-muted-foreground">AI: Underdog</div>
             <div className="font-semibold text-win text-sm">{underdog.team}</div>
-            <div className="text-xs text-muted-foreground">{underdog.odds}</div>
+            <div className="text-xs text-muted-foreground">{formatOddsAsWholeNumber(underdog.odds)}</div>
           </div>
         )}
       </div>
