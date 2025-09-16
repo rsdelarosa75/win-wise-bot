@@ -54,7 +54,7 @@
             },
             {
               "name": "markets",
-              "value": "h2h"
+              "value": "h2h,spreads"
             },
             {
               "name": "oddsFormat", 
