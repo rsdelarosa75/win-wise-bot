@@ -406,6 +406,31 @@ export const TelegramAnalyses = () => {
                             </div>
                           )}
 
+                          {/* Spread (from AI JSON) */}
+                          {(() => {
+                            const favSpread = parsed?.favorite_spread ?? parsed?.spread_favorite;
+                            const dogSpread = parsed?.underdog_spread ?? parsed?.spread_underdog;
+                            const favTeamName = favoriteTeam?.team || parsed?.favorite_team;
+                            const dogTeamName = underdogTeam?.team || parsed?.underdog_team;
+                            if (!favSpread && !dogSpread) return null;
+                            return (
+                              <div className="grid grid-cols-2 gap-2 mb-4">
+                                {favSpread && (
+                                  <div className="text-center p-2 bg-secondary/20 rounded border border-border/30">
+                                    <div className="text-xs text-muted-foreground">Favorite Spread</div>
+                                    <div className="font-semibold text-foreground text-sm">{favTeamName || 'Favorite'} {String(favSpread)}</div>
+                                  </div>
+                                )}
+                                {dogSpread && (
+                                  <div className="text-center p-2 bg-secondary/20 rounded border border-border/30">
+                                    <div className="text-xs text-muted-foreground">Underdog Spread</div>
+                                    <div className="font-semibold text-foreground text-sm">{dogTeamName || 'Underdog'} {String(dogSpread)}</div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+
                           {/* Key Factors */}
                           {metrics.key_factors && metrics.key_factors.length > 0 && (
                             <div className="mb-3">

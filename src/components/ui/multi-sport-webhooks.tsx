@@ -151,7 +151,7 @@ export const MultiSportWebhooks = () => {
                command: '/webhook',
                teams: actualData.teams || `${sport} Analysis`,
                persona: actualData.persona || 'analytical',
-               analysis: actualData.analysis || JSON.stringify(actualData),
+               analysis: JSON.stringify(actualData),
                confidence: actualData.confidence || 'High',
                status: 'win',
                odds: actualData.recommendation || 'Live Analysis',
