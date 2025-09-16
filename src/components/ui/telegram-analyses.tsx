@@ -330,24 +330,24 @@ export const TelegramAnalyses = () => {
                           {/* Enhanced Analysis with Confidence Metrics */}
                           {(metrics.confidence_percentage || metrics.confidence_interval || metrics.expected_value) && (
                             <div className="grid grid-cols-3 gap-2 mb-4">
-                              {metrics.confidence_percentage && (
-                                <div className="text-center p-2 bg-win/10 rounded border border-win/20">
-                                  <div className="text-xs text-muted-foreground">Win Probability</div>
-                                  <div className="font-semibold text-win text-sm">{metrics.confidence_percentage}%</div>
-                                </div>
-                              )}
-                              {metrics.confidence_interval && (
-                                <div className="text-center p-2 bg-neutral/10 rounded border border-neutral/20">
-                                  <div className="text-xs text-muted-foreground">95% CI</div>
-                                  <div className="font-semibold text-neutral text-sm">{metrics.confidence_interval}</div>
-                                </div>
-                              )}
-                              {metrics.expected_value && (
-                                <div className="text-center p-2 bg-primary/10 rounded border border-primary/20">
-                                  <div className="text-xs text-muted-foreground">Expected Value</div>
-                                  <div className="font-semibold text-primary text-sm">{metrics.expected_value}</div>
-                                </div>
-                              )}
+                               {metrics.confidence_percentage && (
+                                 <div className="text-center p-2 bg-win/10 rounded border border-win/20">
+                                   <div className="text-xs text-muted-foreground">Win Probability</div>
+                                   <div className="font-semibold text-win text-sm">{Math.round(parseFloat(metrics.confidence_percentage))}%</div>
+                                 </div>
+                               )}
+                               {metrics.confidence_interval && (
+                                 <div className="text-center p-2 bg-neutral/10 rounded border border-neutral/20">
+                                   <div className="text-xs text-muted-foreground">95% CI</div>
+                                   <div className="font-semibold text-neutral text-sm">{metrics.confidence_interval}</div>
+                                 </div>
+                               )}
+                               {metrics.expected_value && (
+                                 <div className="text-center p-2 bg-primary/10 rounded border border-primary/20">
+                                   <div className="text-xs text-muted-foreground">Expected Value</div>
+                                   <div className="font-semibold text-primary text-sm">{isNaN(parseFloat(metrics.expected_value)) ? metrics.expected_value : Math.round(parseFloat(metrics.expected_value))}</div>
+                                 </div>
+                               )}
                             </div>
                           )}
 
@@ -379,13 +379,13 @@ export const TelegramAnalyses = () => {
                                   <div className="text-xs text-muted-foreground">Recommended</div>
                                 </div>
                               )}
-                              {metrics.kelly_criterion && (
-                                <div className="text-center p-2 bg-secondary/20 rounded border border-border/30">
-                                  <div className="text-xs text-muted-foreground">Kelly %</div>
-                                  <div className="font-semibold text-foreground text-sm">{metrics.kelly_criterion}%</div>
-                                  <div className="text-xs text-muted-foreground">Optimal Size</div>
-                                </div>
-                              )}
+                               {metrics.kelly_criterion && (
+                                 <div className="text-center p-2 bg-secondary/20 rounded border border-border/30">
+                                   <div className="text-xs text-muted-foreground">Kelly %</div>
+                                   <div className="font-semibold text-foreground text-sm">{Math.round(parseFloat(metrics.kelly_criterion))}%</div>
+                                   <div className="text-xs text-muted-foreground">Optimal Size</div>
+                                 </div>
+                               )}
                             </div>
                           )}
 
