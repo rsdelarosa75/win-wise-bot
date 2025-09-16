@@ -31,7 +31,7 @@ interface WeatherData {
 
 export function WeatherImpact() {
   const [apiKey, setApiKey] = useState(() => 
-    localStorage.getItem('weather_api_key') || ''
+    localStorage.getItem('weather_api_key') || 'd38783baec584d36ab062031253108'
   );
   const [weatherData, setWeatherData] = useState<WeatherData[]>([]);
   const [loading, setLoading] = useState(false);

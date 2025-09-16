@@ -108,7 +108,7 @@ export const GameWeather = ({ games }: GameWeatherProps) => {
         return;
       }
       
-      const apiKey = localStorage.getItem('weather_api_key');
+      const apiKey = localStorage.getItem('weather_api_key') || 'd38783baec584d36ab062031253108';
       
       if (!apiKey) {
         // Use mock data if no API key
