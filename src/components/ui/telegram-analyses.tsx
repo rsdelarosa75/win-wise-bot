@@ -528,8 +528,8 @@ return null;
                                 const team = favoriteTeam.team;
                                 const escapedTeam = escapeRegExp(team);
                                 correctedText = correctedText
-                                  .replace(new RegExp(`\\*\\*Underdog:\\*\\*\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), `**Favorite:** ${team} ($1)`) // label swap
-                                  .replace(new RegExp(`Underdog:\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), `Favorite: ${team} ($1)`) // label swap
+                                  .replace(new RegExp(`\\*\\*Underdog:\\*\\*\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `**Favorite:** ${team} (${formatOddsAsWholeNumber(odds)})`) // label swap
+                                  .replace(new RegExp(`Underdog:\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `Favorite: ${team} (${formatOddsAsWholeNumber(odds)})`) // label swap
                                   .replace(new RegExp(`(${escapedTeam}[^\\.\\n]{0,120}?)\\bunderdog\\b`, 'gi'), `$1favorite`) // nearby wording
                                   // Upset/narrative cleanup when the pick is the favorite
                                   .replace(/\b(pull(?:s|ing)?\s+off\s+the\s+upset|pulls?\s+the\s+upset|pull(?:s|ing)?\s+an\s+upset)\b/gi, 'secure the win')
@@ -540,8 +540,8 @@ return null;
                                 const team = underdogTeam.team;
                                 const escapedTeam = escapeRegExp(team);
                                 correctedText = correctedText
-                                  .replace(new RegExp(`\\*\\*Favorite:\\*\\*\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), `**Underdog:** ${team} ($1)`)
-                                  .replace(new RegExp(`Favorite:\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), `Underdog: ${team} ($1)`)
+                                  .replace(new RegExp(`\\*\\*Favorite:\\*\\*\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `**Underdog:** ${team} (${formatOddsAsWholeNumber(odds)})`)
+                                  .replace(new RegExp(`Favorite:\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `Underdog: ${team} (${formatOddsAsWholeNumber(odds)})`)
                                   .replace(new RegExp(`(${escapedTeam}[^\\.\\n]{0,120}?)\\bfavorite\\b`, 'gi'), `$1underdog`);
                                 if (correctedText !== originalText) note = `${team} is the underdog in this matchup.`;
                               }
@@ -664,10 +664,10 @@ return null;
                               const favEsc = escapeRegExp(favTeam);
                               const dogEsc = escapeRegExp(dogTeam);
                               correctedText = correctedText
-                                .replace(new RegExp(`\\*\\*Favorite:\\*\\*\\s*${dogEsc}\\s*\\(([^)]+)\\)`, 'gi'), `**Favorite:** ${favTeam} ($1)`)
-                                .replace(new RegExp(`Favorite:\\s*${dogEsc}\\s*\\(([^)]+)\\)`, 'gi'), `Favorite: ${favTeam} ($1)`)
-                                .replace(new RegExp(`\\*\\*Underdog:\\*\\*\\s*${favEsc}\\s*\\(([^)]+)\\)`, 'gi'), `**Underdog:** ${dogTeam} ($1)`)
-                                .replace(new RegExp(`Underdog:\\s*${favEsc}\\s*\\(([^)]+)\\)`, 'gi'), `Underdog: ${dogTeam} ($1)`);
+                                .replace(new RegExp(`\\*\\*Favorite:\\*\\*\\s*${dogEsc}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `**Favorite:** ${favTeam} (${formatOddsAsWholeNumber(odds)})`)
+                                .replace(new RegExp(`Favorite:\\s*${dogEsc}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `Favorite: ${favTeam} (${formatOddsAsWholeNumber(odds)})`)
+                                .replace(new RegExp(`\\*\\*Underdog:\\*\\*\\s*${favEsc}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `**Underdog:** ${dogTeam} (${formatOddsAsWholeNumber(odds)})`)
+                                .replace(new RegExp(`Underdog:\\s*${favEsc}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `Underdog: ${dogTeam} (${formatOddsAsWholeNumber(odds)})`);
                             }
                           }
 
