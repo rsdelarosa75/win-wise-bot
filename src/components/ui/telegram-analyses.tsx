@@ -254,7 +254,7 @@ export const TelegramAnalyses = () => {
                 </h4>
                 {analysis.odds && (
                   <div className="text-sm text-muted-foreground bg-background/50 px-3 py-1 rounded-lg inline-block">
-                    <strong>Current Odds:</strong> {analysis.odds}
+                    <strong>Current Odds:</strong> {formatOddsAsWholeNumber(analysis.odds)}
                   </div>
                 )}
               </div>
