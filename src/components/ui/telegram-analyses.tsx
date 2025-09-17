@@ -553,21 +553,31 @@ return null;
                                       Correction: {note}
                                     </div>
                                   )}
-                                  <div 
-                                    className="text-sm leading-relaxed prose-sm"
-                                    dangerouslySetInnerHTML={{
-                                      __html: correctedText
-                                        .replace(/\n\n/g, "<br><br>")
-                                        .replace(/\n/g, "<br>")
-                                        .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold text-foreground'>$1</strong>")
-                                        .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
-                                        .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
-                                        .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
-                                        .replace(/\"square money\"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
-                                        .replace(/\"sharp money\"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
-                                        .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
-                                    }}
-                                  />
+                                  {(() => {
+                                    // Ensure odds in Value Assessment lines show as whole numbers
+                                    const roundedText = (correctedText || "")
+                                      .replace(/\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `**Favorite:** ${team} (${formatOddsAsWholeNumber(odds)})`)
+                                      .replace(/Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `Favorite: ${team} (${formatOddsAsWholeNumber(odds)})`)
+                                      .replace(/\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `**Underdog:** ${team} (${formatOddsAsWholeNumber(odds)})`)
+                                      .replace(/Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `Underdog: ${team} (${formatOddsAsWholeNumber(odds)})`);
+                                    return (
+                                      <div 
+                                        className="text-sm leading-relaxed prose-sm"
+                                        dangerouslySetInnerHTML={{
+                                          __html: roundedText
+                                            .replace(/\n\n/g, "<br><br>")
+                                            .replace(/\n/g, "<br>")
+                                            .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold text-foreground'>$1</strong>")
+                                            .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
+                                            .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
+                                            .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
+                                            .replace(/\"square money\"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
+                                            .replace(/\"sharp money\"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
+                                            .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
+                                        }}
+                                      />
+                                    );
+                                  })()}
                                 </>
                               );
                             })()}
@@ -671,23 +681,34 @@ return null;
                             }
                           }
 
-                          return (
-                            <div 
-                              className="text-sm leading-relaxed"
-                              dangerouslySetInnerHTML={{
-                                __html: correctedText
-                                  .replace(/\n\n/g, "<br><br>")
-                                  .replace(/\n/g, "<br>")
-                                  .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold'>$1</strong>")
-                                  .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
-                                  .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
-                                  .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
-                                  .replace(/\"square money\"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
-                                  .replace(/\"sharp money\"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
-                                  .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
-                              }}
-                            />
-                          );
+                           return (
+                             <>
+                               {(() => {
+                                 const roundedText = (correctedText || "")
+                                   .replace(/\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `**Favorite:** ${team} (${formatOddsAsWholeNumber(odds)})`)
+                                   .replace(/Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `Favorite: ${team} (${formatOddsAsWholeNumber(odds)})`)
+                                   .replace(/\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `**Underdog:** ${team} (${formatOddsAsWholeNumber(odds)})`)
+                                   .replace(/Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `Underdog: ${team} (${formatOddsAsWholeNumber(odds)})`);
+                                 return (
+                                   <div 
+                                     className="text-sm leading-relaxed"
+                                     dangerouslySetInnerHTML={{
+                                       __html: roundedText
+                                         .replace(/\n\n/g, "<br><br>")
+                                         .replace(/\n/g, "<br>")
+                                         .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold'>$1</strong>")
+                                         .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
+                                         .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
+                                         .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
+                                         .replace(/\"square money\"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
+                                         .replace(/\"sharp money\"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
+                                         .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
+                                     }}
+                                   />
+                                 );
+                               })()}
+                             </>
+                           );
                         })()}
                       </div>
                     );
