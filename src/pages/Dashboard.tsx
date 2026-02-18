@@ -1,7 +1,11 @@
 import { DashboardPreview } from "@/components/ui/dashboard-preview";
 import { MultiSportWebhooks } from "@/components/ui/multi-sport-webhooks";
 
-const Dashboard = () => {
+interface DashboardProps {
+  onUpgradeClick: () => void;
+}
+
+const Dashboard = ({ onUpgradeClick }: DashboardProps) => {
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -16,7 +20,7 @@ const Dashboard = () => {
         <p className="text-base text-foreground mt-2">Bobby's got picks ready for you</p>
       </div>
 
-      <DashboardPreview />
+      <DashboardPreview onUpgradeClick={onUpgradeClick} />
       <MultiSportWebhooks />
     </div>
   );

@@ -27,7 +27,11 @@ interface TelegramAnalysis {
   key_factors?: string[];
 }
 
-export const DashboardPreview = () => {
+interface DashboardPreviewProps {
+  onUpgradeClick: () => void;
+}
+
+export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
   const { apiKey, saveApiKey, removeApiKey, hasApiKey, games } = useOddsApi();
   const [activePersona, setActivePersona] = useState("Money Making Mitch");
   const [analyses, setAnalyses] = useState<TelegramAnalysis[]>([]);
@@ -150,7 +154,7 @@ export const DashboardPreview = () => {
           {/* News & Insights */}
           <div className="space-y-6">
             {/* Telegram Analyses */}
-            <TelegramAnalyses />
+            <TelegramAnalyses onUpgradeClick={onUpgradeClick} />
             
             {/* Game Weather */}
             <GameWeather games={games} />

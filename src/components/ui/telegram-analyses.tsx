@@ -9,6 +9,7 @@ import { testAddAnalysis } from '@/utils/webhook-handler';
 import { usePicks } from '@/hooks/use-picks';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
+import { VipGate } from '@/components/ui/vip-gate';
 
 interface TelegramAnalysis {
   id: string;
@@ -32,7 +33,11 @@ interface TelegramAnalysis {
   key_factors?: string[];
 }
 
-export const TelegramAnalyses = () => {
+interface TelegramAnalysesProps {
+  onUpgradeClick: () => void;
+}
+
+export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
   const { user } = useAuth();
   const { savePick } = usePicks();
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -234,9 +239,9 @@ export const TelegramAnalyses = () => {
 
       <ScrollArea className="h-[400px]">
         <div className="space-y-4">
-          {analyses.map((analysis) => (
+          {analyses.map((analysis, index) => {
+            const card = (
             <div 
-              key={analysis.id}
               className="p-5 bg-gradient-to-br from-secondary/20 to-secondary/10 rounded-xl border border-border/30 hover:border-primary/30 hover:shadow-lg transition-all duration-300"
             >
               <div className="flex items-start justify-between mb-4">
@@ -759,7 +764,10 @@ return null;
                 })()}
               </div>
             </div>
-          ))}
+            );
+            if (index === 0) return <div key={analysis.id}>{card}</div>;
+            return <VipGate key={analysis.id} onUpgradeClick={onUpgradeClick}>{card}</VipGate>;
+          })}
         </div>
       </ScrollArea>
 

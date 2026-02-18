@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { LogOut } from "lucide-react";
+import { useVip } from "@/hooks/use-vip";
 
 const SPORTS = [
   { id: "nfl", label: "NFL", defaultOn: true },
@@ -23,6 +25,7 @@ interface ProfileProps {
 }
 
 const Profile = ({ onSignOut }: ProfileProps) => {
+  const { isVIP, setVIP } = useVip();
   const [sports, setSports] = useState<Record<string, boolean>>(
     Object.fromEntries(SPORTS.map((s) => [s.id, s.defaultOn]))
   );
@@ -83,15 +86,41 @@ const Profile = ({ onSignOut }: ProfileProps) => {
       {/* VIP Upgrade */}
       <Card className="border-amber-400/50 bg-amber-50/5">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Go VIP 🔥</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Go VIP 🔥</CardTitle>
+            {isVIP && (
+              <Badge className="bg-amber-500/20 text-amber-500 border border-amber-500/30 text-xs">
+                ✅ VIP Active
+              </Badge>
+            )}
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Unlock full picks, reasoning, props and parlays. $19.99/month
-          </p>
-          <Button className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold">
-            Upgrade to VIP
-          </Button>
+        <CardContent className="space-y-3">
+          {isVIP ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                You have full access to all picks, reasoning, props and parlays.
+              </p>
+              <button
+                onClick={() => setVIP(false)}
+                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+              >
+                Remove VIP (test)
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Unlock full picks, reasoning, props and parlays. $19.99/month
+              </p>
+              <Button
+                className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold"
+                onClick={() => setVIP(true)}
+              >
+                Upgrade to VIP
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 
