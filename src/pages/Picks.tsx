@@ -2,7 +2,7 @@ import { N8nIntegration } from "@/components/ui/n8n-integration";
 
 const Picks = () => {
   return (
-    <div className="space-y-6 px-4 pt-6">
+    <div className="space-y-6 px-4 pt-6 pb-24">
       <h1 className="text-2xl font-bold">Today's Picks 🎲</h1>
 
       <N8nIntegration />

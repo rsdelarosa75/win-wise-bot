@@ -26,7 +26,7 @@ const Profile = () => {
   );
 
   return (
-    <div className="space-y-4 px-4 pt-6 pb-4">
+    <div className="space-y-4 px-4 pt-6 pb-24">
       <h1 className="text-2xl font-bold">Profile ⚙️</h1>
 
       {/* Sport Preferences */}

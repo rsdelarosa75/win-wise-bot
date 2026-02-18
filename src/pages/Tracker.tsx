@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Tracker = () => {
   return (
-    <div className="space-y-6 px-4 pt-6">
+    <div className="space-y-6 px-4 pt-6 pb-24">
       <h1 className="text-2xl font-bold">My Pick Tracker 📊</h1>
 
       <Card>

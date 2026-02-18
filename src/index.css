@@ -111,6 +111,25 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background-color: hsl(220 13% 82%);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body {
+      background-color: hsl(224 71% 2%);
+    }
+  }
+}
+
+@layer utilities {
+  .phone-shell {
+    max-width: 430px;
+    margin-left: auto;
+    margin-right: auto;
+    min-height: 100svh;
+    background-color: hsl(var(--background));
+    box-shadow: 0 0 60px rgba(0, 0, 0, 0.35);
+    position: relative;
   }
 }

@@ -24,8 +24,8 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="pb-16">{renderPage()}</main>
+    <div className="phone-shell">
+      <main className="pb-16 overflow-y-auto">{renderPage()}</main>
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
