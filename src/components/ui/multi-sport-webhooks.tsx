@@ -135,74 +135,73 @@ export const MultiSportWebhooks = () => {
           description: 'Test payload sent successfully',
         });
         
-         // Try to parse and store the response
-         const responseText = await response.text();
-         console.log("Webhook response received:", responseText);
-         let analysisResult = null;
-         
-         try {
-           analysisResult = JSON.parse(responseText);
-           console.log("Parsed analysis result:", analysisResult);
-           
-           // Handle nested object structure from n8n
-           if (analysisResult && typeof analysisResult === 'object') {
-             // If the response has nested structure, extract the actual data
-             const actualData = analysisResult['object Object'] || analysisResult.output || analysisResult;
-             
-             // Store the result in localStorage for the dashboard to display
-             const newAnalysis = {
-               id: Date.now().toString(),
-               timestamp: new Date().toISOString(),
-               command: '/webhook',
-               teams: actualData.teams || `${sport} Analysis`,
-               persona: actualData.persona || 'analytical',
-               analysis: JSON.stringify(actualData),
-               confidence: actualData.confidence || 'High',
-               status: 'win',
-               odds: actualData.recommendation || 'Live Analysis',
-               sport: actualData.sport || sport
-             };
-             
-             console.log("Storing analysis:", newAnalysis);
-             
-             // Get existing analyses
-             const existingAnalyses = JSON.parse(localStorage.getItem('webhook_analyses') || '[]');
-             
-             // Add new analysis to the beginning
-             const updatedAnalyses = [newAnalysis, ...existingAnalyses.slice(0, 9)];
-             
-             // Store back
-             localStorage.setItem('webhook_analyses', JSON.stringify(updatedAnalyses));
-             console.log("Stored analyses count:", updatedAnalyses.length);
-             
-             // Trigger a custom event to notify other components
-             console.log("Dispatching webhookAnalysisAdded event");
-             window.dispatchEvent(new CustomEvent('webhookAnalysisAdded', { 
-               detail: newAnalysis 
-             }));
-           }
-          
-        } catch (error) {
-          console.log('Response received but not JSON:', responseText);
-          // Fallback: store raw text response so it still appears in the dashboard
-          const newAnalysis = {
+        // Read and log the full response before doing anything with it
+        const responseText = await response.text();
+        console.log('[MultiSportWebhooks] Response status:', response.status);
+        console.log('[MultiSportWebhooks] Response body:', responseText);
+
+        let newAnalysis: object;
+
+        try {
+          const parsed = JSON.parse(responseText);
+          console.log('[MultiSportWebhooks] Parsed JSON:', parsed);
+
+          // Unwrap arrays: n8n often returns [{ ... }]
+          const data = Array.isArray(parsed) ? parsed[0] : parsed;
+
+          // Extract analysis text — may be a string, a nested object, or missing
+          const rawAnalysis =
+            data?.analysis ??
+            data?.output ??
+            data?.text ??
+            data?.message ??
+            data?.content ??
+            data?.recommendation ??
+            data?.result ??
+            data;
+
+          const analysisString =
+            typeof rawAnalysis === 'string'
+              ? rawAnalysis
+              : JSON.stringify(rawAnalysis, null, 2);
+
+          newAnalysis = {
+            id: Date.now().toString(),
+            timestamp: new Date().toISOString(),
+            command: '/webhook',
+            teams: data?.teams || `${sport} Analysis`,
+            persona: data?.persona || 'bobby_vegas',
+            analysis: analysisString,
+            confidence: data?.confidence || 'High',
+            status: 'win',
+            odds: data?.recommendation || data?.odds || 'Live Analysis',
+            sport: data?.sport || sport,
+          };
+
+          console.log('[MultiSportWebhooks] Storing analysis:', newAnalysis);
+        } catch {
+          console.log('[MultiSportWebhooks] Not JSON — storing raw text as analysis');
+          // Store raw text verbatim so it still shows up in the dashboard
+          newAnalysis = {
             id: Date.now().toString(),
             timestamp: new Date().toISOString(),
             command: '/webhook',
             teams: `${sport} Analysis`,
-            persona: 'analytical',
-            analysis: responseText,
+            persona: 'bobby_vegas',
+            analysis: responseText || '(empty response)',
             confidence: 'High',
             status: 'win',
             odds: 'Live Analysis',
-            sport: sport
+            sport,
           };
-
-          const existingAnalyses = JSON.parse(localStorage.getItem('webhook_analyses') || '[]');
-          const updatedAnalyses = [newAnalysis, ...existingAnalyses.slice(0, 9)];
-          localStorage.setItem('webhook_analyses', JSON.stringify(updatedAnalyses));
-          window.dispatchEvent(new CustomEvent('webhookAnalysisAdded', { detail: newAnalysis }));
         }
+
+        const existingAnalyses = JSON.parse(localStorage.getItem('webhook_analyses') || '[]');
+        const updatedAnalyses = [newAnalysis, ...existingAnalyses.slice(0, 9)];
+        localStorage.setItem('webhook_analyses', JSON.stringify(updatedAnalyses));
+        console.log('[MultiSportWebhooks] Stored analyses count:', updatedAnalyses.length);
+        console.log('[MultiSportWebhooks] Dispatching webhookAnalysisAdded');
+        window.dispatchEvent(new CustomEvent('webhookAnalysisAdded', { detail: newAnalysis }));
       } else {
         throw new Error(`HTTP ${response.status}`);
       }

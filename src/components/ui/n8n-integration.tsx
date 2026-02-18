@@ -69,13 +69,54 @@ export const N8nIntegration = () => {
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const result = await response.text();
+      const rawText = await response.text();
+      console.log('[N8nIntegration] Response status:', response.status);
+      console.log('[N8nIntegration] Response body:', rawText);
+
       setLastTriggered(new Date());
       toast({ title: "Bobby's pick is ready 🎲" });
 
-      if (result.length > 0) {
-        setBriefContent(cleanHtmlContent(result));
+      if (!rawText || rawText.trim().length === 0) {
+        setBriefContent(
+          'Bobby returned an empty response. Make sure your n8n workflow has a "Respond to Webhook" node at the end.'
+        );
+        return;
       }
+
+      // Try JSON first — n8n can return many shapes
+      let displayContent = rawText;
+      try {
+        const parsed = JSON.parse(rawText);
+        console.log('[N8nIntegration] Parsed JSON:', parsed);
+
+        // Unwrap arrays: n8n often returns [{ ... }]
+        const data = Array.isArray(parsed) ? parsed[0] : parsed;
+
+        // Walk common field names where the analysis text might live
+        const textContent =
+          data?.analysis ??
+          data?.output ??
+          data?.text ??
+          data?.message ??
+          data?.content ??
+          data?.recommendation ??
+          data?.result ??
+          null;
+
+        if (typeof textContent === 'string') {
+          displayContent = textContent;
+        } else if (typeof textContent === 'object' && textContent !== null) {
+          displayContent = JSON.stringify(textContent, null, 2);
+        } else {
+          // No known field — pretty-print the whole response
+          displayContent = JSON.stringify(parsed, null, 2);
+        }
+      } catch {
+        console.log('[N8nIntegration] Not JSON — showing raw text as-is');
+        // displayContent already holds rawText
+      }
+
+      setBriefContent(cleanHtmlContent(displayContent));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       toast({
