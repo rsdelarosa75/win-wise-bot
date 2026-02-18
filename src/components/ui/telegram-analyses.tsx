@@ -41,6 +41,15 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
   const { user } = useAuth();
   const { savePick } = usePicks();
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const handleSavePick = async (analysis: TelegramAnalysis) => {
     if (!user) {
@@ -242,9 +251,9 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
           {analyses.map((analysis, index) => {
             const card = (
             <div 
-              className="p-5 bg-gradient-to-br from-secondary/20 to-secondary/10 rounded-xl border border-border/30 hover:border-primary/30 hover:shadow-lg transition-all duration-300"
+              className="p-3 bg-gradient-to-br from-secondary/20 to-secondary/10 rounded-xl border border-border/30 hover:border-primary/30 hover:shadow-lg transition-all duration-300 overflow-hidden max-w-full"
             >
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="secondary" className="text-xs px-2 py-1">
                     {analysis.command}
@@ -263,13 +272,13 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
                 <div className="flex flex-col items-end gap-2">
                   <Badge 
                     variant="outline"
-                    className={`text-sm px-3 py-1 font-semibold
+                    className={`text-xs px-2 py-0.5 font-semibold
                       ${analysis.confidence === 'High' ? 'border-win/40 text-win bg-win/5' : ''}
                       ${analysis.confidence === 'Medium' ? 'border-neutral/40 text-neutral bg-neutral/5' : ''}
                       ${analysis.confidence === 'Low' ? 'border-loss/40 text-loss bg-loss/5' : ''}
                     `}
                   >
-                    {analysis.confidence} Confidence
+                    {analysis.confidence}
                   </Badge>
                   <button
                     onClick={() => handleSavePick(analysis)}
@@ -288,8 +297,8 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
                 </div>
               </div>
 
-              <div className="mb-4">
-                <h4 className="font-bold text-lg mb-2 flex items-center gap-3 text-foreground">
+              <div className="mb-2">
+                <h4 className="font-bold text-base mb-1 flex items-center gap-2 text-foreground">
                   <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
                     <TrendingUp className="w-4 h-4 text-primary" />
                   </div>
@@ -307,7 +316,8 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
                 )}
               </div>
 
-              <div className="bg-background/70 rounded-xl p-4 border border-border/20">
+              <div className="relative">
+              <div className={`bg-background/70 rounded-xl p-3 border border-border/20 overflow-hidden transition-all duration-200 ${expandedIds.has(analysis.id) ? '' : 'max-h-44'}`}>
                 {(() => {
                   try {
                     // Try to parse as JSON first
@@ -763,6 +773,16 @@ return null;
                   }
                 })()}
               </div>
+              {!expandedIds.has(analysis.id) && (
+                <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-secondary/20 to-transparent rounded-b-xl pointer-events-none" />
+              )}
+              </div>
+              <button
+                onClick={() => toggleExpand(analysis.id)}
+                className="mt-1 text-xs text-primary hover:underline w-full text-left pl-1"
+              >
+                {expandedIds.has(analysis.id) ? 'Show less ↑' : 'Read more ↓'}
+              </button>
             </div>
             );
             if (index === 0) return <div key={analysis.id}>{card}</div>;

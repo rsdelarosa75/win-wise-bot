@@ -71,18 +71,18 @@ export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
     }, 0)
   };
   return (
-    <section className="py-20 bg-background">
-      <div className="container mx-auto px-6">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold mb-4">
+    <section className="py-2 bg-background max-w-full overflow-hidden">
+      <div className="w-full px-0">
+        <div className="text-center mb-4">
+          <h2 className="text-2xl font-bold mb-2">
             Bobby's Card 🎲
           </h2>
         </div>
         
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="flex flex-col gap-4">
           {/* Stats Overview */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20 hover:shadow-card-hover transition-all duration-300">
+          <div className="space-y-4">
+            <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 hover:shadow-card-hover transition-all duration-300 overflow-hidden">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold">Today's Picks</h3>
                 <Badge variant="outline" className="border-primary/30 text-primary">
@@ -130,8 +130,8 @@ export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
             </Card>
             
             {/* Live Games */}
-            <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20">
-              <h3 className="text-xl font-semibold mb-4">Live Games & Odds</h3>
+            <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
+              <h3 className="text-base font-semibold mb-3">Live Games & Odds</h3>
               <LiveOdds />
             </Card>
             
@@ -140,15 +140,15 @@ export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
           </div>
           
           {/* News & Insights */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Telegram Analyses */}
             <TelegramAnalyses onUpgradeClick={onUpgradeClick} />
             
             {/* Game Weather */}
             <GameWeather games={games} />
             
-            <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20">
-              <h3 className="text-xl font-semibold mb-4">Latest News Impact</h3>
+            <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
+              <h3 className="text-base font-semibold mb-3">Latest News Impact</h3>
               <div className="space-y-4">
                 {[
                   { title: "Star Player Injury Update", impact: "High", team: "Lakers", type: "loss" },
@@ -176,8 +176,8 @@ export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
               </div>
             </Card>
             
-            <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20">
-              <h3 className="text-xl font-semibold mb-4">Your Advisor</h3>
+            <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
+              <h3 className="text-base font-semibold mb-3">Your Advisor</h3>
               <div className="space-y-3">
                 <div className="p-3 rounded-lg border bg-primary/10 border-primary/30">
                   <div className="flex items-center justify-between">

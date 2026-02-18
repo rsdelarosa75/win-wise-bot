@@ -1,55 +1,14 @@
-import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
 import { useOddsApi } from '@/hooks/use-odds-api';
 import { RefreshCw, Clock, AlertCircle } from 'lucide-react';
 
 export const LiveOdds = () => {
-  const [showApiSettings, setShowApiSettings] = useState(false);
-  const [tempApiKey, setTempApiKey] = useState('');
-  const { toast } = useToast();
-  const { games, loading, error, fetchOdds, hasApiKey, saveApiKey } = useOddsApi();
+  const { games, loading, error, fetchOdds, hasApiKey } = useOddsApi();
 
-  // Enhanced mock data for when API quota is exceeded
   const mockGames = [
     {
       id: 'mock1',
-      team1: 'Cal',
-      team2: 'Oregon State', 
-      odds1: '+160',
-      odds2: '-180',
-      confidence: 'Medium',
-      status: 'neutral',
-      sport: 'NCAAF',
-      commence_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: 'mock2',
-      team1: 'Chiefs',
-      team2: 'Bills',
-      odds1: '-120', 
-      odds2: '+100',
-      confidence: 'High',
-      status: 'win',
-      sport: 'NFL',
-      commence_time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: 'mock3',
-      team1: 'Yankees',
-      team2: 'Red Sox',
-      odds1: '-150',
-      odds2: '+130',
-      confidence: 'High', 
-      status: 'win',
-      sport: 'MLB',
-      commence_time: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: 'mock4',
       team1: 'Lakers',
       team2: 'Celtics',
       odds1: '+110',
@@ -57,49 +16,107 @@ export const LiveOdds = () => {
       confidence: 'Medium',
       status: 'neutral',
       sport: 'NBA',
-      commence_time: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString()
+      commence_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
     },
     {
-      id: 'mock5',
-      team1: 'Alabama',
-      team2: 'Georgia',
-      odds1: '-200',
-      odds2: '+170',
-      confidence: 'Low',
-      status: 'loss',
-      sport: 'NCAAF',
-      commence_time: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
-    }
+      id: 'mock2',
+      team1: 'Warriors',
+      team2: 'Bucks',
+      odds1: '-120',
+      odds2: '+100',
+      confidence: 'High',
+      status: 'win',
+      sport: 'NBA',
+      commence_time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'mock3',
+      team1: 'Heat',
+      team2: 'Nets',
+      odds1: '-150',
+      odds2: '+130',
+      confidence: 'High',
+      status: 'win',
+      sport: 'NBA',
+      commence_time: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+    },
   ];
 
-  const handleSaveApiKey = () => {
-    if (tempApiKey) {
-      saveApiKey(tempApiKey);
-      setTempApiKey('');
-      setShowApiSettings(false);
-      toast({
-        title: "API Key Saved",
-        description: "Your Odds API key has been saved and odds will refresh",
-      });
-    }
+  const formatTime = (isoString: string) => {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMinutes = Math.floor((date.getTime() - now.getTime()) / (1000 * 60));
+    if (diffMinutes < 0) return 'Live';
+    if (diffMinutes < 60) return `${diffMinutes}m`;
+    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h`;
+    return date.toLocaleDateString();
   };
 
-  // Use mock data if API has issues or quota exceeded
-  const displayGames = (error && error.includes('quota')) ? mockGames : games;
+  const sportLabel = (sport: string) => {
+    if (sport === 'MLB') return 'MLB';
+    if (sport === 'NFL') return 'NFL';
+    if (sport.includes('NCAAF') || sport.includes('College')) return 'CFB';
+    return sport;
+  };
+
+  const GameCard = ({ game }: { game: typeof mockGames[0] & { spread1?: string; spread2?: string } }) => (
+    <div className="p-3 bg-secondary/30 rounded-lg border border-border/50 hover:bg-secondary/40 transition-colors space-y-2 overflow-hidden max-w-full">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs font-medium truncate">
+          <span className="font-semibold">{game.team1}</span>
+          <span className="text-muted-foreground"> vs </span>
+          <span className="font-semibold">{game.team2}</span>
+        </div>
+        <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+          <Clock className="w-3 h-3" />
+          {formatTime(game.commence_time)}
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
+          <span>{game.odds1}</span>
+          <span>/</span>
+          <span>{game.odds2}</span>
+          <span className="text-[10px] bg-primary/20 text-primary px-1 rounded">ML</span>
+          {'spread1' in game && game.spread1 && game.spread1 !== 'N/A' && 'spread2' in game && game.spread2 && game.spread2 !== 'N/A' && (
+            <>
+              <span className="ml-1">{game.spread1}/{game.spread2}</span>
+              <span className="text-[10px] bg-accent/20 text-accent px-1 rounded">SPR</span>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Badge
+            variant="outline"
+            className={`text-[10px] px-1.5 py-0
+              ${game.status === 'win' ? 'border-win/30 text-win' : ''}
+              ${game.status === 'neutral' ? 'border-neutral/30 text-neutral' : ''}
+              ${game.status === 'loss' ? 'border-loss/30 text-loss' : ''}
+            `}
+          >
+            {game.confidence}
+          </Badge>
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/30">
+            {sportLabel(game.sport)}
+          </Badge>
+        </div>
+      </div>
+    </div>
+  );
 
   if (!hasApiKey) {
     return (
       <div className="space-y-3">
-        <div className="flex items-center justify-center p-8 bg-secondary/30 rounded-lg border border-border/50">
-          <div className="text-center space-y-3">
-            <AlertCircle className="w-8 h-8 text-muted-foreground mx-auto" />
-            <div>
-              <div className="font-medium">API Key Required</div>
-              <div className="text-sm text-muted-foreground">
-                Configure your Odds API key below to see live odds
-              </div>
-            </div>
+        <div className="flex items-center justify-center p-6 bg-secondary/30 rounded-lg border border-border/50">
+          <div className="text-center space-y-2">
+            <AlertCircle className="w-6 h-6 text-muted-foreground mx-auto" />
+            <div className="text-sm font-medium">Live Odds Unavailable</div>
+            <div className="text-xs text-muted-foreground">Set VITE_ODDS_API_KEY to enable</div>
           </div>
+        </div>
+        <div className="space-y-2">
+          <div className="text-xs text-center text-muted-foreground py-1">Demo data</div>
+          {mockGames.map((game) => <GameCard key={game.id} game={game} />)}
         </div>
       </div>
     );
@@ -107,14 +124,11 @@ export const LiveOdds = () => {
 
   if (loading && games.length === 0) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border/50 animate-pulse">
-            <div className="flex items-center gap-4">
-              <div className="h-4 w-32 bg-muted rounded" />
-              <div className="h-4 w-20 bg-muted rounded" />
-            </div>
-            <div className="h-6 w-16 bg-muted rounded" />
+          <div key={i} className="p-3 bg-secondary/30 rounded-lg border border-border/50 animate-pulse space-y-2">
+            <div className="h-3 w-3/4 bg-muted rounded" />
+            <div className="h-3 w-1/2 bg-muted rounded" />
           </div>
         ))}
       </div>
@@ -123,124 +137,23 @@ export const LiveOdds = () => {
 
   if (error && games.length === 0) {
     return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between p-3 bg-loss/10 border border-loss/20 rounded-lg">
-          <div className="flex items-center gap-2 text-loss">
-            <AlertCircle className="w-4 h-4" />
-            <span className="text-sm font-medium">
-              {error.includes('quota') ? 'API Quota Exceeded' : `Error: ${error}`}
-            </span>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setShowApiSettings(true)}
-          >
-            Add API Key
-          </Button>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 p-3 bg-loss/10 border border-loss/20 rounded-lg text-loss">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span className="text-xs font-medium">
+            {error.includes('quota') ? 'API quota exceeded — showing demo data' : `Error: ${error}`}
+          </span>
         </div>
-        
-        {/* Show API Settings Panel */}
-        {showApiSettings && (
-          <div className="p-4 bg-secondary/20 rounded-lg space-y-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="odds-api">The Odds API Key (Free 500 calls/month)</Label>
-              <Button variant="ghost" size="sm" onClick={() => setShowApiSettings(false)}>
-                ×
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                id="odds-api"
-                placeholder="Enter your API key from the-odds-api.com"
-                value={tempApiKey}
-                onChange={(e) => setTempApiKey(e.target.value)}
-                type="password"
-              />
-              <Button onClick={handleSaveApiKey} disabled={!tempApiKey}>
-                Save
-              </Button>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Get a free API key at the-odds-api.com (500 requests/month free tier)
-            </div>
-          </div>
-        )}
-        
-        {/* Show mock data when quota exceeded */}
-        {error.includes('quota') && (
-          <div className="space-y-3">
-            <div className="text-xs text-center text-muted-foreground py-2">
-              Showing demo odds data (API quota exceeded)
-            </div>
-            {mockGames.map((game) => (
-              <div key={game.id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border/50 hover:bg-secondary/40 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="text-sm">
-                    <span className="font-medium">{game.team1}</span> vs <span className="font-medium">{game.team2}</span>
-                  </div>
-                  <div className="flex flex-col gap-1 text-sm">
-                    <div className="flex gap-2">
-                      <span className="text-muted-foreground">{game.odds1}</span>
-                      <span className="text-muted-foreground">/</span>
-                      <span className="text-muted-foreground">{game.odds2}</span>
-                      <span className="text-xs text-muted-foreground/70">ML</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3" />
-                    {formatTime(game.commence_time)}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs
-                      ${game.status === 'win' ? 'border-win/30 text-win' : ''}
-                      ${game.status === 'neutral' ? 'border-neutral/30 text-neutral' : ''}
-                      ${game.status === 'loss' ? 'border-loss/30 text-loss' : ''}
-                    `}
-                  >
-                    {game.confidence}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs border-muted-foreground/30">
-                    {game.sport === 'MLB' ? 'MLB' : 
-                     game.sport === 'NFL' ? 'NFL' : 
-                     game.sport.includes('NCAAF') || game.sport.includes('College') ? 'CFB' : 
-                     game.sport}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {mockGames.map((game) => <GameCard key={game.id} game={game} />)}
       </div>
     );
   }
 
-  const formatTime = (isoString: string) => {
-    const date = new Date(isoString);
-    const now = new Date();
-    const diffMinutes = Math.floor((date.getTime() - now.getTime()) / (1000 * 60));
-    
-    if (diffMinutes < 0) {
-      return 'Live';
-    } else if (diffMinutes < 60) {
-      return `${diffMinutes}m`;
-    } else if (diffMinutes < 1440) {
-      return `${Math.floor(diffMinutes / 60)}h`;
-    } else {
-      return date.toLocaleDateString();
-    }
-  };
-
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {loading && (
-            <RefreshCw className="w-4 h-4 animate-spin text-primary" />
-          )}
+          {loading && <RefreshCw className="w-3 h-3 animate-spin text-primary" />}
           {error && (
             <div className="text-xs text-loss flex items-center gap-1">
               <AlertCircle className="w-3 h-3" />
@@ -248,73 +161,25 @@ export const LiveOdds = () => {
             </div>
           )}
         </div>
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={fetchOdds}
           disabled={loading}
-          className="text-xs"
+          className="text-xs h-7"
         >
           <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
-      
-      {games.map((game) => (
-        <div key={game.id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border/50 hover:bg-secondary/40 transition-colors">
-            <div className="flex items-center gap-4">
-              <div className="text-sm">
-                <span className="font-medium">{game.team1}</span> vs <span className="font-medium">{game.team2}</span>
-              </div>
-              <div className="flex flex-col gap-1 text-sm">
-                <div className="flex gap-2 items-center">
-                  <span className="text-muted-foreground font-medium">{game.odds1}</span>
-                  <span className="text-muted-foreground">/</span>
-                  <span className="text-muted-foreground font-medium">{game.odds2}</span>
-                  <span className="text-xs bg-primary/20 text-primary px-1 rounded">Moneyline</span>
-                </div>
-                {(game.spread1 && game.spread2 && game.spread1 !== 'N/A' && game.spread2 !== 'N/A') && (
-                  <div className="flex gap-2 items-center">
-                    <span className="text-muted-foreground font-medium">{game.spread1}</span>
-                    <span className="text-muted-foreground">/</span>
-                    <span className="text-muted-foreground font-medium">{game.spread2}</span>
-                    <span className="text-xs bg-accent/20 text-accent px-1 rounded">Spread</span>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="w-3 h-3" />
-                {formatTime(game.commence_time)}
-              </div>
-            </div>
-          <div className="flex items-center gap-2">
-            <Badge 
-              variant="outline" 
-              className={`text-xs
-                ${game.status === 'win' ? 'border-win/30 text-win' : ''}
-                ${game.status === 'neutral' ? 'border-neutral/30 text-neutral' : ''}
-                ${game.status === 'loss' ? 'border-loss/30 text-loss' : ''}
-              `}
-            >
-              {game.confidence}
-            </Badge>
-            <Badge variant="outline" className="text-xs border-muted-foreground/30">
-              {game.sport === 'MLB' ? 'MLB' : 
-               game.sport === 'NFL' ? 'NFL' : 
-               game.sport.includes('NCAAF') || game.sport.includes('College') ? 'CFB' : 
-               game.sport}
-            </Badge>
-          </div>
-        </div>
-      ))}
-      
+
+      {games.map((game) => <GameCard key={game.id} game={game} />)}
+
       {games.length === 0 && !loading && !error && (
-        <div className="flex items-center justify-center p-8 bg-secondary/30 rounded-lg border border-border/50">
-          <div className="text-center space-y-2">
-            <Clock className="w-6 h-6 text-muted-foreground mx-auto" />
-            <div className="text-sm text-muted-foreground">
-              No games available right now
-            </div>
+        <div className="flex items-center justify-center p-6 bg-secondary/30 rounded-lg border border-border/50">
+          <div className="text-center space-y-1">
+            <Clock className="w-5 h-5 text-muted-foreground mx-auto" />
+            <div className="text-xs text-muted-foreground">No games available right now</div>
           </div>
         </div>
       )}
