@@ -15,7 +15,7 @@ export const Navigation = () => {
               <Brain className="w-5 h-5 text-primary-foreground" />
             </div>
             <span className="text-xl font-bold">
-              Bet<span className="text-primary">AI</span>
+              🎲 Bobby<span className="text-primary">Vegas</span>
             </span>
           </div>
 
