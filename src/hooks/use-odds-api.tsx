@@ -36,7 +36,11 @@ interface ProcessedGame {
 }
 
 const SPORT_KEYS = {
-  'College Football': 'americanfootball_ncaaf'
+  'NBA': 'basketball_nba',
+  // 'NFL': 'americanfootball_nfl',
+  // 'College Football': 'americanfootball_ncaaf',
+  // 'MLB': 'baseball_mlb',
+  // 'NHL': 'icehockey_nhl',
 };
 
 export const useOddsApi = () => {
@@ -175,9 +179,9 @@ export const useOddsApi = () => {
         setError('No upcoming games found');
         // Fallback to demo data if no real data available
         setGames([
-          { id: 'demo1', sport: 'MLB', team1: 'Yankees', team2: 'Red Sox', odds1: '+120', odds2: '-140', commence_time: new Date().toISOString(), confidence: 'High', status: 'win' },
-          { id: 'demo2', sport: 'NFL', team1: 'Chiefs', team2: 'Bills', odds1: '-110', odds2: '+95', commence_time: new Date().toISOString(), confidence: 'Medium', status: 'neutral' },
-          { id: 'demo3', sport: 'College Football', team1: 'Alabama', team2: 'Georgia', odds1: '+180', odds2: '-220', commence_time: new Date().toISOString(), confidence: 'Low', status: 'loss' }
+          { id: 'demo1', sport: 'NBA', team1: 'Lakers', team2: 'Celtics', odds1: '+130', odds2: '-150', commence_time: new Date().toISOString(), confidence: 'High', status: 'win' },
+          { id: 'demo2', sport: 'NBA', team1: 'Warriors', team2: 'Bucks', odds1: '+110', odds2: '-130', commence_time: new Date().toISOString(), confidence: 'Medium', status: 'neutral' },
+          { id: 'demo3', sport: 'NBA', team1: 'Knicks', team2: 'Heat', odds1: '+180', odds2: '-220', commence_time: new Date().toISOString(), confidence: 'Low', status: 'loss' }
         ]);
       } else {
         const processedGames = processOddsData(upcoming.slice(0, 6));
@@ -190,9 +194,9 @@ export const useOddsApi = () => {
       
       // Fallback to demo data on error
       setGames([
-        { id: 'demo1', sport: 'MLB', team1: 'Yankees', team2: 'Red Sox', odds1: '+120', odds2: '-140', commence_time: new Date().toISOString(), confidence: 'High', status: 'win' },
-        { id: 'demo2', sport: 'NFL', team1: 'Chiefs', team2: 'Bills', odds1: '-110', odds2: '+95', commence_time: new Date().toISOString(), confidence: 'Medium', status: 'neutral' },
-        { id: 'demo3', sport: 'College Football', team1: 'Alabama', team2: 'Georgia', odds1: '+180', odds2: '-220', commence_time: new Date().toISOString(), confidence: 'Low', status: 'loss' }
+        { id: 'demo1', sport: 'NBA', team1: 'Lakers', team2: 'Celtics', odds1: '+130', odds2: '-150', commence_time: new Date().toISOString(), confidence: 'High', status: 'win' },
+        { id: 'demo2', sport: 'NBA', team1: 'Warriors', team2: 'Bucks', odds1: '+110', odds2: '-130', commence_time: new Date().toISOString(), confidence: 'Medium', status: 'neutral' },
+        { id: 'demo3', sport: 'NBA', team1: 'Knicks', team2: 'Heat', odds1: '+180', odds2: '-220', commence_time: new Date().toISOString(), confidence: 'Low', status: 'loss' }
       ]);
     } finally {
       setLoading(false);

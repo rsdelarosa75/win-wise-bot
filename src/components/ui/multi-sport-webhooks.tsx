@@ -23,6 +23,7 @@ interface SportWebhook {
   webhookUrl: string;
   lastTriggered: Date | null;
   isActive: boolean;
+  comingSoon: boolean;
   icon: string;
   color: string;
 }
@@ -30,49 +31,54 @@ interface SportWebhook {
 export const MultiSportWebhooks = () => {
   const [sportWebhooks, setSportWebhooks] = useState<SportWebhook[]>([
     {
-      sport: 'MLB',
-      webhookUrl: import.meta.env.VITE_N8N_WEBHOOK_MLB || '',
-      lastTriggered: null,
-      isActive: !!import.meta.env.VITE_N8N_WEBHOOK_MLB,
-      icon: '⚾',
-      color: 'primary'
-    },
-    {
-      sport: 'NFL',
-      webhookUrl: import.meta.env.VITE_N8N_WEBHOOK_NFL || '',
-      lastTriggered: null,
-      isActive: !!import.meta.env.VITE_N8N_WEBHOOK_NFL,
-      icon: '🏈',
-      color: 'accent'
-    },
-    {
-      sport: 'College Football',
-      webhookUrl: import.meta.env.VITE_N8N_WEBHOOK_CFB || '',
-      lastTriggered: null,
-      isActive: !!import.meta.env.VITE_N8N_WEBHOOK_CFB,
-      icon: '🏟️',
-      color: 'neutral'
-    },
-    {
       sport: 'NBA',
       webhookUrl: import.meta.env.VITE_N8N_WEBHOOK_NBA || '',
       lastTriggered: null,
       isActive: !!import.meta.env.VITE_N8N_WEBHOOK_NBA,
+      comingSoon: false,
       icon: '🏀',
       color: 'win'
     },
     {
-      sport: 'NHL',
-      webhookUrl: import.meta.env.VITE_N8N_WEBHOOK_NHL || '',
+      sport: 'NFL',
+      webhookUrl: '',
       lastTriggered: null,
-      isActive: !!import.meta.env.VITE_N8N_WEBHOOK_NHL,
+      isActive: false,
+      comingSoon: true,
+      icon: '🏈',
+      color: 'accent'
+    },
+    {
+      sport: 'MLB',
+      webhookUrl: '',
+      lastTriggered: null,
+      isActive: false,
+      comingSoon: true,
+      icon: '⚾',
+      color: 'primary'
+    },
+    {
+      sport: 'College Football',
+      webhookUrl: '',
+      lastTriggered: null,
+      isActive: false,
+      comingSoon: true,
+      icon: '🏟️',
+      color: 'neutral'
+    },
+    {
+      sport: 'NHL',
+      webhookUrl: '',
+      lastTriggered: null,
+      isActive: false,
+      comingSoon: true,
       icon: '🏒',
       color: 'loss'
     }
   ]);
 
-  const [activeTab, setActiveTab] = useState('MLB');
-  const [testTeams, setTestTeams] = useState('Alabama vs Florida State');
+  const [activeTab, setActiveTab] = useState('NBA');
+  const [testTeams, setTestTeams] = useState('Lakers vs Celtics');
   const [testPersona, setTestPersona] = useState('analytical');
   const [testDate, setTestDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const { toast } = useToast();
@@ -227,35 +233,41 @@ export const MultiSportWebhooks = () => {
       {/* Sport Overview */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
         {sportWebhooks.map((webhook) => (
-          <div 
+          <div
             key={webhook.sport}
-            className={`text-center p-3 rounded-lg border transition-all cursor-pointer ${
-              webhook.isActive 
-                ? 'bg-primary/10 border-primary/30' 
-                : 'bg-secondary/30 border-border/50 hover:border-primary/20'
+            className={`text-center p-3 rounded-lg border transition-all ${
+              webhook.comingSoon
+                ? 'bg-muted/20 border-border/30 opacity-50 cursor-not-allowed'
+                : webhook.isActive
+                ? 'bg-primary/10 border-primary/30 cursor-pointer'
+                : 'bg-secondary/30 border-border/50 cursor-pointer hover:border-primary/20'
             }`}
-            onClick={() => setActiveTab(webhook.sport)}
+            onClick={() => !webhook.comingSoon && setActiveTab(webhook.sport)}
           >
             <div className="text-2xl mb-1">{webhook.icon}</div>
             <div className="text-xs font-medium">{webhook.sport}</div>
-            <div className={`w-2 h-2 rounded-full mx-auto mt-1 ${
-              webhook.isActive ? 'bg-win' : 'bg-muted'
-            }`} />
+            {webhook.comingSoon ? (
+              <div className="text-[10px] text-muted-foreground mt-1">Soon</div>
+            ) : (
+              <div className={`w-2 h-2 rounded-full mx-auto mt-1 ${
+                webhook.isActive ? 'bg-win' : 'bg-muted'
+              }`} />
+            )}
           </div>
         ))}
       </div>
 
-      {/* Individual Sport Configuration */}
+      {/* Individual Sport Configuration — only show non-coming-soon tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-5 w-full mb-4">
-          {sportWebhooks.map((webhook) => (
+        <TabsList className="grid grid-cols-1 w-full mb-4">
+          {sportWebhooks.filter(w => !w.comingSoon).map((webhook) => (
             <TabsTrigger key={webhook.sport} value={webhook.sport} className="text-xs">
               {webhook.icon} {webhook.sport}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        {sportWebhooks.map((webhook) => (
+        {sportWebhooks.filter(w => !w.comingSoon).map((webhook) => (
           <TabsContent key={webhook.sport} value={webhook.sport} className="space-y-4">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -378,7 +390,7 @@ export const MultiSportWebhooks = () => {
             AI Connections configured via environment variables
           </div>
           <div className="text-xs text-muted-foreground">
-            {sportWebhooks.filter(w => w.isActive).length} of {sportWebhooks.length} sports configured
+            {sportWebhooks.filter(w => w.isActive).length} live · {sportWebhooks.filter(w => w.comingSoon).length} coming soon
           </div>
         </div>
       </div>
