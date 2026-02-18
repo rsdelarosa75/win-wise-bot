@@ -2,14 +2,15 @@ import { N8nIntegration } from "@/components/ui/n8n-integration";
 
 const Picks = () => {
   return (
-    <div className="space-y-6 px-4 pt-6 pb-24">
-      <h1 className="text-2xl font-bold">Today's Picks 🎲</h1>
+    <div className="px-4 pt-6 pb-24 space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold">Today's Picks 🎲</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Ask Bobby for AI-powered betting picks
+        </p>
+      </div>
 
       <N8nIntegration />
-
-      <p className="text-sm text-muted-foreground text-center pb-4">
-        Enter your Bobby's Engine URL to pull live AI picks
-      </p>
     </div>
   );
 };

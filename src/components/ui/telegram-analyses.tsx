@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { MessageSquare, Clock, TrendingUp, RefreshCw, Bookmark, Check } from 'lucide-react';
 import { testAddAnalysis } from '@/utils/webhook-handler';
@@ -191,40 +190,37 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
   };
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20 shadow-card-hover">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center shadow-sm">
-            <MessageSquare className="w-6 h-6 text-accent" />
+    <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden max-w-full">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-accent/10 rounded-lg flex items-center justify-center">
+            <MessageSquare className="w-4 h-4 text-accent" />
           </div>
           <div>
-            <h3 className="text-2xl font-bold">AI Workflow Analyses</h3>
-            <p className="text-sm text-muted-foreground">
-              Live betting insights from your automated workflows
-            </p>
+            <h3 className="text-base font-bold leading-tight">Bobby's Picks</h3>
+            <p className="text-xs text-muted-foreground">Live AI betting insights</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="border-accent/30 text-accent px-3 py-1">
-            {analyses.length} Active
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="border-accent/30 text-accent text-xs px-2 py-0.5">
+            {analyses.length}
           </Badge>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="ghost"
             size="sm"
             onClick={() => setShowImporter((v) => !v)}
-            className="border-accent/30 hover:bg-accent/10"
+            className="text-xs h-8 px-2"
           >
-            Import JSON
+            Import
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="border-primary/30 hover:bg-primary/10"
+            className="h-8 w-8 p-0"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
@@ -246,8 +242,7 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
         </div>
       )}
 
-      <ScrollArea className="h-[400px]">
-        <div className="space-y-4">
+      <div className="space-y-3">
           {analyses.map((analysis, index) => {
             const card = (
             <div 
@@ -788,20 +783,13 @@ return null;
             if (index === 0) return <div key={analysis.id}>{card}</div>;
             return <VipGate key={analysis.id} onUpgradeClick={onUpgradeClick}>{card}</VipGate>;
           })}
-        </div>
-      </ScrollArea>
+      </div>
 
-      <div className="mt-4 pt-4 border-t border-border/50">
-        <div className="flex items-center justify-between text-sm">
-        <div className="text-muted-foreground">
-          Connected to Bobby's Engine
-        </div>
-          <div className="flex items-center gap-4">
-            <div className="text-xs text-muted-foreground">
-              Auto-refreshes when new analyses arrive
-            </div>
-            <div className="w-2 h-2 bg-win rounded-full animate-pulse" />
-          </div>
+      <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">Bobby's Engine</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">Live</span>
+          <div className="w-1.5 h-1.5 bg-win rounded-full animate-pulse" />
         </div>
       </div>
     </Card>
