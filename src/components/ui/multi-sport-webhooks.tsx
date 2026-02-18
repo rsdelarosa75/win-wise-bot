@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,6 +79,11 @@ export const MultiSportWebhooks = () => {
 
   const [activeTab, setActiveTab] = useState('NBA');
   const [testTeams, setTestTeams] = useState('Lakers vs Celtics');
+
+  useEffect(() => {
+    const nbaUrl = import.meta.env.VITE_N8N_WEBHOOK_NBA;
+    console.log('[MultiSportWebhooks] VITE_N8N_WEBHOOK_NBA =', nbaUrl ?? 'undefined (not set)');
+  }, []);
   const [testPersona, setTestPersona] = useState('analytical');
   const [testDate, setTestDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const { toast } = useToast();
@@ -106,10 +111,15 @@ export const MultiSportWebhooks = () => {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify(testPayload)
       });
+
+      if (response.status === 403) {
+        throw new Error('403');
+      }
 
       if (response.ok) {
         setSportWebhooks(prev => 
@@ -197,9 +207,13 @@ export const MultiSportWebhooks = () => {
         throw new Error(`HTTP ${response.status}`);
       }
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to test webhook';
       toast({
         title: `${sport} Webhook Error`,
-        description: error instanceof Error ? error.message : 'Failed to test webhook',
+        description:
+          msg === '403' || msg.includes('403')
+            ? "Bobby's taking a timeout, try again in a moment 🎲"
+            : msg,
         variant: 'destructive'
       });
     }
@@ -290,9 +304,15 @@ export const MultiSportWebhooks = () => {
                   Test {webhook.sport} Connection
                 </Button>
               ) : (
-                <p className="text-xs text-muted-foreground p-3 bg-muted/30 rounded-md border border-border/50">
-                  Set <code className="font-mono">VITE_N8N_WEBHOOK_{webhook.sport.toUpperCase().replace(' ', '_')}</code> in your environment variables to enable this sport.
-                </p>
+                <div className="flex items-start gap-2 p-3 bg-loss/10 border border-loss/30 rounded-md">
+                  <AlertCircle className="w-4 h-4 text-loss mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-loss">Webhook not configured</p>
+                    <p className="text-xs text-muted-foreground">
+                      Add <code className="font-mono bg-background/50 px-1 rounded">VITE_N8N_WEBHOOK_{webhook.sport.toUpperCase().replace(' ', '_')}</code> to your <code className="font-mono bg-background/50 px-1 rounded">.env</code> file and restart the dev server.
+                    </p>
+                  </div>
+                </div>
               )}
 
               <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-md">
