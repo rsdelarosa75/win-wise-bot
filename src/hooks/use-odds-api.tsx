@@ -43,21 +43,9 @@ export const useOddsApi = () => {
   const [games, setGames] = useState<ProcessedGame[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState<string>(() => {
-    return localStorage.getItem('odds_api_key') || '';
-  });
-
-  const saveApiKey = useCallback((key: string) => {
-    localStorage.setItem('odds_api_key', key);
-    setApiKey(key);
-    setError(null); // Clear any previous errors
-    setGames([]); // Clear old data
-  }, []);
-
-  const removeApiKey = useCallback(() => {
-    localStorage.removeItem('odds_api_key');
-    setApiKey('');
-  }, []);
+  const [apiKey] = useState<string>(
+    import.meta.env.VITE_ODDS_API_KEY || ''
+  );
 
   const processOddsData = useCallback((rawGames: OddsData[]): ProcessedGame[] => {
     return rawGames.slice(0, 6).map((game) => {
@@ -222,9 +210,6 @@ export const useOddsApi = () => {
     games,
     loading,
     error,
-    apiKey,
-    saveApiKey,
-    removeApiKey,
     fetchOdds,
     hasApiKey: !!apiKey
   };

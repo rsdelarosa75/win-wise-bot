@@ -1,7 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LiveOdds } from "@/components/ui/live-odds";
-import { OddsApiSettings } from "@/components/ui/odds-api-settings";
 import { TelegramAnalyses } from "@/components/ui/telegram-analyses";
 import { GameWeather } from "@/components/ui/game-weather";
 import { MultiSportWebhooks } from "@/components/ui/multi-sport-webhooks";
@@ -32,7 +31,7 @@ interface DashboardPreviewProps {
 }
 
 export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
-  const { apiKey, saveApiKey, removeApiKey, hasApiKey, games } = useOddsApi();
+  const { games } = useOddsApi();
   const [activePersona, setActivePersona] = useState("Bobby Vegas");
   const [analyses, setAnalyses] = useState<TelegramAnalysis[]>([]);
   
@@ -135,14 +134,6 @@ export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
               <h3 className="text-xl font-semibold mb-4">Live Games & Odds</h3>
               <LiveOdds />
             </Card>
-            
-            {/* Odds API Settings */}
-            <OddsApiSettings
-              apiKey={apiKey}
-              onSaveApiKey={saveApiKey}
-              onRemoveApiKey={removeApiKey}
-              hasApiKey={hasApiKey}
-            />
             
             {/* Multi-Sport Webhooks */}
             <MultiSportWebhooks />

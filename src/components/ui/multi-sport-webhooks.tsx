@@ -31,41 +31,41 @@ export const MultiSportWebhooks = () => {
   const [sportWebhooks, setSportWebhooks] = useState<SportWebhook[]>([
     {
       sport: 'MLB',
-      webhookUrl: localStorage.getItem('webhook_mlb') || '',
+      webhookUrl: import.meta.env.VITE_N8N_WEBHOOK_MLB || '',
       lastTriggered: null,
-      isActive: false,
+      isActive: !!import.meta.env.VITE_N8N_WEBHOOK_MLB,
       icon: '⚾',
       color: 'primary'
     },
     {
-      sport: 'NFL', 
-      webhookUrl: localStorage.getItem('webhook_nfl') || '',
+      sport: 'NFL',
+      webhookUrl: import.meta.env.VITE_N8N_WEBHOOK_NFL || '',
       lastTriggered: null,
-      isActive: false,
+      isActive: !!import.meta.env.VITE_N8N_WEBHOOK_NFL,
       icon: '🏈',
       color: 'accent'
     },
     {
       sport: 'College Football',
-      webhookUrl: localStorage.getItem('webhook_cfb') || '',
+      webhookUrl: import.meta.env.VITE_N8N_WEBHOOK_CFB || '',
       lastTriggered: null,
-      isActive: false,
+      isActive: !!import.meta.env.VITE_N8N_WEBHOOK_CFB,
       icon: '🏟️',
       color: 'neutral'
     },
     {
       sport: 'NBA',
-      webhookUrl: localStorage.getItem('webhook_nba') || '',
+      webhookUrl: import.meta.env.VITE_N8N_WEBHOOK_NBA || '',
       lastTriggered: null,
-      isActive: false,
+      isActive: !!import.meta.env.VITE_N8N_WEBHOOK_NBA,
       icon: '🏀',
       color: 'win'
     },
     {
       sport: 'NHL',
-      webhookUrl: localStorage.getItem('webhook_nhl') || '',
+      webhookUrl: import.meta.env.VITE_N8N_WEBHOOK_NHL || '',
       lastTriggered: null,
-      isActive: false,
+      isActive: !!import.meta.env.VITE_N8N_WEBHOOK_NHL,
       icon: '🏒',
       color: 'loss'
     }
@@ -76,17 +76,6 @@ export const MultiSportWebhooks = () => {
   const [testPersona, setTestPersona] = useState('analytical');
   const [testDate, setTestDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const { toast } = useToast();
-
-  const updateWebhookUrl = (sport: string, url: string) => {
-    setSportWebhooks(prev => 
-      prev.map(webhook => 
-        webhook.sport === sport 
-          ? { ...webhook, webhookUrl: url, isActive: !!url }
-          : webhook
-      )
-    );
-    localStorage.setItem(`webhook_${sport.toLowerCase().replace(' ', '_')}`, url);
-  };
 
   const testWebhook = async (sport: string, url: string) => {
     if (!url) {
@@ -270,40 +259,30 @@ export const MultiSportWebhooks = () => {
           <TabsContent key={webhook.sport} value={webhook.sport} className="space-y-4">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label htmlFor={`${webhook.sport}-url`}>
-                  {webhook.sport} AI Connection URL
-                </Label>
-                <Badge 
-                  variant="outline" 
-                  className={webhook.isActive ? 'border-win/30 text-win' : 'border-muted/30'}
+                <span className="text-sm font-medium">{webhook.sport} AI Connection</span>
+                <Badge
+                  variant="outline"
+                  className={webhook.isActive ? 'border-win/30 text-win' : 'border-muted/30 text-muted-foreground'}
                 >
-                  {webhook.isActive ? 'Connected' : 'Not Connected'}
+                  {webhook.isActive ? 'Connected' : 'Not Configured'}
                 </Badge>
               </div>
-              
-              <div className="flex gap-2">
-                <Input
-                  id={`${webhook.sport}-url`}
-                  type="url"
-                  placeholder={`https://your-instance.com/ai-connection/${webhook.sport.toLowerCase()}`}
-                  value={webhook.webhookUrl}
-                  onChange={(e) => updateWebhookUrl(webhook.sport, e.target.value)}
-                  className="flex-1"
-                />
+
+              {webhook.isActive ? (
                 <Button
                   variant="outline"
+                  className="w-full"
                   onClick={() => testWebhook(webhook.sport, webhook.webhookUrl)}
-                  disabled={!webhook.webhookUrl}
                 >
                   <Play className="w-4 h-4 mr-2" />
-                  Test
+                  Test {webhook.sport} Connection
                 </Button>
-              </div>
-              
-              <p className="text-xs text-muted-foreground">
-                Enter the AI Connection URL from your {webhook.sport} workflow
-              </p>
-              
+              ) : (
+                <p className="text-xs text-muted-foreground p-3 bg-muted/30 rounded-md border border-border/50">
+                  Set <code className="font-mono">VITE_N8N_WEBHOOK_{webhook.sport.toUpperCase().replace(' ', '_')}</code> in your environment variables to enable this sport.
+                </p>
+              )}
+
               <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-md">
                 <Clock className="w-4 h-4 text-amber-600" />
                 <p className="text-xs text-amber-700">
@@ -396,7 +375,7 @@ export const MultiSportWebhooks = () => {
       <div className="mt-6 pt-4 border-t border-border/50">
         <div className="flex items-center justify-between text-sm">
           <div className="text-muted-foreground">
-            AI Connections stored locally in browser
+            AI Connections configured via environment variables
           </div>
           <div className="text-xs text-muted-foreground">
             {sportWebhooks.filter(w => w.isActive).length} of {sportWebhooks.length} sports configured
