@@ -108,28 +108,54 @@ const Tracker = () => {
       <h1 className="text-2xl font-bold">My Pick Tracker 📊</h1>
 
       {/* Record card */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Season Record</CardTitle>
+      <Card className="border-primary/20">
+        <CardHeader className="pb-1">
+          <CardTitle className="text-base text-muted-foreground font-medium">Season Record</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex justify-around text-center py-1">
-            {[
-              { value: wins, label: "Win", color: "text-green-500" },
-              { value: losses, label: "Loss", color: "text-red-500" },
-              { value: pushes, label: "Push", color: "text-yellow-500" },
-            ].map(({ value, label, color }) => (
-              <div key={label} className="flex flex-col items-center gap-1">
-                <span className={`text-3xl font-bold ${color}`}>{value}</span>
-                <span className="text-xs text-muted-foreground">{label}</span>
-              </div>
-            ))}
+        <CardContent className="space-y-4">
+          <div className="flex justify-around text-center py-2">
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-5xl font-black text-green-500 tabular-nums">{wins}</span>
+              <span className="text-xs font-semibold uppercase tracking-widest text-green-500/70">W</span>
+            </div>
+            <div className="flex items-center text-3xl font-light text-muted-foreground/30 pb-4">—</div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-5xl font-black text-red-500 tabular-nums">{losses}</span>
+              <span className="text-xs font-semibold uppercase tracking-widest text-red-500/70">L</span>
+            </div>
+            <div className="flex items-center text-3xl font-light text-muted-foreground/30 pb-4">—</div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-5xl font-black text-slate-400 tabular-nums">{pushes}</span>
+              <span className="text-xs font-semibold uppercase tracking-widest text-slate-400/70">P</span>
+            </div>
           </div>
-          <p className="text-center text-muted-foreground text-xs border-t border-border pt-3">
-            {picks.filter((p) => p.result).length > 0
-              ? `If $100/pick, you're ${roiLabel}`
-              : "Start saving picks to track ROI"}
-          </p>
+
+          <div className="border-t border-border pt-3 space-y-1 text-center">
+            {(() => {
+              const settled = wins + losses;
+              const winPct = settled > 0 ? wins / settled : null;
+              const motivational =
+                winPct === null
+                  ? null
+                  : winPct > 0.6
+                  ? "Bobby's on fire 🔥"
+                  : winPct >= 0.4
+                  ? "Staying in the game 💪"
+                  : "Time to trust the process 🎯";
+              return (
+                <>
+                  {motivational && (
+                    <p className="text-sm font-semibold text-foreground">{motivational}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {picks.filter((p) => p.result).length > 0
+                      ? `If $100/pick, you're ${roiLabel}`
+                      : "Start saving picks to track ROI"}
+                  </p>
+                </>
+              );
+            })()}
+          </div>
         </CardContent>
       </Card>
 

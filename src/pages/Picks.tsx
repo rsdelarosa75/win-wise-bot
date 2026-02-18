@@ -8,7 +8,7 @@ const Picks = () => {
       <N8nIntegration />
 
       <p className="text-sm text-muted-foreground text-center pb-4">
-        Enter your N8N webhook URL to pull live AI picks
+        Enter your Bobby's Engine URL to pull live AI picks
       </p>
     </div>
   );

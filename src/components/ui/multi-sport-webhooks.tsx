@@ -228,9 +228,9 @@ export const MultiSportWebhooks = () => {
           <Settings className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h3 className="text-xl font-semibold">Multi-Sport Webhook Configuration</h3>
+          <h3 className="text-xl font-semibold">Multi-Sport AI Connection</h3>
           <p className="text-sm text-muted-foreground">
-            Connect separate n8n workflows for each sport
+            Connect separate Bobby's Engine workflows for each sport
           </p>
         </div>
       </div>
@@ -271,7 +271,7 @@ export const MultiSportWebhooks = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label htmlFor={`${webhook.sport}-url`}>
-                  {webhook.sport} n8n Webhook URL
+                  {webhook.sport} AI Connection URL
                 </Label>
                 <Badge 
                   variant="outline" 
@@ -285,7 +285,7 @@ export const MultiSportWebhooks = () => {
                 <Input
                   id={`${webhook.sport}-url`}
                   type="url"
-                  placeholder={`https://your-n8n-instance.com/webhook/${webhook.sport.toLowerCase()}`}
+                  placeholder={`https://your-instance.com/ai-connection/${webhook.sport.toLowerCase()}`}
                   value={webhook.webhookUrl}
                   onChange={(e) => updateWebhookUrl(webhook.sport, e.target.value)}
                   className="flex-1"
@@ -301,7 +301,7 @@ export const MultiSportWebhooks = () => {
               </div>
               
               <p className="text-xs text-muted-foreground">
-                Enter the webhook URL from your {webhook.sport} n8n workflow
+                Enter the AI Connection URL from your {webhook.sport} workflow
               </p>
               
               <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-md">
@@ -369,9 +369,9 @@ export const MultiSportWebhooks = () => {
                 {webhook.sport} Workflow Setup
               </h4>
               <div className="text-sm text-muted-foreground space-y-2">
-                <p><strong>1. Create {webhook.sport} n8n workflow:</strong></p>
+                <p><strong>1. Create {webhook.sport} Bobby's Engine workflow:</strong></p>
                 <ul className="list-disc list-inside ml-4 space-y-1">
-                  <li>Add Webhook trigger node</li>
+                  <li>Add AI Connection trigger node</li>
                   <li>Configure for {webhook.sport} data processing</li>
                   <li>Add {webhook.sport}-specific team parsing</li>
                   <li>Connect to {webhook.sport} odds APIs</li>
@@ -396,7 +396,7 @@ export const MultiSportWebhooks = () => {
       <div className="mt-6 pt-4 border-t border-border/50">
         <div className="flex items-center justify-between text-sm">
           <div className="text-muted-foreground">
-            Webhooks stored locally in browser
+            AI Connections stored locally in browser
           </div>
           <div className="text-xs text-muted-foreground">
             {sportWebhooks.filter(w => w.isActive).length} of {sportWebhooks.length} sports configured

@@ -222,7 +222,7 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
 
       {showImporter && (
         <div className="mb-4 rounded-lg border border-border/30 p-3 bg-background/60">
-          <div className="text-sm mb-2 text-muted-foreground">Paste n8n JSON analysis</div>
+          <div className="text-sm mb-2 text-muted-foreground">Paste Bobby's Engine JSON analysis</div>
           <Textarea
             value={jsonInput}
             onChange={(e) => setJsonInput(e.target.value)}
@@ -774,7 +774,7 @@ return null;
       <div className="mt-4 pt-4 border-t border-border/50">
         <div className="flex items-center justify-between text-sm">
         <div className="text-muted-foreground">
-          Connected to your n8n webhook workflows
+          Connected to Bobby's Engine
         </div>
           <div className="flex items-center gap-4">
             <div className="text-xs text-muted-foreground">

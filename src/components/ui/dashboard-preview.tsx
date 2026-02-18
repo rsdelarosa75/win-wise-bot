@@ -33,7 +33,7 @@ interface DashboardPreviewProps {
 
 export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
   const { apiKey, saveApiKey, removeApiKey, hasApiKey, games } = useOddsApi();
-  const [activePersona, setActivePersona] = useState("Money Making Mitch");
+  const [activePersona, setActivePersona] = useState("Bobby Vegas");
   const [analyses, setAnalyses] = useState<TelegramAnalysis[]>([]);
   
   useEffect(() => {
@@ -76,11 +76,8 @@ export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
       <div className="container mx-auto px-6">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold mb-4">
-            <span className="text-primary">Intelligent</span> Analytics Dashboard
+            Bobby's Card 🎲
           </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Get comprehensive insights with real-time data, advanced analytics, and AI-powered recommendations
-          </p>
         </div>
         
         <div className="grid lg:grid-cols-3 gap-6">
@@ -88,7 +85,7 @@ export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
           <div className="lg:col-span-2 space-y-6">
             <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20 hover:shadow-card-hover transition-all duration-300">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold">Today's Opportunities</h3>
+                <h3 className="text-xl font-semibold">Today's Picks</h3>
                 <Badge variant="outline" className="border-primary/30 text-primary">
                   Live
                 </Badge>
@@ -189,31 +186,17 @@ export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
             </Card>
             
             <Card className="p-6 bg-gradient-to-br from-card to-card/50 border-primary/20">
-              <h3 className="text-xl font-semibold mb-4">AI Personas</h3>
+              <h3 className="text-xl font-semibold mb-4">Your Advisor</h3>
               <div className="space-y-3">
-                {[
-                  { name: "Money Making Mitch", style: "Low Risk" },
-                  { name: "Bobby Vegas", style: "High Risk" },
-                  { name: "Value Finder Vic", style: "Value Betting" }
-                ].map((persona, index) => (
-                  <div 
-                    key={index} 
-                    className={`p-3 rounded-lg border transition-all duration-200 cursor-pointer ${
-                      activePersona === persona.name
-                        ? 'bg-primary/10 border-primary/30' 
-                        : 'bg-secondary/20 border-border/30 hover:border-primary/20 hover:bg-primary/5'
-                    }`}
-                    onClick={() => setActivePersona(persona.name)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium text-sm">{persona.name}</div>
-                        <div className="text-xs text-muted-foreground">{persona.style}</div>
-                      </div>
-                      <div className={`w-2 h-2 rounded-full ${activePersona === persona.name ? 'bg-primary' : 'bg-muted'}`} />
+                <div className="p-3 rounded-lg border bg-primary/10 border-primary/30">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-sm">Bobby Vegas</div>
+                      <div className="text-xs text-muted-foreground">High Risk</div>
                     </div>
+                    <div className="w-2 h-2 rounded-full bg-primary" />
                   </div>
-                ))}
+                </div>
               </div>
             </Card>
           </div>
