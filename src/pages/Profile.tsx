@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
 
 const SPORTS = [
   { id: "nfl", label: "NFL", defaultOn: true },
@@ -17,7 +18,11 @@ const NOTIFICATIONS = [
   { id: "line-movement", label: "Line movement alerts", defaultOn: true },
 ];
 
-const Profile = () => {
+interface ProfileProps {
+  onSignOut: () => Promise<void>;
+}
+
+const Profile = ({ onSignOut }: ProfileProps) => {
   const [sports, setSports] = useState<Record<string, boolean>>(
     Object.fromEntries(SPORTS.map((s) => [s.id, s.defaultOn]))
   );
@@ -86,6 +91,20 @@ const Profile = () => {
           </p>
           <Button className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold">
             Upgrade to VIP
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Sign Out */}
+      <Card>
+        <CardContent className="pt-4 pb-4">
+          <Button
+            variant="ghost"
+            className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={onSignOut}
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out
           </Button>
         </CardContent>
       </Card>
