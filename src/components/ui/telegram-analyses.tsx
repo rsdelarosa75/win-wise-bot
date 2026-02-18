@@ -4,8 +4,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { MessageSquare, Clock, TrendingUp, RefreshCw } from 'lucide-react';
+import { MessageSquare, Clock, TrendingUp, RefreshCw, Bookmark, Check } from 'lucide-react';
 import { testAddAnalysis } from '@/utils/webhook-handler';
+import { usePicks } from '@/hooks/use-picks';
+import { useAuth } from '@/hooks/use-auth';
+import { toast } from 'sonner';
 
 interface TelegramAnalysis {
   id: string;
@@ -30,6 +33,30 @@ interface TelegramAnalysis {
 }
 
 export const TelegramAnalyses = () => {
+  const { user } = useAuth();
+  const { savePick } = usePicks();
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  const handleSavePick = async (analysis: TelegramAnalysis) => {
+    if (!user) {
+      toast('Sign in to save picks.');
+      return;
+    }
+    await savePick({
+      teams: analysis.teams,
+      sport: analysis.sport ?? null,
+      pick: analysis.recommendation ?? null,
+      confidence: analysis.confidence,
+      analysis: typeof analysis.analysis === 'string'
+        ? analysis.analysis
+        : JSON.stringify(analysis.analysis),
+      odds: analysis.odds ?? null,
+      bet_type: analysis.bet_type ?? null,
+    });
+    setSavedIds((prev) => new Set([...prev, analysis.id]));
+    toast('Pick saved! 📌');
+  };
+
   const [analyses, setAnalyses] = useState<TelegramAnalysis[]>(() => {
     // Load from localStorage on mount
     const stored = localStorage.getItem('webhook_analyses');
@@ -228,16 +255,32 @@ export const TelegramAnalyses = () => {
                     {formatTimeAgo(analysis.timestamp)}
                   </div>
                 </div>
-                <Badge 
-                  variant="outline"
-                  className={`text-sm px-3 py-1 font-semibold
-                    ${analysis.confidence === 'High' ? 'border-win/40 text-win bg-win/5' : ''}
-                    ${analysis.confidence === 'Medium' ? 'border-neutral/40 text-neutral bg-neutral/5' : ''}
-                    ${analysis.confidence === 'Low' ? 'border-loss/40 text-loss bg-loss/5' : ''}
-                  `}
-                >
-                  {analysis.confidence} Confidence
-                </Badge>
+                <div className="flex flex-col items-end gap-2">
+                  <Badge 
+                    variant="outline"
+                    className={`text-sm px-3 py-1 font-semibold
+                      ${analysis.confidence === 'High' ? 'border-win/40 text-win bg-win/5' : ''}
+                      ${analysis.confidence === 'Medium' ? 'border-neutral/40 text-neutral bg-neutral/5' : ''}
+                      ${analysis.confidence === 'Low' ? 'border-loss/40 text-loss bg-loss/5' : ''}
+                    `}
+                  >
+                    {analysis.confidence} Confidence
+                  </Badge>
+                  <button
+                    onClick={() => handleSavePick(analysis)}
+                    disabled={savedIds.has(analysis.id)}
+                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md border transition-colors
+                      ${savedIds.has(analysis.id)
+                        ? 'border-win/40 text-win bg-win/5 cursor-default'
+                        : 'border-primary/30 text-primary hover:bg-primary/10'
+                      }`}
+                  >
+                    {savedIds.has(analysis.id)
+                      ? <><Check className="w-3 h-3" /> Saved</>
+                      : <><Bookmark className="w-3 h-3" /> Save Pick</>
+                    }
+                  </button>
+                </div>
               </div>
 
               <div className="mb-4">
