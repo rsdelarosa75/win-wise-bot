@@ -54,8 +54,24 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           alt="BOBBY VEGA$"
           width={300}
           className="mx-auto mb-3"
+          style={{
+            animation: 'bv-fade-in 0.9s ease-out both, bv-glow-pulse 2.4s ease-in-out 1s infinite',
+          }}
         />
-        <p className="text-sm text-foreground/70 mt-1">
+
+        {/* Sports ball shimmer row */}
+        <div className="flex items-center justify-center gap-4 text-2xl my-3">
+          {['🏈', '⚾', '🏀', '🏒'].map((emoji, i) => (
+            <span
+              key={emoji}
+              style={{ animation: `bv-shimmer 2.6s ease-in-out ${i * 0.4}s infinite` }}
+            >
+              {emoji}
+            </span>
+          ))}
+        </div>
+
+        <p className="text-sm text-foreground/70">
           Your Trusted AI Sports Advisor
         </p>
       </div>

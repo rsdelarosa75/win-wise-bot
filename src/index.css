@@ -116,6 +116,24 @@ All colors MUST be HSL.
   }
 }
 
+/* ── BobbyVegas brand animations ────────────────────────────── */
+@keyframes bv-fade-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes bv-glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(245,161,0,0.25)); }
+  50%       { filter: drop-shadow(0 0 22px rgba(245,161,0,0.7))
+                       drop-shadow(0 0 44px rgba(245,161,0,0.25)); }
+}
+
+@keyframes bv-shimmer {
+  0%, 100% { opacity: 0.55; }
+  50%       { opacity: 1; }
+}
+/* ─────────────────────────────────────────────────────────── */
+
 @layer utilities {
   .phone-shell {
     max-width: 430px;

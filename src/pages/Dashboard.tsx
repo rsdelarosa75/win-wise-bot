@@ -22,6 +22,17 @@ const Dashboard = ({ onUpgradeClick }: DashboardProps) => {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] mt-1" style={{ color: '#F5A100' }}>
           Where AI Meets the Action
         </p>
+        {/* Sports icons */}
+        <div className="flex items-center gap-3 text-xl mt-2">
+          {['🏈', '⚾', '🏀', '🏒'].map((emoji, i) => (
+            <span
+              key={emoji}
+              style={{ animation: `bv-shimmer 2.6s ease-in-out ${i * 0.4}s infinite` }}
+            >
+              {emoji}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Today's NBA Picks */}
