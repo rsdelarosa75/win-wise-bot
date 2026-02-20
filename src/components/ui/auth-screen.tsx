@@ -52,7 +52,7 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
         <img
           src="/bobby-vegas-logo.png"
           alt="BOBBY VEGA$"
-          width={200}
+          width={300}
           className="mx-auto mb-3"
         />
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
