@@ -19,7 +19,9 @@ const Dashboard = ({ onUpgradeClick }: DashboardProps) => {
       <div>
         <h1 className="text-2xl font-bold">Good morning 👋</h1>
         <p className="text-sm text-muted-foreground mt-1">{today}</p>
-        <p className="text-sm text-muted-foreground mt-0.5">Bobby's got picks ready for you</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] mt-1" style={{ color: '#F5A100' }}>
+          Where AI Meets the Action
+        </p>
       </div>
 
       {/* Today's NBA Picks */}

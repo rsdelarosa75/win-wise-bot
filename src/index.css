@@ -7,101 +7,101 @@ All colors MUST be HSL.
 */
 
 @layer base {
+  /* BobbyVegas brand: pure black + neon gold — always dark, no light mode */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 224 71% 4%;
+    --background: 0 0% 4%;         /* #0A0A0A */
+    --foreground: 0 0% 96%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 224 71% 4%;
+    --card: 0 0% 7%;               /* #111111 */
+    --card-foreground: 0 0% 96%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 224 71% 4%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 221 83% 53%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 39 100% 48%;        /* #F5A100 neon gold */
+    --primary-foreground: 0 0% 0%; /* #000000 black text on gold */
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 9% 46%;
+    --secondary: 0 0% 11%;         /* #1C1C1C — slightly lighter than card */
+    --secondary-foreground: 0 0% 96%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 0 0% 11%;
+    --muted-foreground: 0 0% 53%;  /* #888888 */
 
     --accent: 142 71% 45%;
-    --accent-foreground: 0 0% 98%;
+    --accent-foreground: 0 0% 0%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 221 83% 53%;
+    --border: 0 0% 16%;            /* #2A2A2A */
+    --input: 0 0% 16%;
+    --ring: 39 100% 48%;
 
     --radius: 0.5rem;
 
-    /* Professional sports betting theme colors */
     --win: 142 71% 45%;
     --loss: 0 84% 60%;
-    --neutral: 38 92% 50%;
-    
-    /* Subtle gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(221 83% 48%));
+    --neutral: 39 100% 48%;        /* gold for medium confidence */
+
+    /* Gold gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(39 100% 48%), hsl(39 100% 40%));
     --gradient-accent: linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 40%));
-    --gradient-hero: linear-gradient(135deg, hsl(220 14% 96%) 0%, hsl(0 0% 100%) 50%, hsl(221 83% 53% / 0.05) 100%);
-    
-    /* Professional shadows */
-    --shadow-primary: 0 4px 20px -4px hsl(221 83% 53% / 0.15);
-    --shadow-card: 0 2px 10px -2px hsl(220 9% 46% / 0.1);
-    
-    /* Smooth animations */
+    --gradient-hero: linear-gradient(135deg, hsl(0 0% 7%) 0%, hsl(0 0% 4%) 50%, hsl(39 100% 48% / 0.06) 100%);
+
+    /* Gold glow shadows */
+    --shadow-primary: 0 4px 24px -4px hsl(39 100% 48% / 0.45);
+    --shadow-card: 0 2px 12px -2px hsl(0 0% 0% / 0.4);
+
     --transition-smooth: all 0.2s ease-in-out;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-background: 0 0% 7%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 39 100% 48%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 0 0% 11%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 39 100% 48%;
   }
 
+  /* Mirror root — app is always dark */
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 0 0% 98%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 96%;
 
-    --card: 224 65% 6%;
-    --card-foreground: 0 0% 98%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 224 65% 6%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 221 83% 53%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 39 100% 48%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 215 28% 17%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 0 0% 11%;
+    --secondary-foreground: 0 0% 96%;
 
-    --muted: 215 28% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 0 0% 11%;
+    --muted-foreground: 0 0% 53%;
 
     --accent: 142 71% 45%;
-    --accent-foreground: 0 0% 98%;
+    --accent-foreground: 0 0% 0%;
 
     --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 215 28% 17%;
-    --input: 215 28% 17%;
-    --ring: 221 83% 53%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 39 100% 48%;
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 221 83% 53%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-background: 0 0% 7%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 39 100% 48%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 0 0% 11%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 39 100% 48%;
   }
 }
 
@@ -112,13 +112,7 @@ All colors MUST be HSL.
 
   body {
     @apply text-foreground;
-    background-color: hsl(220 13% 82%);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    body {
-      background-color: hsl(224 71% 2%);
-    }
+    background-color: #050505; /* pure black desktop surround */
   }
 }
 
@@ -129,7 +123,7 @@ All colors MUST be HSL.
     margin-right: auto;
     min-height: 100svh;
     background-color: hsl(var(--background));
-    box-shadow: 0 0 60px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 0 80px rgba(245, 161, 0, 0.08), 0 0 40px rgba(0, 0, 0, 0.6);
     position: relative;
   }
 }

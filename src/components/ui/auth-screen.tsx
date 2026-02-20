@@ -46,13 +46,18 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-background">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12" style={{ backgroundColor: '#0A0A0A' }}>
       {/* Logo */}
-      <div className="mb-8 text-center">
-        <div className="text-5xl mb-3">🎲</div>
-        <h1 className="text-3xl font-bold tracking-tight">BobbyVegas</h1>
-        <p className="text-muted-foreground mt-2 text-sm">
-          Your AI betting advisor is ready.
+      <div className="mb-10 text-center">
+        <div className="text-5xl mb-4">🎲</div>
+        <h1
+          className="text-4xl font-black uppercase tracking-widest"
+          style={{ color: '#F5A100', textShadow: '0 0 24px rgba(245,161,0,0.55), 0 0 8px rgba(245,161,0,0.3)' }}
+        >
+          BOBBY VEGA$
+        </h1>
+        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+          Where AI Meets the Action
         </p>
       </div>
 
@@ -116,7 +121,8 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
 
         <Button
           type="submit"
-          className="w-full bg-gradient-to-r from-primary to-primary/80 font-semibold"
+          className="w-full min-h-[48px] font-black uppercase tracking-widest text-black"
+          style={{ backgroundColor: '#F5A100' }}
           disabled={loading}
         >
           {loading ? "Please wait…" : mode === "signin" ? "Sign In" : "Get Started"}
