@@ -49,14 +49,13 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12" style={{ backgroundColor: '#0A0A0A' }}>
       {/* Logo */}
       <div className="mb-10 text-center">
-        <div className="text-5xl mb-4">🎲</div>
-        <h1
-          className="text-4xl font-black uppercase tracking-widest"
-          style={{ color: '#F5A100', textShadow: '0 0 24px rgba(245,161,0,0.55), 0 0 8px rgba(245,161,0,0.3)' }}
-        >
-          BOBBY VEGA$
-        </h1>
-        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+        <img
+          src="/bobby-vegas-logo.png"
+          alt="BOBBY VEGA$"
+          width={200}
+          className="mx-auto mb-3"
+        />
+        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
           Where AI Meets the Action
         </p>
       </div>
