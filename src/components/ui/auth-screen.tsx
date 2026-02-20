@@ -55,8 +55,8 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           width={300}
           className="mx-auto mb-3"
         />
-        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
-          Where AI Meets the Action
+        <p className="text-sm text-foreground/70 mt-1">
+          Your Trusted AI Sports Advisor
         </p>
       </div>
 
