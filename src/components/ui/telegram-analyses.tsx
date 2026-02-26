@@ -3,9 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { MessageSquare, Clock, RefreshCw, Bookmark, Check } from 'lucide-react';
-import { testAddAnalysis } from '@/utils/webhook-handler';
 import { usePicks } from '@/hooks/use-picks';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -32,6 +30,7 @@ interface TelegramAnalysis {
 
 interface TelegramAnalysesProps {
   onUpgradeClick: () => void;
+  onPicksTabClick?: () => void;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -238,14 +237,12 @@ const PickCard = ({ analysis, isSaved, isExpanded, onSave, onToggleExpand, showS
 };
 
 // ── Main component ─────────────────────────────────────────────
-export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
+export const TelegramAnalyses = ({ onUpgradeClick, onPicksTabClick }: TelegramAnalysesProps) => {
   const { user } = useAuth();
   const { savePick } = usePicks();
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showImporter, setShowImporter] = useState(false);
-  const [jsonInput, setJsonInput] = useState('');
 
   const loadFromStorage = (): TelegramAnalysis[] => {
     try {
@@ -345,42 +342,28 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
               {uniqueAnalyses.length}
             </Badge>
           )}
-          <Button variant="ghost" size="sm" onClick={() => setShowImporter(v => !v)} className="text-xs h-8 px-2">
-            Import
-          </Button>
           <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="h-8 w-8 p-0">
             <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
 
-      {/* JSON Importer */}
-      {showImporter && (
-        <div className="mb-4 rounded-lg border border-border/30 p-3 bg-background/60">
-          <div className="text-sm mb-2 text-muted-foreground">Paste Bobby's Engine JSON analysis</div>
-          <Textarea
-            value={jsonInput}
-            onChange={e => setJsonInput(e.target.value)}
-            placeholder='{"teams":"Lakers vs Warriors","analysis":"..."}'
-            className="mb-2 text-xs"
-            rows={5}
-          />
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => { const ok = testAddAnalysis(jsonInput); if (ok) { setJsonInput(''); setShowImporter(false); } }}>
-              Add
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setShowImporter(false)}>Cancel</Button>
-          </div>
-        </div>
-      )}
-
       {/* Cards */}
       <div className="space-y-3">
         {uniqueAnalyses.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground">
-            <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No picks yet</p>
-            <p className="text-xs mt-1">Trigger Bobby's Engine to get today's picks</p>
+          <div className="py-10 text-center flex flex-col items-center gap-3">
+            <span className="text-4xl">🎲</span>
+            <p className="text-sm font-semibold text-foreground/80">No picks yet</p>
+            <p className="text-xs text-muted-foreground">Head to the Picks tab to ask Bobby</p>
+            {onPicksTabClick && (
+              <button
+                onClick={onPicksTabClick}
+                className="mt-1 px-5 py-2.5 rounded-lg text-sm font-black text-black min-h-[44px]"
+                style={{ backgroundColor: '#F5A100' }}
+              >
+                Ask Bobby 🎲
+              </button>
+            )}
           </div>
         ) : (
           uniqueAnalyses.map((analysis, index) => {
