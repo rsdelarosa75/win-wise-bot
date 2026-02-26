@@ -1,9 +1,32 @@
 import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { MessageSquare, Clock, TrendingUp, RefreshCw, Bookmark, Check } from 'lucide-react';
+
+// Shared markdown renderer with brand-consistent styling
+const MarkdownContent = ({ children }: { children: string }) => (
+  <ReactMarkdown
+    className="text-sm leading-relaxed"
+    components={{
+      p:      ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+      strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+      em:     ({ children }) => <em className="italic text-muted-foreground">{children}</em>,
+      h1:     ({ children }) => <h1 className="font-bold text-base mt-3 mb-1 text-primary">{children}</h1>,
+      h2:     ({ children }) => <h2 className="font-semibold text-sm mt-2 mb-1 text-primary">{children}</h2>,
+      h3:     ({ children }) => <h3 className="font-medium text-sm mt-2 mb-0.5 text-primary/80">{children}</h3>,
+      ul:     ({ children }) => <ul className="list-disc list-inside space-y-0.5 mb-1.5 pl-1">{children}</ul>,
+      ol:     ({ children }) => <ol className="list-decimal list-inside space-y-0.5 mb-1.5 pl-1">{children}</ol>,
+      li:     ({ children }) => <li className="leading-snug">{children}</li>,
+      code:   ({ children }) => <code className="bg-primary/10 text-primary px-1 rounded text-xs font-mono">{children}</code>,
+      blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/40 pl-3 text-muted-foreground italic">{children}</blockquote>,
+    }}
+  >
+    {children}
+  </ReactMarkdown>
+);
 import { testAddAnalysis } from '@/utils/webhook-handler';
 import { usePicks } from '@/hooks/use-picks';
 import { useAuth } from '@/hooks/use-auth';
@@ -742,23 +765,7 @@ return null;
                                    .replace(/Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `Favorite: ${team} (${formatOddsAsWholeNumber(odds)})`)
                                    .replace(/\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `**Underdog:** ${team} (${formatOddsAsWholeNumber(odds)})`)
                                    .replace(/Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `Underdog: ${team} (${formatOddsAsWholeNumber(odds)})`);
-                                 return (
-                                   <div 
-                                     className="text-sm leading-relaxed"
-                                     dangerouslySetInnerHTML={{
-                                       __html: roundedText
-                                         .replace(/\n\n/g, "<br><br>")
-                                         .replace(/\n/g, "<br>")
-                                         .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold'>$1</strong>")
-                                         .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
-                                         .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
-                                         .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
-                                         .replace(/\"square money\"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
-                                         .replace(/\"sharp money\"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
-                                         .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
-                                     }}
-                                   />
-                                 );
+                                 return <MarkdownContent>{roundedText}</MarkdownContent>;
                                })()}
                              </>
                            );
