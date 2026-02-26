@@ -1,38 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { MessageSquare, Clock, TrendingUp, RefreshCw, Bookmark, Check } from 'lucide-react';
-
-// Shared markdown renderer with brand-consistent styling
-const MarkdownContent = ({ children }: { children: string }) => (
-  <ReactMarkdown
-    className="text-sm leading-relaxed"
-    components={{
-      p:      ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
-      strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-      em:     ({ children }) => <em className="italic text-muted-foreground">{children}</em>,
-      h1:     ({ children }) => <h1 className="font-bold text-base mt-3 mb-1 text-primary">{children}</h1>,
-      h2:     ({ children }) => <h2 className="font-semibold text-sm mt-2 mb-1 text-primary">{children}</h2>,
-      h3:     ({ children }) => <h3 className="font-medium text-sm mt-2 mb-0.5 text-primary/80">{children}</h3>,
-      ul:     ({ children }) => <ul className="list-disc list-inside space-y-0.5 mb-1.5 pl-1">{children}</ul>,
-      ol:     ({ children }) => <ol className="list-decimal list-inside space-y-0.5 mb-1.5 pl-1">{children}</ol>,
-      li:     ({ children }) => <li className="leading-snug">{children}</li>,
-      code:   ({ children }) => <code className="bg-primary/10 text-primary px-1 rounded text-xs font-mono">{children}</code>,
-      blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/40 pl-3 text-muted-foreground italic">{children}</blockquote>,
-    }}
-  >
-    {children}
-  </ReactMarkdown>
-);
+import { MessageSquare, Clock, RefreshCw, Bookmark, Check } from 'lucide-react';
 import { testAddAnalysis } from '@/utils/webhook-handler';
 import { usePicks } from '@/hooks/use-picks';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { VipGate } from '@/components/ui/vip-gate';
 
+// ── Types ─────────────────────────────────────────────────────
 interface TelegramAnalysis {
   id: string;
   timestamp: string;
@@ -44,13 +23,9 @@ interface TelegramAnalysis {
   status: 'win' | 'neutral' | 'loss';
   odds?: string;
   sport?: string;
-  // Optional enriched metrics coming from the AI/webhook
   recommendation?: string;
   bet_type?: string;
   confidence_percentage?: number;
-  confidence_interval?: string;
-  expected_value?: string;
-  kelly_criterion?: number;
   units?: number;
   key_factors?: string[];
 }
@@ -59,18 +34,269 @@ interface TelegramAnalysesProps {
   onUpgradeClick: () => void;
 }
 
+// ── Helpers ────────────────────────────────────────────────────
+const extractField = (text: string, ...keys: string[]): string | null => {
+  for (const key of keys) {
+    const re = new RegExp(`${key}\\s*[:\\-]\\s*([^\\n]+)`, 'i');
+    const m = text.match(re);
+    if (m) return m[1].replace(/\*\*/g, '').trim();
+  }
+  return null;
+};
+
+const WIN_PROB: Record<string, string> = {
+  High: '75–85%',
+  Medium: '60–70%',
+  Low: '50–55%',
+};
+
+const UNITS: Record<string, number> = { High: 3, Medium: 2, Low: 1 };
+
+interface Metrics {
+  recommendation: string | null;
+  betType: string | null;
+  winProbability: string;
+  units: number;
+  odds: string | null;
+  reasoning: string;
+}
+
+const extractMetrics = (analysis: TelegramAnalysis): Metrics => {
+  let parsed: Record<string, unknown> | null = null;
+  try {
+    const raw = typeof analysis.analysis === 'string'
+      ? JSON.parse(analysis.analysis)
+      : analysis.analysis;
+    parsed = Array.isArray(raw) ? raw[0] : raw;
+  } catch { /* plain text */ }
+
+  const reasoning =
+    (parsed?.analysis ?? parsed?.output ?? parsed?.text ??
+     (typeof analysis.analysis === 'string' ? analysis.analysis : '')) as string;
+
+  const recommendation =
+    (parsed?.recommendation as string | undefined) ??
+    analysis.recommendation ??
+    extractField(reasoning, "Bobby's Pick", "BOBBY'S PICK", "Pick", "Recommendation", "BET");
+
+  const betType =
+    (parsed?.bet_type as string | undefined) ??
+    analysis.bet_type ??
+    extractField(reasoning, 'Bet Type', 'BET TYPE');
+
+  const rawProb = parsed?.confidence_percentage as string | number | undefined;
+  const winProbability = rawProb
+    ? `${Math.round(parseFloat(String(rawProb)))}%`
+    : WIN_PROB[analysis.confidence] ?? '60–70%';
+
+  const units =
+    (parsed?.units as number | undefined) ??
+    analysis.units ??
+    UNITS[analysis.confidence] ?? 2;
+
+  const odds =
+    analysis.odds ??
+    (parsed?.odds as string | undefined) ??
+    extractField(reasoning, 'Current Odds', 'ODDS', 'Moneyline', 'Line');
+
+  return { recommendation, betType, winProbability, units, odds, reasoning };
+};
+
+const formatTimeAgo = (timestamp: string) => {
+  const diff = Math.floor((Date.now() - new Date(timestamp).getTime()) / 60000);
+  if (diff < 1) return 'Just now';
+  if (diff < 60) return `${diff}m ago`;
+  if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+  return new Date(timestamp).toLocaleDateString();
+};
+
+// ── Markdown renderer ──────────────────────────────────────────
+const mdComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
+  p:          ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+  strong:     ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+  em:         ({ children }) => <em className="italic text-muted-foreground">{children}</em>,
+  h1:         ({ children }) => <h1 className="font-bold text-base mt-3 mb-1 text-primary">{children}</h1>,
+  h2:         ({ children }) => <h2 className="font-semibold text-sm mt-2 mb-1 text-primary">{children}</h2>,
+  h3:         ({ children }) => <h3 className="font-medium text-sm mt-2 mb-0.5 text-primary/80">{children}</h3>,
+  ul:         ({ children }) => <ul className="list-disc list-inside space-y-0.5 mb-1.5 pl-1">{children}</ul>,
+  ol:         ({ children }) => <ol className="list-decimal list-inside space-y-0.5 mb-1.5 pl-1">{children}</ol>,
+  li:         ({ children }) => <li className="leading-snug">{children}</li>,
+  code:       ({ children }) => <code className="bg-primary/10 text-primary px-1 rounded text-xs font-mono">{children}</code>,
+  blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/40 pl-3 text-muted-foreground italic">{children}</blockquote>,
+};
+
+// ── PickCard ───────────────────────────────────────────────────
+interface PickCardProps {
+  analysis: TelegramAnalysis;
+  isSaved: boolean;
+  isExpanded: boolean;
+  onSave: () => void;
+  onToggleExpand: () => void;
+  showSaveButton: boolean;
+}
+
+const PickCard = ({ analysis, isSaved, isExpanded, onSave, onToggleExpand, showSaveButton }: PickCardProps) => {
+  const m = extractMetrics(analysis);
+
+  return (
+    <div className="p-3 bg-gradient-to-br from-secondary/20 to-secondary/10 rounded-xl border border-border/30 hover:border-primary/30 transition-all duration-200 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1 min-w-0">
+          <h4 className="font-bold text-sm text-foreground leading-tight truncate">{analysis.teams}</h4>
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {analysis.sport && (
+              <Badge variant="secondary" className="text-xs px-1.5 py-0">{analysis.sport}</Badge>
+            )}
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="w-3 h-3" />{formatTimeAgo(analysis.timestamp)}
+            </span>
+          </div>
+        </div>
+        <Badge
+          variant="outline"
+          className={`shrink-0 ml-2 text-xs px-2 py-0.5 font-semibold
+            ${analysis.confidence === 'High'   ? 'border-win/40 text-win bg-win/5' : ''}
+            ${analysis.confidence === 'Medium' ? 'border-primary/40 text-primary bg-primary/5' : ''}
+            ${analysis.confidence === 'Low'    ? 'border-loss/40 text-loss bg-loss/5' : ''}
+          `}
+        >
+          {analysis.confidence}
+        </Badge>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="text-center p-2 bg-background/50 rounded-lg border border-border/20">
+          <div className="text-[10px] text-muted-foreground mb-0.5">Odds</div>
+          <div className="font-semibold text-xs text-foreground truncate">{m.odds ?? '—'}</div>
+        </div>
+        <div className="text-center p-2 bg-win/10 rounded-lg border border-win/20">
+          <div className="text-[10px] text-muted-foreground mb-0.5">Win Prob</div>
+          <div className="font-bold text-xs text-win">{m.winProbability}</div>
+        </div>
+        <div className="text-center p-2 bg-accent/10 rounded-lg border border-accent/20">
+          <div className="text-[10px] text-muted-foreground mb-0.5">Units</div>
+          <div className="font-bold text-xs text-accent">{m.units}u</div>
+        </div>
+      </div>
+
+      {/* Recommendation — gold box */}
+      {m.recommendation && (
+        <div
+          className="mb-3 p-3 rounded-lg border"
+          style={{ backgroundColor: 'rgba(245,161,0,0.08)', borderColor: 'rgba(245,161,0,0.3)' }}
+        >
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Bobby's Pick</div>
+          <div className="font-black text-sm" style={{ color: '#F5A100' }}>{m.recommendation}</div>
+          {m.betType && <div className="text-xs text-muted-foreground mt-0.5 capitalize">{m.betType}</div>}
+        </div>
+      )}
+
+      {/* Reasoning — expandable */}
+      {m.reasoning && (
+        <div className="relative mb-2">
+          <div
+            className={`bg-background/70 rounded-lg p-3 border border-border/20 overflow-hidden transition-all duration-200 ${isExpanded ? '' : 'max-h-32'}`}
+          >
+            <ReactMarkdown className="text-sm leading-relaxed" components={mdComponents}>
+              {m.reasoning}
+            </ReactMarkdown>
+          </div>
+          {!isExpanded && (
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-secondary/30 to-transparent pointer-events-none rounded-b-lg" />
+          )}
+          <button
+            onClick={onToggleExpand}
+            className="mt-1 text-xs text-primary hover:underline w-full text-left pl-1"
+          >
+            {isExpanded ? 'Show less ↑' : 'Read more ↓'}
+          </button>
+        </div>
+      )}
+
+      {/* Save Pick */}
+      {showSaveButton && (
+        <button
+          onClick={onSave}
+          disabled={isSaved}
+          className={`w-full min-h-[40px] flex items-center justify-center gap-1.5 text-xs font-bold rounded-lg border transition-colors
+            ${isSaved
+              ? 'border-win/40 text-win bg-win/5 cursor-default'
+              : 'border-0 text-black'
+            }`}
+          style={isSaved ? {} : { backgroundColor: '#F5A100' }}
+        >
+          {isSaved
+            ? <><Check className="w-3.5 h-3.5" /> Saved to Tracker!</>
+            : <><Bookmark className="w-3.5 h-3.5" /> Save Pick 🎲</>
+          }
+        </button>
+      )}
+    </div>
+  );
+};
+
+// ── Main component ─────────────────────────────────────────────
 export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
   const { user } = useAuth();
   const { savePick } = usePicks();
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showImporter, setShowImporter] = useState(false);
+  const [jsonInput, setJsonInput] = useState('');
 
-  const toggleExpand = (id: string) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
+  const loadFromStorage = (): TelegramAnalysis[] => {
+    try {
+      const stored = localStorage.getItem('webhook_analyses');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const [analyses, setAnalyses] = useState<TelegramAnalysis[]>(loadFromStorage);
+
+  // Deduplicate by ID
+  const uniqueAnalyses = useMemo(() => {
+    const seen = new Set<string>();
+    return analyses.filter(a => {
+      if (seen.has(a.id)) return false;
+      seen.add(a.id);
+      return true;
     });
+  }, [analyses]);
+
+  useEffect(() => {
+    const handleNew = (e: CustomEvent) => {
+      setAnalyses(prev => {
+        const updated = [e.detail, ...prev].filter((a, i, arr) =>
+          arr.findIndex(x => x.id === a.id) === i
+        ).slice(0, 10);
+        return updated;
+      });
+    };
+
+    const refreshFromStorage = () => {
+      const fresh = loadFromStorage();
+      if (fresh.length > 0) setAnalyses(fresh);
+    };
+
+    window.addEventListener('webhookAnalysisAdded', handleNew as EventListener);
+    const interval = setInterval(refreshFromStorage, 5000);
+    return () => {
+      window.removeEventListener('webhookAnalysisAdded', handleNew as EventListener);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    const fresh = loadFromStorage();
+    if (fresh.length > 0) setAnalyses(fresh);
+    await new Promise(r => setTimeout(r, 500));
+    setIsRefreshing(false);
   };
 
   const handleSavePick = async (analysis: TelegramAnalysis) => {
@@ -78,142 +304,31 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
       toast('Sign in to save picks.');
       return;
     }
+    const m = extractMetrics(analysis);
     await savePick({
       teams: analysis.teams,
-      sport: analysis.sport ?? null,
-      pick: analysis.recommendation ?? null,
+      sport: analysis.sport ?? 'NBA',
+      pick: m.recommendation ?? null,
       confidence: analysis.confidence,
-      analysis: typeof analysis.analysis === 'string'
-        ? analysis.analysis
-        : JSON.stringify(analysis.analysis),
-      odds: analysis.odds ?? null,
-      bet_type: analysis.bet_type ?? null,
+      analysis: m.reasoning,
+      odds: m.odds ?? null,
+      bet_type: m.betType ?? null,
     });
-    setSavedIds((prev) => new Set([...prev, analysis.id]));
-    toast('Pick saved! 📌');
+    setSavedIds(prev => new Set([...prev, analysis.id]));
+    toast('Saved to Tracker! 🎲✅');
   };
 
-  const [analyses, setAnalyses] = useState<TelegramAnalysis[]>(() => {
-    // Load from localStorage on mount
-    const stored = localStorage.getItem('webhook_analyses');
-    const webhookAnalyses = stored ? JSON.parse(stored) : [];
-    
-    // Default mock data if no webhook analyses
-    const mockData = [
-      {
-        id: 'mock1',
-        timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-        command: '/analyze',
-        teams: 'Chiefs vs Bills',
-        persona: 'Sharp Bettor',
-        analysis: '🎯 **Chiefs vs Bills Analysis** \n\n**Recommendation:** Bills +3.5 \n**Confidence:** 85% \n**Reasoning:** Weather conditions favor ground game, Bills strong at home. Sharp money moving toward Buffalo despite public on KC.',
-        confidence: 'High' as const,
-        status: 'win' as const,
-        odds: 'Bills +3.5 (-110)'
-      }
-    ];
-    
-    return webhookAnalyses.length > 0 ? webhookAnalyses : mockData;
-  });
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showImporter, setShowImporter] = useState(false);
-  const [jsonInput, setJsonInput] = useState('');
-
-  // Listen for new webhook analyses
-  useEffect(() => {
-    const handleNewAnalysis = (event: CustomEvent) => {
-      console.log("Received webhookAnalysisAdded event:", event.detail);
-      const newAnalysis = event.detail;
-      setAnalyses(prev => {
-        console.log("Current analyses:", prev.length);
-        const updated = [newAnalysis, ...prev.slice(0, 9)];
-        console.log("Updated analyses:", updated.length);
-        return updated;
-      });
-    };
-    
-    // Also refresh from localStorage periodically
-    const refreshFromStorage = () => {
-      const stored = localStorage.getItem('webhook_analyses');
-      if (stored) {
-        try {
-          const webhookAnalyses = JSON.parse(stored);
-          setAnalyses(webhookAnalyses);
-          console.log("Refreshed from storage, count:", webhookAnalyses.length);
-        } catch (e) {
-          console.error("Error parsing stored analyses:", e);
-        }
-      }
-    };
-    
-    console.log("Setting up webhookAnalysisAdded listener");
-    window.addEventListener('webhookAnalysisAdded', handleNewAnalysis as EventListener);
-    
-    // Refresh every 5 seconds to catch any missed updates
-    const interval = setInterval(refreshFromStorage, 5000);
-    
-    return () => {
-      console.log("Removing webhookAnalysisAdded listener");
-      window.removeEventListener('webhookAnalysisAdded', handleNewAnalysis as EventListener);
-      clearInterval(interval);
-    };
-  }, []);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    
-    // Reload from localStorage
-    const stored = localStorage.getItem('webhook_analyses');
-    if (stored) {
-      const webhookAnalyses = JSON.parse(stored);
-      setAnalyses(webhookAnalyses);
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setIsRefreshing(false);
-  };
-
-  const formatTimeAgo = (timestamp: string) => {
-    const now = new Date();
-    const time = new Date(timestamp);
-    const diffMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60));
-    
-    if (diffMinutes < 1) return 'Just now';
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h ago`;
-    return time.toLocaleDateString();
-  };
-
-  const formatOddsAsWholeNumber = (odds: any): string => {
-    if (typeof odds === 'string') {
-      const match = odds.match(/([+-]?\d+(?:\.\d+)?)/);
-      if (match) {
-        const numericValue = parseFloat(match[1]);
-        if (!isNaN(numericValue)) {
-          return odds.replace(match[1], Math.round(numericValue).toString());
-        }
-      }
-      return odds;
-    }
-    if (typeof odds === 'number') {
-      return Math.round(odds).toString();
-    }
-    return odds?.toString() || '';
-  };
-
-  const getPersonaColor = (persona: string) => {
-    switch (persona.toLowerCase()) {
-      case 'sharp bettor': return 'border-win/30 text-win';
-      case 'data-driven analyst': return 'border-primary/30 text-primary';
-      case 'contrarian expert': return 'border-accent/30 text-accent';
-      case 'risk-averse advisor': return 'border-neutral/30 text-neutral';
-      case 'high-stakes gambler': return 'border-loss/30 text-loss';
-      default: return 'border-muted-foreground/30 text-muted-foreground';
-    }
+  const toggleExpand = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
 
   return (
     <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden max-w-full">
+      {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-accent/10 rounded-lg flex items-center justify-center">
@@ -225,573 +340,68 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="border-accent/30 text-accent text-xs px-2 py-0.5">
-            {analyses.length}
-          </Badge>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowImporter((v) => !v)}
-            className="text-xs h-8 px-2"
-          >
+          {uniqueAnalyses.length > 0 && (
+            <Badge variant="outline" className="border-accent/30 text-accent text-xs px-2 py-0.5">
+              {uniqueAnalyses.length}
+            </Badge>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => setShowImporter(v => !v)} className="text-xs h-8 px-2">
             Import
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="h-8 w-8 p-0"
-          >
+          <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="h-8 w-8 p-0">
             <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
 
+      {/* JSON Importer */}
       {showImporter && (
         <div className="mb-4 rounded-lg border border-border/30 p-3 bg-background/60">
           <div className="text-sm mb-2 text-muted-foreground">Paste Bobby's Engine JSON analysis</div>
           <Textarea
             value={jsonInput}
-            onChange={(e) => setJsonInput(e.target.value)}
-            placeholder='{"favorite_team":"..."}'
-            className="mb-2"
-            rows={6}
+            onChange={e => setJsonInput(e.target.value)}
+            placeholder='{"teams":"Lakers vs Warriors","analysis":"..."}'
+            className="mb-2 text-xs"
+            rows={5}
           />
           <div className="flex gap-2">
-            <Button size="sm" onClick={() => { const ok = testAddAnalysis(jsonInput); if (ok) { setJsonInput(''); setShowImporter(false); } }}>Add</Button>
+            <Button size="sm" onClick={() => { const ok = testAddAnalysis(jsonInput); if (ok) { setJsonInput(''); setShowImporter(false); } }}>
+              Add
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setShowImporter(false)}>Cancel</Button>
           </div>
         </div>
       )}
 
+      {/* Cards */}
       <div className="space-y-3">
-          {analyses.map((analysis, index) => {
+        {uniqueAnalyses.length === 0 ? (
+          <div className="py-8 text-center text-muted-foreground">
+            <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No picks yet</p>
+            <p className="text-xs mt-1">Trigger Bobby's Engine to get today's picks</p>
+          </div>
+        ) : (
+          uniqueAnalyses.map((analysis, index) => {
             const card = (
-            <div 
-              className="p-3 bg-gradient-to-br from-secondary/20 to-secondary/10 rounded-xl border border-border/30 hover:border-primary/30 hover:shadow-lg transition-all duration-300 overflow-hidden max-w-full"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="secondary" className="text-xs px-2 py-1">
-                    {analysis.command}
-                  </Badge>
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs px-2 py-1 ${getPersonaColor(analysis.persona)}`}
-                  >
-                    {analysis.persona}
-                  </Badge>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground bg-background/50 px-2 py-1 rounded">
-                    <Clock className="w-3 h-3" />
-                    {formatTimeAgo(analysis.timestamp)}
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <Badge 
-                    variant="outline"
-                    className={`text-xs px-2 py-0.5 font-semibold
-                      ${analysis.confidence === 'High' ? 'border-win/40 text-win bg-win/5' : ''}
-                      ${analysis.confidence === 'Medium' ? 'border-neutral/40 text-neutral bg-neutral/5' : ''}
-                      ${analysis.confidence === 'Low' ? 'border-loss/40 text-loss bg-loss/5' : ''}
-                    `}
-                  >
-                    {analysis.confidence}
-                  </Badge>
-                  <button
-                    onClick={() => handleSavePick(analysis)}
-                    disabled={savedIds.has(analysis.id)}
-                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md border transition-colors
-                      ${savedIds.has(analysis.id)
-                        ? 'border-win/40 text-win bg-win/5 cursor-default'
-                        : 'border-primary/30 text-primary hover:bg-primary/10'
-                      }`}
-                  >
-                    {savedIds.has(analysis.id)
-                      ? <><Check className="w-3 h-3" /> Saved</>
-                      : <><Bookmark className="w-3 h-3" /> Save Pick</>
-                    }
-                  </button>
-                </div>
-              </div>
-
-              <div className="mb-2">
-                <h4 className="font-bold text-base mb-1 flex items-center gap-2 text-foreground">
-                  <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4 text-primary" />
-                  </div>
-                  {analysis.teams}
-                  {analysis.sport && (
-                    <Badge variant="secondary" className="text-xs px-2 py-1">
-                      {analysis.sport}
-                    </Badge>
-                  )}
-                </h4>
-                {analysis.odds && (
-                  <div className="text-sm text-muted-foreground bg-background/50 px-3 py-1 rounded-lg inline-block">
-                    <strong>Current Odds:</strong> {formatOddsAsWholeNumber(analysis.odds)}
-                  </div>
-                )}
-              </div>
-
-              <div className="relative">
-              <div className={`bg-background/70 rounded-xl p-3 border border-border/20 overflow-hidden transition-all duration-200 ${expandedIds.has(analysis.id) ? '' : 'max-h-44'}`}>
-                {(() => {
-                  try {
-                    // Try to parse as JSON first
-                    const parsed = typeof analysis.analysis === 'string' 
-                      ? JSON.parse(analysis.analysis)
-                      : analysis.analysis;
-
-                    const metrics = {
-                      recommendation: parsed?.recommendation ?? parsed?.recommendation_team ?? analysis.recommendation,
-                      bet_type: parsed?.bet_type ?? analysis.bet_type,
-                      confidence_percentage: parsed?.confidence_percentage ?? analysis.confidence_percentage,
-                      confidence_interval: parsed?.confidence_interval ?? analysis.confidence_interval,
-                      expected_value: parsed?.expected_value ?? analysis.expected_value,
-                      kelly_criterion: parsed?.kelly_criterion ?? analysis.kelly_criterion,
-                      units: parsed?.units ?? analysis.units,
-                      key_factors: parsed?.key_factors ?? analysis.key_factors,
-                      analysisText: parsed?.analysis ?? parsed?.content ?? analysis.analysis,
-                      recommendation_side: parsed?.recommendation_side,
-                    };
-
-                    // Handle both JSON structure and markdown parsing for favorite/underdog
-                    const analysisTextFull = metrics.analysisText || "";
-                    
-                    // First try to get from JSON structure (for newer API responses)
-                    let favoriteTeam: { team: string; odds: string } | undefined;
-                    let underdogTeam: { team: string; odds: string } | undefined;
-                    
-                    if (parsed?.favorite_team && parsed?.favorite_odds) {
-                      favoriteTeam = { 
-                        team: parsed.favorite_team, 
-                        odds: formatOddsAsWholeNumber(parsed.favorite_odds)
-                      };
-                    }
-                    if (parsed?.underdog_team && parsed?.underdog_odds) {
-                      underdogTeam = { 
-                        team: parsed.underdog_team, 
-                        odds: formatOddsAsWholeNumber(parsed.underdog_odds)
-                      };
-                    }
-                    
-                    // Fallback to markdown parsing if JSON structure not available
-                    if (!favoriteTeam || !underdogTeam) {
-                      const favRegexA = /\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
-                      const dogRegexA = /\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
-                      const favRegexB = /Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
-                      const dogRegexB = /Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/;
-
-                      const favM = analysisTextFull.match(favRegexA) || analysisTextFull.match(favRegexB);
-                      const dogM = analysisTextFull.match(dogRegexA) || analysisTextFull.match(dogRegexB);
-
-                      if (!favoriteTeam && favM) {
-                        favoriteTeam = { team: favM[1].trim(), odds: formatOddsAsWholeNumber(favM[2].trim()) };
-                      }
-                      if (!underdogTeam && dogM) {
-                        underdogTeam = { team: dogM[1].trim(), odds: formatOddsAsWholeNumber(dogM[2].trim()) };
-                      }
-                    }
-
-                    const parseAmerican = (s: string) => {
-                      const m = s.replace(/,/g, '').match(/([+-]?\d+)/);
-                      return m ? parseInt(m[1], 10) : Number.NaN;
-                    };
-
-                    let inversionDetected = false;
-                    if (favoriteTeam && underdogTeam) {
-                      const fo = parseAmerican(favoriteTeam.odds);
-                      const doo = parseAmerican(underdogTeam.odds);
-                      if (!Number.isNaN(fo) && !Number.isNaN(doo) && fo > doo) {
-                        inversionDetected = true;
-                        const tmp = favoriteTeam; favoriteTeam = underdogTeam; underdogTeam = tmp;
-                      }
-                    }
-
-                    const recTeam = metrics.recommendation?.toLowerCase().trim();
-                    const recSide = metrics.recommendation_side || 
-                      (recTeam
-                        ? (favoriteTeam && recTeam.includes(favoriteTeam.team.toLowerCase())) ? 'Favorite'
-                          : (underdogTeam && recTeam.includes(underdogTeam.team.toLowerCase())) ? 'Underdog'
-                          : undefined
-                        : undefined);
-
-                    if (parsed && typeof parsed === 'object') {
-                      return (
-                        <div className="space-y-3">
-                          {/* Enhanced Analysis with Confidence Metrics */}
-                          {(metrics.confidence_percentage || metrics.confidence_interval || metrics.expected_value) && (
-                            <div className="grid grid-cols-3 gap-2 mb-4">
-                               {metrics.confidence_percentage && (
-                                 <div className="text-center p-2 bg-win/10 rounded border border-win/20">
-                                   <div className="text-xs text-muted-foreground">Win Probability</div>
-                                   <div className="font-semibold text-win text-sm">{Math.round(parseFloat(metrics.confidence_percentage))}%</div>
-                                 </div>
-                               )}
-                               {metrics.confidence_interval && (
-                                 <div className="text-center p-2 bg-neutral/10 rounded border border-neutral/20">
-                                   <div className="text-xs text-muted-foreground">95% CI</div>
-                                   <div className="font-semibold text-neutral text-sm">{metrics.confidence_interval}</div>
-                                 </div>
-                               )}
-                               {metrics.expected_value && (
-                                 <div className="text-center p-2 bg-primary/10 rounded border border-primary/20">
-                                   <div className="text-xs text-muted-foreground">Expected Value</div>
-                                   <div className="font-semibold text-primary text-sm">{isNaN(parseFloat(metrics.expected_value)) ? metrics.expected_value : Math.round(parseFloat(metrics.expected_value))}</div>
-                                 </div>
-                               )}
-                            </div>
-                          )}
-
-                          {/* Betting Recommendation Row */}
-                          {(metrics.recommendation || metrics.units || metrics.bet_type || metrics.kelly_criterion) && (
-                            <div className="grid grid-cols-3 gap-2 mb-4">
-                              {metrics.recommendation && (
-                                  <div className="text-center p-2 bg-primary/10 rounded border border-primary/20">
-                                    <div className="text-xs text-muted-foreground">Recommendation</div>
-                                    <div className="font-semibold text-primary text-sm">
-                                      {metrics.recommendation}
-                                      {recSide && (
-                                        <span className="ml-1 text-xs text-muted-foreground">({recSide})</span>
-                                      )}
-                                    </div>
-                                    {(metrics.bet_type || recSide) && (
-                                       <div className="text-xs text-muted-foreground capitalize">
-                                        {metrics.bet_type}
-                                        {recSide === 'Favorite' && favoriteTeam ? ` • ${formatOddsAsWholeNumber(favoriteTeam.odds)}` : ''}
-                                        {recSide === 'Underdog' && underdogTeam ? ` • ${formatOddsAsWholeNumber(underdogTeam.odds)}` : ''}
-                                      </div>
-                                    )}
-                                  </div>
-                              )}
-                              {metrics.units && (
-                                <div className="text-center p-2 bg-accent/10 rounded border border-accent/20">
-                                  <div className="text-xs text-muted-foreground">Units</div>
-                                  <div className="font-semibold text-accent text-sm">{metrics.units}</div>
-                                  <div className="text-xs text-muted-foreground">Recommended</div>
-                                </div>
-                              )}
-                               {metrics.kelly_criterion && (
-                                 <div className="text-center p-2 bg-secondary/20 rounded border border-border/30">
-                                   <div className="text-xs text-muted-foreground">Kelly %</div>
-                                   <div className="font-semibold text-foreground text-sm">{Math.round(parseFloat(metrics.kelly_criterion))}%</div>
-                                   <div className="text-xs text-muted-foreground">Optimal Size</div>
-                                 </div>
-                               )}
-                            </div>
-                          )}
-
-                          {/* Spread (from AI JSON) */}
-                          {(() => {
-                            const favSpread = parsed?.favorite_spread ?? parsed?.spread_favorite;
-                            const dogSpread = parsed?.underdog_spread ?? parsed?.spread_underdog;
-                            const favTeamName = favoriteTeam?.team || parsed?.favorite_team;
-                            const dogTeamName = underdogTeam?.team || parsed?.underdog_team;
-                            if (!favSpread && !dogSpread) return null;
-                            return (
-                              <div className="grid grid-cols-2 gap-2 mb-4">
-                                {favSpread && (
-                                  <div className="text-center p-2 bg-secondary/20 rounded border border-border/30">
-                                    <div className="text-xs text-muted-foreground">Favorite Spread</div>
-                                    <div className="font-semibold text-foreground text-sm">{favTeamName || 'Favorite'} {String(favSpread)}</div>
-                                  </div>
-                                )}
-                                {dogSpread && (
-                                  <div className="text-center p-2 bg-secondary/20 rounded border border-border/30">
-                                    <div className="text-xs text-muted-foreground">Underdog Spread</div>
-                                    <div className="font-semibold text-foreground text-sm">{dogTeamName || 'Underdog'} {String(dogSpread)}</div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-
-                          {/* Key Factors */}
-                          {metrics.key_factors && metrics.key_factors.length > 0 && (
-                            <div className="mb-3">
-                              <div className="text-xs font-medium text-muted-foreground mb-2">Key Factors</div>
-                              <div className="flex flex-wrap gap-1">
-                                {metrics.key_factors.map((factor: string, idx: number) => (
-                                  <Badge key={idx} variant="outline" className="text-xs">
-                                    {factor}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Enhanced Analysis Content with Odds Extraction */}
-                          <div className="space-y-3">
-                            {inversionDetected && (
-                              <div className="text-xs p-2 bg-accent/10 rounded border border-accent/20">
-                                Note: Corrected favorite/underdog labels based on American odds.
-                              </div>
-                            )}
-                            {/* Extract and display odds information */}
-                            {(() => {
-const analysisText = metrics.analysisText || "";
-                               
-// Extract favorite/underdog info (supports **Favorite:** and Favorite:)
-const favoriteMatch = analysisText.match(/\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/) || analysisText.match(/Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/);
-const underdogMatch = analysisText.match(/\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/) || analysisText.match(/Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/);
-                               
-// Normalize by American odds: negative = favorite
-const parseAmerican = (s: string) => {
-  const m = s.replace(/,/g, '').match(/([+-]?\d+)/);
-  return m ? parseInt(m[1], 10) : Number.NaN;
-};
-
-const favCand = favoriteMatch ? { team: favoriteMatch[1].trim(), odds: favoriteMatch[2].trim() } : null;
-const dogCand = underdogMatch ? { team: underdogMatch[1].trim(), odds: underdogMatch[2].trim() } : null;
-
-let favorite = favCand || undefined;
-let underdog = dogCand || undefined;
-
-if (favCand && dogCand) {
-  const fo = parseAmerican(favCand.odds);
-  const doo = parseAmerican(dogCand.odds);
-  if (!Number.isNaN(fo) && !Number.isNaN(doo)) {
-    if (fo <= doo) {
-      favorite = favCand;
-      underdog = dogCand;
-    } else {
-      favorite = dogCand;
-      underdog = favCand;
-    }
-  }
-}
-
-if (favorite || underdog) {
-  return (
-    <div className="space-y-3">
-      <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-        <span>AI Analysis Odds</span>
-        <Badge variant="outline" className="text-xs border-orange-500/30 text-orange-500">
-          Not Live Market
-        </Badge>
-      </div>
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        {favorite && (
-          <div className="p-2 bg-loss/10 rounded border border-loss/20">
-            <div className="text-xs text-muted-foreground">AI: Favorite</div>
-            <div className="font-semibold text-loss text-sm">{favorite.team}</div>
-            <div className="text-xs text-muted-foreground">{formatOddsAsWholeNumber(favorite.odds)}</div>
-          </div>
-        )}
-        {underdog && (
-          <div className="p-2 bg-win/10 rounded border border-win/20">
-            <div className="text-xs text-muted-foreground">AI: Underdog</div>
-            <div className="font-semibold text-win text-sm">{underdog.team}</div>
-            <div className="text-xs text-muted-foreground">{formatOddsAsWholeNumber(underdog.odds)}</div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-return null;
-                            })()}
-                            
-                            {(() => {
-                              // Language correction for mismatches in narrative text
-                              const originalText = metrics.analysisText || "";
-                              const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                              let correctedText = originalText;
-                              let note = '';
-
-                              if (recSide === 'Favorite' && favoriteTeam) {
-                                const team = favoriteTeam.team;
-                                const escapedTeam = escapeRegExp(team);
-                                correctedText = correctedText
-                                  .replace(new RegExp(`\\*\\*Underdog:\\*\\*\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `**Favorite:** ${team} (${formatOddsAsWholeNumber(odds)})`) // label swap
-                                  .replace(new RegExp(`Underdog:\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `Favorite: ${team} (${formatOddsAsWholeNumber(odds)})`) // label swap
-                                  .replace(new RegExp(`(${escapedTeam}[^\\.\\n]{0,120}?)\\bunderdog\\b`, 'gi'), `$1favorite`) // nearby wording
-                                  // Upset/narrative cleanup when the pick is the favorite
-                                  .replace(/\b(pull(?:s|ing)?\s+off\s+the\s+upset|pulls?\s+the\s+upset|pull(?:s|ing)?\s+an\s+upset)\b/gi, 'secure the win')
-                                  .replace(new RegExp(`(${escapedTeam}[^\\.\\n]{0,200}?)(\\bupset\\b)`, 'gi'), '$1win')
-                                  .replace(new RegExp(`(${escapedTeam}[^\\.\\n]{0,200}?\\bas\\s+an\\s+)underdog\\b`, 'gi'), '$1favorite');
-                                if (correctedText !== originalText) note = `${team} is the favorite in this matchup.`;
-                              } else if (recSide === 'Underdog' && underdogTeam) {
-                                const team = underdogTeam.team;
-                                const escapedTeam = escapeRegExp(team);
-                                correctedText = correctedText
-                                  .replace(new RegExp(`\\*\\*Favorite:\\*\\*\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `**Underdog:** ${team} (${formatOddsAsWholeNumber(odds)})`)
-                                  .replace(new RegExp(`Favorite:\\s*${escapedTeam}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `Underdog: ${team} (${formatOddsAsWholeNumber(odds)})`)
-                                  .replace(new RegExp(`(${escapedTeam}[^\\.\\n]{0,120}?)\\bfavorite\\b`, 'gi'), `$1underdog`);
-                                if (correctedText !== originalText) note = `${team} is the underdog in this matchup.`;
-                              }
-
-                              return (
-                                <>
-                                  {note && (
-                                    <div className="text-xs p-2 bg-primary/10 rounded border border-primary/20">
-                                      Correction: {note}
-                                    </div>
-                                  )}
-                                  {(() => {
-                                    // Ensure odds in Value Assessment lines show as whole numbers
-                                    const roundedText = (correctedText || "")
-                                      .replace(/\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `**Favorite:** ${team} (${formatOddsAsWholeNumber(odds)})`)
-                                      .replace(/Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `Favorite: ${team} (${formatOddsAsWholeNumber(odds)})`)
-                                      .replace(/\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `**Underdog:** ${team} (${formatOddsAsWholeNumber(odds)})`)
-                                      .replace(/Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `Underdog: ${team} (${formatOddsAsWholeNumber(odds)})`);
-                                    return (
-                                      <div 
-                                        className="text-sm leading-relaxed prose-sm"
-                                        dangerouslySetInnerHTML={{
-                                          __html: roundedText
-                                            .replace(/\n\n/g, "<br><br>")
-                                            .replace(/\n/g, "<br>")
-                                            .replace(/\*\*(.*?)\*\*/g, "<strong class='font-semibold text-foreground'>$1</strong>")
-                                            .replace(/#{3}\s*(.*?)(?=<br>|$)/g, "<h3 class='font-semibold text-base mb-2 mt-3 text-primary'>$1</h3>")
-                                            .replace(/#{2}\s*(.*?)(?=<br>|$)/g, "<h2 class='font-semibold text-lg mb-2 mt-4 text-primary'>$1</h2>")
-                                            .replace(/#{1}\s*(.*?)(?=<br>|$)/g, "<h1 class='font-bold text-xl mb-3 mt-4 text-primary'>$1</h1>")
-                                            .replace(/\"square money\"/g, "<span class='bg-loss/20 text-loss px-1 rounded text-xs font-medium'>square money</span>")
-                                            .replace(/\"sharp money\"/g, "<span class='bg-win/20 text-win px-1 rounded text-xs font-medium'>sharp money</span>")
-                                            .replace(/\(currently\s*([^)]+)\)/g, "<span class='bg-primary/20 text-primary px-1 rounded text-xs font-medium'>$1</span>")
-                                        }}
-                                      />
-                                    );
-                                  })()}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      );
-                    }
-                  } catch (e) {
-                    // Enhanced fallback string formatting for raw text analysis
-                    const analysisText = analysis.analysis || "";
-                    
-                    return (
-                      <div className="space-y-3">
-                         {/* Extract odds from raw text */}
-                         {(() => {
-const favoriteMatch = analysisText.match(/\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/) || analysisText.match(/Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/);
-const underdogMatch = analysisText.match(/\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/) || analysisText.match(/Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/);
-                           
-// Normalize by American odds: negative = favorite
-const parseAmerican = (s: string) => {
-  const m = s.replace(/,/g, '').match(/([+-]?\d+)/);
-  return m ? parseInt(m[1], 10) : Number.NaN;
-};
-
-const favCand = favoriteMatch ? { team: favoriteMatch[1].trim(), odds: favoriteMatch[2].trim() } : null;
-const dogCand = underdogMatch ? { team: underdogMatch[1].trim(), odds: underdogMatch[2].trim() } : null;
-
-let favorite = favCand || undefined;
-let underdog = dogCand || undefined;
-
-if (favCand && dogCand) {
-  const fo = parseAmerican(favCand.odds);
-  const doo = parseAmerican(dogCand.odds);
-  if (!Number.isNaN(fo) && !Number.isNaN(doo)) {
-    if (fo <= doo) {
-      favorite = favCand;
-      underdog = dogCand;
-    } else {
-      favorite = dogCand;
-      underdog = favCand;
-    }
-  }
-}
-
-if (favorite || underdog) {
-  return (
-    <div className="space-y-3">
-      <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-        <span>AI Analysis Odds</span>
-        <Badge variant="outline" className="text-xs border-orange-500/30 text-orange-500">
-          Not Live Market
-        </Badge>
-      </div>
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        {favorite && (
-          <div className="p-2 bg-loss/10 rounded border border-loss/20">
-            <div className="text-xs text-muted-foreground">AI: Favorite</div>
-            <div className="font-semibold text-loss text-sm">{favorite.team}</div>
-            <div className="text-xs text-muted-foreground">{formatOddsAsWholeNumber(favorite.odds)}</div>
-          </div>
-        )}
-        {underdog && (
-          <div className="p-2 bg-win/10 rounded border border-win/20">
-            <div className="text-xs text-muted-foreground">AI: Underdog</div>
-            <div className="font-semibold text-win text-sm">{underdog.team}</div>
-            <div className="text-xs text-muted-foreground">{formatOddsAsWholeNumber(underdog.odds)}</div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-return null;
-                         })()}
-                        
-                        {(() => {
-                          // Correct mislabeling in narrative text when odds imply otherwise
-                          const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                          let correctedText = analysisText;
-
-                          const favoriteMatch2 = analysisText.match(/\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/) || analysisText.match(/Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/);
-                          const underdogMatch2 = analysisText.match(/\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/) || analysisText.match(/Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/);
-                          const parseAmerican2 = (s: string) => { const m = s.replace(/,/g, '').match(/([+-]?\d+)/); return m ? parseInt(m[1], 10) : Number.NaN; };
-                          const favCand2 = favoriteMatch2 ? { team: favoriteMatch2[1].trim(), odds: favoriteMatch2[2].trim() } : null;
-                          const dogCand2 = underdogMatch2 ? { team: underdogMatch2[1].trim(), odds: underdogMatch2[2].trim() } : null;
-
-                          if (favCand2 && dogCand2) {
-                            const fo = parseAmerican2(favCand2.odds);
-                            const doo = parseAmerican2(dogCand2.odds);
-                            if (!Number.isNaN(fo) && !Number.isNaN(doo) && fo > doo) {
-                              // Swap labels for correct display
-                              const favTeam = dogCand2.team;
-                              const dogTeam = favCand2.team;
-                              const favEsc = escapeRegExp(favTeam);
-                              const dogEsc = escapeRegExp(dogTeam);
-                              correctedText = correctedText
-                                .replace(new RegExp(`\\*\\*Favorite:\\*\\*\\s*${dogEsc}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `**Favorite:** ${favTeam} (${formatOddsAsWholeNumber(odds)})`)
-                                .replace(new RegExp(`Favorite:\\s*${dogEsc}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `Favorite: ${favTeam} (${formatOddsAsWholeNumber(odds)})`)
-                                .replace(new RegExp(`\\*\\*Underdog:\\*\\*\\s*${favEsc}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `**Underdog:** ${dogTeam} (${formatOddsAsWholeNumber(odds)})`)
-                                .replace(new RegExp(`Underdog:\\s*${favEsc}\\s*\\(([^)]+)\\)`, 'gi'), (match, odds) => `Underdog: ${dogTeam} (${formatOddsAsWholeNumber(odds)})`);
-                            }
-                          }
-
-                           return (
-                             <>
-                               {(() => {
-                                 const roundedText = (correctedText || "")
-                                   .replace(/\*\*Favorite:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `**Favorite:** ${team} (${formatOddsAsWholeNumber(odds)})`)
-                                   .replace(/Favorite:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `Favorite: ${team} (${formatOddsAsWholeNumber(odds)})`)
-                                   .replace(/\*\*Underdog:\*\*\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `**Underdog:** ${team} (${formatOddsAsWholeNumber(odds)})`)
-                                   .replace(/Underdog:\s*([^ (]+[^)]*)\s*\(([^)]+)\)/gi, (m, team, odds) => `Underdog: ${team} (${formatOddsAsWholeNumber(odds)})`);
-                                 return <MarkdownContent>{roundedText}</MarkdownContent>;
-                               })()}
-                             </>
-                           );
-                        })()}
-                      </div>
-                    );
-                  }
-                })()}
-              </div>
-              {!expandedIds.has(analysis.id) && (
-                <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-secondary/20 to-transparent rounded-b-xl pointer-events-none" />
-              )}
-              </div>
-              <button
-                onClick={() => toggleExpand(analysis.id)}
-                className="mt-1 text-xs text-primary hover:underline w-full text-left pl-1"
-              >
-                {expandedIds.has(analysis.id) ? 'Show less ↑' : 'Read more ↓'}
-              </button>
-            </div>
+              <PickCard
+                key={analysis.id}
+                analysis={analysis}
+                isSaved={savedIds.has(analysis.id)}
+                isExpanded={expandedIds.has(analysis.id)}
+                onSave={() => handleSavePick(analysis)}
+                onToggleExpand={() => toggleExpand(analysis.id)}
+                showSaveButton={!!user}
+              />
             );
             if (index === 0) return <div key={analysis.id}>{card}</div>;
             return <VipGate key={analysis.id} onUpgradeClick={onUpgradeClick}>{card}</VipGate>;
-          })}
+          })
+        )}
       </div>
 
+      {/* Footer */}
       <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Bobby's Engine</span>
         <div className="flex items-center gap-1.5">
