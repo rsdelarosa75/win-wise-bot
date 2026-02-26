@@ -386,7 +386,6 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
           uniqueAnalyses.map((analysis, index) => {
             const card = (
               <PickCard
-                key={analysis.id}
                 analysis={analysis}
                 isSaved={savedIds.has(analysis.id)}
                 isExpanded={expandedIds.has(analysis.id)}
@@ -395,8 +394,17 @@ export const TelegramAnalyses = ({ onUpgradeClick }: TelegramAnalysesProps) => {
                 showSaveButton={!!user}
               />
             );
+
+            // First card: always free, no gate
             if (index === 0) return <div key={analysis.id}>{card}</div>;
-            return <VipGate key={analysis.id} onUpgradeClick={onUpgradeClick}>{card}</VipGate>;
+
+            // Cards 2+: single VipGate wrapper — VipGate itself renders
+            // children directly when isVIP, so no extra logic needed here
+            return (
+              <div key={analysis.id}>
+                <VipGate onUpgradeClick={onUpgradeClick}>{card}</VipGate>
+              </div>
+            );
           })
         )}
       </div>
