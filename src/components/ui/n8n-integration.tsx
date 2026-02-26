@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Play, Clock, CheckCircle, FileText } from "lucide-react";
+import { Play, Clock, CheckCircle, FileText, Bookmark, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { usePicks } from "@/hooks/use-picks";
+import { toast as sonnerToast } from "sonner";
 
 const cleanHtmlContent = (html: string): string =>
   html
@@ -19,8 +22,36 @@ const cleanHtmlContent = (html: string): string =>
     .replace(/\n\s*\n/g, "\n\n")
     .trim();
 
+// Extract a labelled field from analysis text, e.g. "CONFIDENCE: High"
+const extractField = (text: string, ...keys: string[]): string | null => {
+  for (const key of keys) {
+    const re = new RegExp(`${key}\\s*[:\\-]\\s*([^\\n]+)`, "i");
+    const m = text.match(re);
+    if (m) return m[1].replace(/\*\*/g, "").trim();
+  }
+  return null;
+};
+
+const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
+  p:          ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+  strong:     ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+  em:         ({ children }) => <em className="italic text-muted-foreground">{children}</em>,
+  h1:         ({ children }) => <h1 className="font-bold text-base mt-3 mb-1 text-primary">{children}</h1>,
+  h2:         ({ children }) => <h2 className="font-semibold text-sm mt-2 mb-1 text-primary">{children}</h2>,
+  h3:         ({ children }) => <h3 className="font-medium text-sm mt-2 mb-0.5 text-primary/80">{children}</h3>,
+  ul:         ({ children }) => <ul className="list-disc list-inside space-y-0.5 mb-1.5 pl-1">{children}</ul>,
+  ol:         ({ children }) => <ol className="list-decimal list-inside space-y-0.5 mb-1.5 pl-1">{children}</ol>,
+  li:         ({ children }) => <li className="leading-snug">{children}</li>,
+  code:       ({ children }) => <code className="bg-primary/10 text-primary px-1 rounded text-xs font-mono">{children}</code>,
+  blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/40 pl-3 text-muted-foreground italic">{children}</blockquote>,
+};
+
 export const N8nIntegration = () => {
   const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_NBA || "";
+  const { user } = useAuth();
+  const { savePick } = usePicks();
+  const { toast } = useToast();
+
   const [isLoading, setIsLoading] = useState(false);
   const [lastTriggered, setLastTriggered] = useState<Date | null>(null);
   const [briefContent, setBriefContent] = useState("");
@@ -28,7 +59,11 @@ export const N8nIntegration = () => {
   const [targetDate, setTargetDate] = useState(
     new Date().toISOString().split("T")[0]
   );
-  const { toast } = useToast();
+  const [pickSaved, setPickSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Reset saved state whenever new content arrives
+  useEffect(() => { setPickSaved(false); }, [briefContent]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,14 +100,12 @@ export const N8nIntegration = () => {
         body: JSON.stringify(payload),
       });
 
-      if (response.status === 403) {
-        throw new Error("403");
-      }
+      if (response.status === 403) throw new Error("403");
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const rawText = await response.text();
-      console.log('[N8nIntegration] Response status:', response.status);
-      console.log('[N8nIntegration] Response body:', rawText);
+      console.log("[N8nIntegration] Response status:", response.status);
+      console.log("[N8nIntegration] Response body:", rawText);
 
       setLastTriggered(new Date());
       toast({ title: "Bobby's pick is ready 🎲" });
@@ -84,37 +117,25 @@ export const N8nIntegration = () => {
         return;
       }
 
-      // Try JSON first — n8n can return many shapes
       let displayContent = rawText;
       try {
         const parsed = JSON.parse(rawText);
-        console.log('[N8nIntegration] Parsed JSON:', parsed);
-
-        // Unwrap arrays: n8n often returns [{ ... }]
+        console.log("[N8nIntegration] Parsed JSON:", parsed);
         const data = Array.isArray(parsed) ? parsed[0] : parsed;
-
-        // Walk common field names where the analysis text might live
         const textContent =
-          data?.analysis ??
-          data?.output ??
-          data?.text ??
-          data?.message ??
-          data?.content ??
-          data?.recommendation ??
-          data?.result ??
-          null;
+          data?.analysis ?? data?.output ?? data?.text ??
+          data?.message ?? data?.content ?? data?.recommendation ??
+          data?.result ?? null;
 
-        if (typeof textContent === 'string') {
+        if (typeof textContent === "string") {
           displayContent = textContent;
-        } else if (typeof textContent === 'object' && textContent !== null) {
+        } else if (typeof textContent === "object" && textContent !== null) {
           displayContent = JSON.stringify(textContent, null, 2);
         } else {
-          // No known field — pretty-print the whole response
           displayContent = JSON.stringify(parsed, null, 2);
         }
       } catch {
-        console.log('[N8nIntegration] Not JSON — showing raw text as-is');
-        // displayContent already holds rawText
+        console.log("[N8nIntegration] Not JSON — showing raw text as-is");
       }
 
       setBriefContent(cleanHtmlContent(displayContent));
@@ -135,11 +156,48 @@ export const N8nIntegration = () => {
     }
   };
 
+  const handleSavePick = async () => {
+    if (!user) {
+      sonnerToast("Sign in to save picks");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const teams = specificTeams.trim() || "NBA Analysis";
+      const pick = extractField(
+        briefContent,
+        "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation", "BET", "My Pick"
+      );
+      const confidence = extractField(
+        briefContent,
+        "CONFIDENCE", "Confidence Level", "Confidence"
+      );
+
+      await savePick({
+        teams,
+        sport: "NBA",
+        pick: pick ?? null,
+        confidence: (confidence as "High" | "Medium" | "Low") ?? "High",
+        analysis: briefContent,
+        odds: extractField(briefContent, "ODDS", "Current Odds", "Line") ?? null,
+        bet_type: extractField(briefContent, "BET TYPE", "Bet Type", "TYPE") ?? null,
+      });
+
+      setPickSaved(true);
+      sonnerToast("Saved to Tracker! 🎲✅");
+    } catch {
+      sonnerToast("Failed to save pick. Try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {/* Form card */}
       <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Teams */}
           <div className="space-y-1.5">
             <Label htmlFor="teams" className="text-sm font-medium">
               Teams / Matchup
@@ -153,7 +211,6 @@ export const N8nIntegration = () => {
             />
           </div>
 
-          {/* Date */}
           <div className="space-y-1.5">
             <Label htmlFor="target-date" className="text-sm font-medium">
               Target Date
@@ -167,7 +224,6 @@ export const N8nIntegration = () => {
             />
           </div>
 
-          {/* Submit */}
           <Button
             type="submit"
             disabled={isLoading}
@@ -195,7 +251,7 @@ export const N8nIntegration = () => {
         )}
       </Card>
 
-      {/* Result */}
+      {/* Result card */}
       {briefContent && (
         <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
           <div className="flex items-center gap-2 mb-3">
@@ -205,26 +261,45 @@ export const N8nIntegration = () => {
               {new Date().toLocaleTimeString()}
             </span>
           </div>
-          <div className="bg-background/50 rounded-lg p-3">
-            <ReactMarkdown
-              className="text-sm leading-relaxed"
-              components={{
-                p:      ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
-                strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-                em:     ({ children }) => <em className="italic text-muted-foreground">{children}</em>,
-                h1:     ({ children }) => <h1 className="font-bold text-base mt-3 mb-1 text-primary">{children}</h1>,
-                h2:     ({ children }) => <h2 className="font-semibold text-sm mt-2 mb-1 text-primary">{children}</h2>,
-                h3:     ({ children }) => <h3 className="font-medium text-sm mt-2 mb-0.5 text-primary/80">{children}</h3>,
-                ul:     ({ children }) => <ul className="list-disc list-inside space-y-0.5 mb-1.5 pl-1">{children}</ul>,
-                ol:     ({ children }) => <ol className="list-decimal list-inside space-y-0.5 mb-1.5 pl-1">{children}</ol>,
-                li:     ({ children }) => <li className="leading-snug">{children}</li>,
-                code:   ({ children }) => <code className="bg-primary/10 text-primary px-1 rounded text-xs font-mono">{children}</code>,
-                blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/40 pl-3 text-muted-foreground italic">{children}</blockquote>,
-              }}
-            >
+
+          {/* Markdown analysis */}
+          <div className="bg-background/50 rounded-lg p-3 mb-4">
+            <ReactMarkdown className="text-sm leading-relaxed" components={mdComponents}>
               {briefContent}
             </ReactMarkdown>
           </div>
+
+          {/* Save Pick button */}
+          {user ? (
+            <Button
+              onClick={handleSavePick}
+              disabled={pickSaved || isSaving}
+              className="w-full min-h-[48px] font-bold text-black"
+              style={{ backgroundColor: pickSaved ? undefined : '#F5A100' }}
+              variant={pickSaved ? "outline" : "default"}
+            >
+              {pickSaved ? (
+                <>
+                  <Check className="mr-2 w-4 h-4 text-win" />
+                  <span className="text-win">Saved to Tracker!</span>
+                </>
+              ) : isSaving ? (
+                <>
+                  <Clock className="mr-2 w-4 h-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <Bookmark className="mr-2 w-4 h-4" />
+                  Save Pick 🎲
+                </>
+              )}
+            </Button>
+          ) : (
+            <p className="text-xs text-center text-muted-foreground py-2">
+              <span className="text-primary">Sign in</span> to save picks to your Tracker
+            </p>
+          )}
         </Card>
       )}
     </div>
