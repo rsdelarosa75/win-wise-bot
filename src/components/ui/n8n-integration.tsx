@@ -138,7 +138,35 @@ export const N8nIntegration = () => {
         console.log("[N8nIntegration] Not JSON — showing raw text as-is");
       }
 
-      setBriefContent(cleanHtmlContent(displayContent));
+      const cleanContent = cleanHtmlContent(displayContent);
+      setBriefContent(cleanContent);
+
+      // Push this pick to the Home screen's Bobby's Picks section
+      const pickText   = extractField(cleanContent, "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation", "BET", "My Pick");
+      const confRaw    = extractField(cleanContent, "CONFIDENCE", "Confidence Level", "Confidence Score");
+      const oddsText   = extractField(cleanContent, "ODDS", "Current Odds", "Moneyline", "Line", "Spread");
+      const confNorm   = (["High", "Medium", "Low"].includes(confRaw ?? "") ? confRaw : "High") as "High" | "Medium" | "Low";
+      const newAnalysis = {
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        command: "/webhook",
+        teams: specificTeams.trim() || "NBA Analysis",
+        persona: "bobby_vegas",
+        analysis: cleanContent,
+        confidence: confNorm,
+        status: "win" as const,
+        odds: oddsText ?? null,
+        sport: "NBA",
+        recommendation: pickText ?? null,
+      };
+      const existing: unknown[] = JSON.parse(localStorage.getItem("webhook_analyses") ?? "[]");
+      const updated = [newAnalysis, ...existing]
+        .filter((a, i, arr) =>
+          arr.findIndex((x) => (x as { id: string }).id === (a as { id: string }).id) === i
+        )
+        .slice(0, 10);
+      localStorage.setItem("webhook_analyses", JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent("webhookAnalysisAdded", { detail: newAnalysis }));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       toast({

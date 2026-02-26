@@ -32,7 +32,7 @@ const Index = () => {
   const renderPage = () => {
     switch (activeTab) {
       case "home":
-        return <Dashboard onUpgradeClick={() => setActiveTab("profile")} />;
+        return <Dashboard onUpgradeClick={() => setActiveTab("profile")} onPicksTabClick={() => setActiveTab("picks")} />;
       case "picks":
         return <Picks />;
       case "tracker":
