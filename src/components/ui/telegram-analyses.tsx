@@ -7,7 +7,6 @@ import { MessageSquare, Clock, RefreshCw, Bookmark, Check } from 'lucide-react';
 import { usePicks } from '@/hooks/use-picks';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
-import { VipGate } from '@/components/ui/vip-gate';
 
 // ── Types ─────────────────────────────────────────────────────
 interface TelegramAnalysis {
@@ -29,7 +28,7 @@ interface TelegramAnalysis {
 }
 
 interface TelegramAnalysesProps {
-  onUpgradeClick: () => void;
+  onUpgradeClick?: () => void;
   onPicksTabClick?: () => void;
 }
 
@@ -237,7 +236,7 @@ const PickCard = ({ analysis, isSaved, isExpanded, onSave, onToggleExpand, showS
 };
 
 // ── Main component ─────────────────────────────────────────────
-export const TelegramAnalyses = ({ onUpgradeClick, onPicksTabClick }: TelegramAnalysesProps) => {
+export const TelegramAnalyses = ({ onPicksTabClick }: TelegramAnalysesProps) => {
   const { user } = useAuth();
   const { savePick } = usePicks();
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -354,7 +353,7 @@ export const TelegramAnalyses = ({ onUpgradeClick, onPicksTabClick }: TelegramAn
           <div className="py-10 text-center flex flex-col items-center gap-3">
             <span className="text-4xl">🎲</span>
             <p className="text-sm font-semibold text-foreground/80">No picks yet</p>
-            <p className="text-xs text-muted-foreground">Head to the Picks tab to ask Bobby</p>
+            <p className="text-xs text-muted-foreground">Ask Bobby for today's picks</p>
             {onPicksTabClick && (
               <button
                 onClick={onPicksTabClick}
@@ -366,8 +365,8 @@ export const TelegramAnalyses = ({ onUpgradeClick, onPicksTabClick }: TelegramAn
             )}
           </div>
         ) : (
-          uniqueAnalyses.map((analysis, index) => {
-            const card = (
+          uniqueAnalyses.slice(0, 3).map((analysis) => (
+            <div key={analysis.id}>
               <PickCard
                 analysis={analysis}
                 isSaved={savedIds.has(analysis.id)}
@@ -376,19 +375,8 @@ export const TelegramAnalyses = ({ onUpgradeClick, onPicksTabClick }: TelegramAn
                 onToggleExpand={() => toggleExpand(analysis.id)}
                 showSaveButton={!!user}
               />
-            );
-
-            // First card: always free, no gate
-            if (index === 0) return <div key={analysis.id}>{card}</div>;
-
-            // Cards 2+: single VipGate wrapper — VipGate itself renders
-            // children directly when isVIP, so no extra logic needed here
-            return (
-              <div key={analysis.id}>
-                <VipGate onUpgradeClick={onUpgradeClick}>{card}</VipGate>
-              </div>
-            );
-          })
+            </div>
+          ))
         )}
       </div>
 
