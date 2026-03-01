@@ -131,10 +131,12 @@ export const useOddsApi = () => {
 
   const fetchOdds = useCallback(async () => {
     if (!apiKey) {
+      console.log('[OddsAPI] No API key — check VITE_ODDS_API_KEY in .env');
       setError('API key not configured');
       return;
     }
 
+    console.log('[OddsAPI] Fetching with key:', apiKey.slice(0, 8) + '…');
     setLoading(true);
     setError(null);
 
@@ -155,8 +157,11 @@ export const useOddsApi = () => {
             })
           );
 
+          console.log(`[OddsAPI] ${sportName} response status:`, response.status);
+
           if (response.ok) {
             const data = await response.json();
+            console.log(`[OddsAPI] ${sportName} games returned:`, Array.isArray(data) ? data.length : data);
             if (Array.isArray(data)) {
               allGames.push(...data);
             }
@@ -171,9 +176,14 @@ export const useOddsApi = () => {
       }
 
       const now = new Date();
+      console.log('[OddsAPI] Total games fetched:', allGames.length, '| Now:', now.toISOString());
+      console.log('[OddsAPI] Game start times:', allGames.map(g => g.commence_time));
+
       const upcoming = allGames
         .filter(g => new Date(g.commence_time) > now)
         .sort((a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime());
+
+      console.log('[OddsAPI] Upcoming games after filter:', upcoming.length);
 
       if (upcoming.length === 0) {
         setError('No upcoming games found');
@@ -194,7 +204,7 @@ export const useOddsApi = () => {
       
       // Fallback to sample games on error
       setGames([
-        { id: 'demo1', sport: 'NBA', team1: 'Lakers', team2: 'Celtics', odds1: '+130', odds2: '-150', commence_time: new Date().toISOString(), confidence: 'High', status: 'win' },
+        { id: 'demo1', sport: 'NBA', team1: 'Lakers', team2 : 'Celtics', odds1: '+130', odds2: '-150', commence_time: new Date().toISOString(), confidence: 'High', status: 'win' },
         { id: 'demo2', sport: 'NBA', team1: 'Warriors', team2: 'Bucks', odds1: '+110', odds2: '-130', commence_time: new Date().toISOString(), confidence: 'Medium', status: 'neutral' },
         { id: 'demo3', sport: 'NBA', team1: 'Knicks', team2: 'Heat', odds1: '+180', odds2: '-220', commence_time: new Date().toISOString(), confidence: 'Low', status: 'loss' }
       ]);
