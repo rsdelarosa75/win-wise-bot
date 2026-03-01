@@ -177,7 +177,7 @@ export const useOddsApi = () => {
 
       if (upcoming.length === 0) {
         setError('No upcoming games found');
-        // Fallback to demo data if no real data available
+        // Fallback to sample games if no real data available
         setGames([
           { id: 'demo1', sport: 'NBA', team1: 'Lakers', team2: 'Celtics', odds1: '+130', odds2: '-150', commence_time: new Date().toISOString(), confidence: 'High', status: 'win' },
           { id: 'demo2', sport: 'NBA', team1: 'Warriors', team2: 'Bucks', odds1: '+110', odds2: '-130', commence_time: new Date().toISOString(), confidence: 'Medium', status: 'neutral' },
@@ -192,7 +192,7 @@ export const useOddsApi = () => {
       setError(errorMessage);
       console.error('Odds API Error:', err);
       
-      // Fallback to demo data on error
+      // Fallback to sample games on error
       setGames([
         { id: 'demo1', sport: 'NBA', team1: 'Lakers', team2: 'Celtics', odds1: '+130', odds2: '-150', commence_time: new Date().toISOString(), confidence: 'High', status: 'win' },
         { id: 'demo2', sport: 'NBA', team1: 'Warriors', team2: 'Bucks', odds1: '+110', odds2: '-130', commence_time: new Date().toISOString(), confidence: 'Medium', status: 'neutral' },

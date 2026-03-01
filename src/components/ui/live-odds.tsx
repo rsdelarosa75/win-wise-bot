@@ -115,7 +115,6 @@ export const LiveOdds = () => {
           </div>
         </div>
         <div className="space-y-2">
-          <div className="text-xs text-center text-muted-foreground py-1">Demo data</div>
           {mockGames.map((game) => <GameCard key={game.id} game={game} />)}
         </div>
       </div>
@@ -141,7 +140,7 @@ export const LiveOdds = () => {
         <div className="flex items-center gap-2 p-3 bg-loss/10 border border-loss/20 rounded-lg text-loss">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span className="text-xs font-medium">
-            {error.includes('quota') ? 'API quota exceeded — showing demo data' : `Error: ${error}`}
+            {error.includes('quota') ? 'API quota exceeded — showing sample games' : `Error: ${error}`}
           </span>
         </div>
         {mockGames.map((game) => <GameCard key={game.id} game={game} />)}
