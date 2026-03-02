@@ -61,6 +61,24 @@ export const N8nIntegration = () => {
   );
   const [pickSaved, setPickSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+
+  const LOADING_MESSAGES = [
+    "Bobby is analyzing the odds...",
+    "Checking the injury reports...",
+    "Consulting the crystal ball...",
+    "Running the numbers...",
+  ];
+
+  // Cycle loading messages every 2 seconds while waiting
+  useEffect(() => {
+    if (!isLoading) return;
+    setLoadingMsgIdx(0);
+    const interval = setInterval(() => {
+      setLoadingMsgIdx(i => (i + 1) % LOADING_MESSAGES.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isLoading]);
 
   // Reset saved state whenever new content arrives
   useEffect(() => { setPickSaved(false); }, [briefContent]);
@@ -256,19 +274,11 @@ export const N8nIntegration = () => {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full min-h-[48px] text-sm font-semibold bg-gradient-primary"
+            className="w-full min-h-[48px] text-sm font-black text-black uppercase tracking-wide"
+            style={{ backgroundColor: '#F5A100' }}
           >
-            {isLoading ? (
-              <>
-                <Clock className="mr-2 w-4 h-4 animate-spin" />
-                Bobby's analyzing… 🎲
-              </>
-            ) : (
-              <>
-                <Play className="mr-2 w-4 h-4" />
-                Get Bobby's Pick
-              </>
-            )}
+            <Play className="mr-2 w-4 h-4" />
+            {isLoading ? "Bobby's on it…" : "Get Bobby's Pick"}
           </Button>
         </form>
 
@@ -280,9 +290,21 @@ export const N8nIntegration = () => {
         )}
       </Card>
 
+      {/* Loading state */}
+      {isLoading && (
+        <Card className="p-8 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
+          <div className="flex flex-col items-center justify-center gap-4 py-4">
+            <span className="text-6xl animate-bounce">🎲</span>
+            <p className="text-sm font-medium text-foreground/80 text-center transition-all duration-500">
+              {LOADING_MESSAGES[loadingMsgIdx]}
+            </p>
+          </div>
+        </Card>
+      )}
+
       {/* Result card */}
-      {briefContent && (
-        <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
+      {briefContent && !isLoading && (
+        <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-x-hidden">
           <div className="flex items-center gap-2 mb-3">
             <FileText className="w-4 h-4 text-neutral shrink-0" />
             <h3 className="text-sm font-semibold">Bobby's Pick</h3>
@@ -292,8 +314,8 @@ export const N8nIntegration = () => {
           </div>
 
           {/* Markdown analysis */}
-          <div className="bg-background/50 rounded-lg p-3 mb-4">
-            <ReactMarkdown className="text-sm leading-relaxed" components={mdComponents}>
+          <div className="bg-background/50 rounded-lg p-3 mb-4 w-full">
+            <ReactMarkdown className="text-sm leading-relaxed break-words [overflow-wrap:anywhere]" components={mdComponents}>
               {briefContent}
             </ReactMarkdown>
           </div>

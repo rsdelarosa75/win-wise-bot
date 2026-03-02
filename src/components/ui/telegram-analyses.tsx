@@ -144,7 +144,7 @@ const PickCard = ({ analysis, isSaved, onSave, showSaveButton }: PickCardProps) 
   const m = extractMetrics(analysis);
 
   return (
-    <div className="p-3 bg-gradient-to-br from-secondary/20 to-secondary/10 rounded-xl border border-border/30 hover:border-primary/30 transition-all duration-200 overflow-hidden">
+    <div className="p-3 bg-gradient-to-br from-secondary/20 to-secondary/10 rounded-xl border border-border/30 hover:border-primary/30 transition-all duration-200 overflow-x-hidden">
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
@@ -172,8 +172,8 @@ const PickCard = ({ analysis, isSaved, onSave, showSaveButton }: PickCardProps) 
 
       {/* Full analysis — no truncation */}
       {m.reasoning && (
-        <div className="bg-background/70 rounded-lg p-3 border border-border/20 mb-3">
-          <ReactMarkdown className="text-sm leading-relaxed" components={mdComponents}>
+        <div className="bg-background/70 rounded-lg p-3 border border-border/20 mb-3 w-full">
+          <ReactMarkdown className="text-sm leading-relaxed break-words [overflow-wrap:anywhere]" components={mdComponents}>
             {m.reasoning}
           </ReactMarkdown>
         </div>
@@ -280,7 +280,7 @@ export const TelegramAnalyses = ({ onPicksTabClick }: TelegramAnalysesProps) => 
   };
 
   return (
-    <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden max-w-full">
+    <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-x-hidden w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
