@@ -53,6 +53,7 @@ const UNITS: Record<string, number> = { High: 3, Medium: 2, Low: 1 };
 interface Metrics {
   recommendation: string | null;
   betType: string | null;
+  confidence: 'High' | 'Medium' | 'Low';
   winProbability: string;
   units: number;
   odds: string | null;
@@ -82,22 +83,30 @@ const extractMetrics = (analysis: TelegramAnalysis): Metrics => {
     analysis.bet_type ??
     extractField(reasoning, 'Bet Type', 'BET TYPE');
 
+  // Extract confidence from the analysis text first (🔥 CONFIDENCE: line)
+  // This overrides the stored field which can be hardcoded as "High" by n8n
+  const confFromText = (() => {
+    const m = reasoning.match(/CONFIDENCE[^:\n]*:\s*\*{0,2}(High|Medium|Low)\*{0,2}/i);
+    return m ? (m[1] as 'High' | 'Medium' | 'Low') : null;
+  })();
+  const confidence: 'High' | 'Medium' | 'Low' = confFromText ?? analysis.confidence ?? 'Medium';
+
   const rawProb = parsed?.confidence_percentage as string | number | undefined;
   const winProbability = rawProb
     ? `${Math.round(parseFloat(String(rawProb)))}%`
-    : WIN_PROB[analysis.confidence] ?? '60–70%';
+    : WIN_PROB[confidence] ?? '60–70%';
 
   const units =
     (parsed?.units as number | undefined) ??
     analysis.units ??
-    UNITS[analysis.confidence] ?? 2;
+    UNITS[confidence] ?? 2;
 
   const odds =
     analysis.odds ??
     (parsed?.odds as string | undefined) ??
     extractField(reasoning, 'Current Odds', 'ODDS', 'Moneyline', 'Line');
 
-  return { recommendation, betType, winProbability, units, odds, reasoning };
+  return { recommendation, betType, confidence, winProbability, units, odds, reasoning };
 };
 
 const formatTimeAgo = (timestamp: string) => {
@@ -152,12 +161,12 @@ const PickCard = ({ analysis, isSaved, onSave, showSaveButton }: PickCardProps) 
         <Badge
           variant="outline"
           className={`shrink-0 ml-2 text-xs px-2 py-0.5 font-semibold
-            ${analysis.confidence === 'High'   ? 'border-win/40 text-win bg-win/5' : ''}
-            ${analysis.confidence === 'Medium' ? 'border-primary/40 text-primary bg-primary/5' : ''}
-            ${analysis.confidence === 'Low'    ? 'border-loss/40 text-loss bg-loss/5' : ''}
+            ${m.confidence === 'High'   ? 'border-win/40 text-win bg-win/5' : ''}
+            ${m.confidence === 'Medium' ? 'border-primary/40 text-primary bg-primary/5' : ''}
+            ${m.confidence === 'Low'    ? 'border-loss/40 text-loss bg-loss/5' : ''}
           `}
         >
-          {analysis.confidence}
+          {m.confidence}
         </Badge>
       </div>
 

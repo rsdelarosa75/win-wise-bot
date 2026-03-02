@@ -143,9 +143,10 @@ export const N8nIntegration = () => {
 
       // Push this pick to the Home screen's Bobby's Picks section
       const pickText   = extractField(cleanContent, "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation", "BET", "My Pick");
-      const confRaw    = extractField(cleanContent, "CONFIDENCE", "Confidence Level", "Confidence Score");
       const oddsText   = extractField(cleanContent, "ODDS", "Current Odds", "Moneyline", "Line", "Spread");
-      const confNorm   = (["High", "Medium", "Low"].includes(confRaw ?? "") ? confRaw : "High") as "High" | "Medium" | "Low";
+      // Extract confidence from the 🔥 CONFIDENCE line in the analysis text
+      const confMatch  = cleanContent.match(/CONFIDENCE[^:\n]*:\s*\*{0,2}(High|Medium|Low)\*{0,2}/i);
+      const confNorm   = (confMatch ? confMatch[1] : "Medium") as "High" | "Medium" | "Low";
       const newAnalysis = {
         id: Date.now().toString(),
         timestamp: new Date().toISOString(),
