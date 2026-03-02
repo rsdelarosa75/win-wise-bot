@@ -127,13 +127,11 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
 interface PickCardProps {
   analysis: TelegramAnalysis;
   isSaved: boolean;
-  isExpanded: boolean;
   onSave: () => void;
-  onToggleExpand: () => void;
   showSaveButton: boolean;
 }
 
-const PickCard = ({ analysis, isSaved, isExpanded, onSave, onToggleExpand, showSaveButton }: PickCardProps) => {
+const PickCard = ({ analysis, isSaved, onSave, showSaveButton }: PickCardProps) => {
   const m = extractMetrics(analysis);
 
   return (
@@ -141,7 +139,7 @@ const PickCard = ({ analysis, isSaved, isExpanded, onSave, onToggleExpand, showS
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
-          <h4 className="font-bold text-sm text-foreground leading-tight truncate">{analysis.teams}</h4>
+          <h4 className="font-bold text-sm text-foreground leading-tight">{analysis.teams}</h4>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {analysis.sport && (
               <Badge variant="secondary" className="text-xs px-1.5 py-0">{analysis.sport}</Badge>
@@ -163,53 +161,12 @@ const PickCard = ({ analysis, isSaved, isExpanded, onSave, onToggleExpand, showS
         </Badge>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        <div className="text-center p-2 bg-background/50 rounded-lg border border-border/20">
-          <div className="text-[10px] text-muted-foreground mb-0.5">Odds</div>
-          <div className="font-semibold text-xs text-foreground truncate">{m.odds ?? '—'}</div>
-        </div>
-        <div className="text-center p-2 bg-win/10 rounded-lg border border-win/20">
-          <div className="text-[10px] text-muted-foreground mb-0.5">Win Prob</div>
-          <div className="font-bold text-xs text-win">{m.winProbability}</div>
-        </div>
-        <div className="text-center p-2 bg-accent/10 rounded-lg border border-accent/20">
-          <div className="text-[10px] text-muted-foreground mb-0.5">Units</div>
-          <div className="font-bold text-xs text-accent">{m.units}u</div>
-        </div>
-      </div>
-
-      {/* Recommendation — gold box */}
-      {m.recommendation && (
-        <div
-          className="mb-3 p-3 rounded-lg border"
-          style={{ backgroundColor: 'rgba(245,161,0,0.08)', borderColor: 'rgba(245,161,0,0.3)' }}
-        >
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Bobby's Pick</div>
-          <div className="font-black text-sm" style={{ color: '#F5A100' }}>{m.recommendation}</div>
-          {m.betType && <div className="text-xs text-muted-foreground mt-0.5 capitalize">{m.betType}</div>}
-        </div>
-      )}
-
-      {/* Reasoning — expandable */}
+      {/* Full analysis — no truncation */}
       {m.reasoning && (
-        <div className="relative mb-2">
-          <div
-            className={`bg-background/70 rounded-lg p-3 border border-border/20 overflow-hidden transition-all duration-200 ${isExpanded ? '' : 'max-h-32'}`}
-          >
-            <ReactMarkdown className="text-sm leading-relaxed" components={mdComponents}>
-              {m.reasoning}
-            </ReactMarkdown>
-          </div>
-          {!isExpanded && (
-            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-secondary/30 to-transparent pointer-events-none rounded-b-lg" />
-          )}
-          <button
-            onClick={onToggleExpand}
-            className="mt-1 text-xs text-primary hover:underline w-full text-left pl-1"
-          >
-            {isExpanded ? 'Show less ↑' : 'Read more ↓'}
-          </button>
+        <div className="bg-background/70 rounded-lg p-3 border border-border/20 mb-3">
+          <ReactMarkdown className="text-sm leading-relaxed" components={mdComponents}>
+            {m.reasoning}
+          </ReactMarkdown>
         </div>
       )}
 
@@ -240,7 +197,6 @@ export const TelegramAnalyses = ({ onPicksTabClick }: TelegramAnalysesProps) => 
   const { user } = useAuth();
   const { savePick } = usePicks();
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadFromStorage = (): TelegramAnalysis[] => {
@@ -314,14 +270,6 @@ export const TelegramAnalyses = ({ onPicksTabClick }: TelegramAnalysesProps) => 
     toast('Saved to Tracker! 🎲✅');
   };
 
-  const toggleExpand = (id: string) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
   return (
     <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden max-w-full">
       {/* Header */}
@@ -370,9 +318,7 @@ export const TelegramAnalyses = ({ onPicksTabClick }: TelegramAnalysesProps) => 
               <PickCard
                 analysis={analysis}
                 isSaved={savedIds.has(analysis.id)}
-                isExpanded={expandedIds.has(analysis.id)}
                 onSave={() => handleSavePick(analysis)}
-                onToggleExpand={() => toggleExpand(analysis.id)}
                 showSaveButton={!!user}
               />
             </div>
