@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { AuthScreen } from "@/components/ui/auth-screen";
@@ -12,6 +12,12 @@ type Tab = "home" | "picks" | "tracker" | "profile";
 const Index = () => {
   const { user, loading, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [pendingPick, setPendingPick] = useState<{ teams: string; date: string } | null>(null);
+
+  const handleGameSelect = useCallback((teams: string, date: string) => {
+    setPendingPick({ teams, date });
+    setActiveTab("picks");
+  }, []);
 
   if (loading) {
     return (
@@ -32,9 +38,9 @@ const Index = () => {
   const renderPage = () => {
     switch (activeTab) {
       case "home":
-        return <Dashboard onUpgradeClick={() => setActiveTab("profile")} onPicksTabClick={() => setActiveTab("picks")} />;
+        return <Dashboard onUpgradeClick={() => setActiveTab("profile")} onPicksTabClick={() => setActiveTab("picks")} onGameSelect={handleGameSelect} />;
       case "picks":
-        return <Picks />;
+        return <Picks pendingPick={pendingPick} onPendingPickConsumed={() => setPendingPick(null)} />;
       case "tracker":
         return <Tracker />;
       case "profile":

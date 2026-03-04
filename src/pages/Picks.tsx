@@ -1,6 +1,11 @@
 import { N8nIntegration } from "@/components/ui/n8n-integration";
 
-const Picks = () => {
+interface PicksProps {
+  pendingPick?: { teams: string; date: string } | null;
+  onPendingPickConsumed?: () => void;
+}
+
+const Picks = ({ pendingPick, onPendingPickConsumed }: PicksProps = {}) => {
   return (
     <div className="px-4 pt-6 pb-24 space-y-4">
       <div>
@@ -21,7 +26,7 @@ const Picks = () => {
         </div>
       </div>
 
-      <N8nIntegration />
+      <N8nIntegration pendingPick={pendingPick} onPendingPickConsumed={onPendingPickConsumed} />
     </div>
   );
 };

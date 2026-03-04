@@ -3,7 +3,11 @@ import { Button } from '@/components/ui/button';
 import { useOddsApi } from '@/hooks/use-odds-api';
 import { RefreshCw, Clock, AlertCircle } from 'lucide-react';
 
-export const LiveOdds = () => {
+interface LiveOddsProps {
+  onGameSelect?: (teams: string, date: string) => void;
+}
+
+export const LiveOdds = ({ onGameSelect }: LiveOddsProps = {}) => {
   const { games, loading, error, fetchOdds, hasApiKey } = useOddsApi();
 
   const mockGames = [
@@ -59,50 +63,74 @@ export const LiveOdds = () => {
     return sport;
   };
 
-  const GameCard = ({ game }: { game: typeof mockGames[0] & { spread1?: string; spread2?: string } }) => (
-    <div className="p-3 bg-secondary/30 rounded-lg border border-border/50 hover:bg-secondary/40 transition-colors space-y-2 overflow-hidden max-w-full">
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-medium truncate">
-          <span className="font-semibold">{game.team1}</span>
-          <span className="text-muted-foreground"> vs </span>
-          <span className="font-semibold">{game.team2}</span>
+  const GameCard = ({ game }: { game: typeof mockGames[0] & { spread1?: string; spread2?: string } }) => {
+    const handleTap = () => {
+      if (!onGameSelect) return;
+      const teams = `${game.team1} vs ${game.team2}`;
+      const date = game.commence_time.split('T')[0];
+      onGameSelect(teams, date);
+    };
+
+    return (
+      <div
+        onClick={handleTap}
+        className={`p-3 rounded-lg border space-y-2 overflow-x-hidden w-full transition-all duration-150
+          ${onGameSelect
+            ? 'cursor-pointer bg-secondary/30 border-border/50 hover:border-primary/60 hover:bg-primary/5 active:scale-[0.98] active:border-primary'
+            : 'bg-secondary/30 border-border/50'
+          }`}
+        style={onGameSelect ? { boxShadow: undefined } : undefined}
+        onMouseEnter={e => { if (onGameSelect) (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 0 1px rgba(245,161,0,0.4)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs font-medium min-w-0 flex-1">
+            <span className="font-semibold">{game.team1}</span>
+            <span className="text-muted-foreground"> vs </span>
+            <span className="font-semibold">{game.team2}</span>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+            <Clock className="w-3 h-3" />
+            {formatTime(game.commence_time)}
+          </div>
         </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-          <Clock className="w-3 h-3" />
-          {formatTime(game.commence_time)}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
+            <span>{game.odds1}</span>
+            <span>/</span>
+            <span>{game.odds2}</span>
+            <span className="text-[10px] bg-primary/20 text-primary px-1 rounded">ML</span>
+            {'spread1' in game && game.spread1 && game.spread1 !== 'N/A' && 'spread2' in game && game.spread2 && game.spread2 !== 'N/A' && (
+              <>
+                <span className="ml-1">{game.spread1}/{game.spread2}</span>
+                <span className="text-[10px] bg-accent/20 text-accent px-1 rounded">SPR</span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <Badge
+              variant="outline"
+              className={`text-[10px] px-1.5 py-0
+                ${game.status === 'win' ? 'border-win/30 text-win' : ''}
+                ${game.status === 'neutral' ? 'border-neutral/30 text-neutral' : ''}
+                ${game.status === 'loss' ? 'border-loss/30 text-loss' : ''}
+              `}
+            >
+              {game.confidence}
+            </Badge>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/30">
+              {sportLabel(game.sport)}
+            </Badge>
+          </div>
         </div>
+        {onGameSelect && (
+          <div className="flex justify-end pt-0.5">
+            <span className="text-[11px] font-bold" style={{ color: '#F5A100' }}>Get Pick →</span>
+          </div>
+        )}
       </div>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
-          <span>{game.odds1}</span>
-          <span>/</span>
-          <span>{game.odds2}</span>
-          <span className="text-[10px] bg-primary/20 text-primary px-1 rounded">ML</span>
-          {'spread1' in game && game.spread1 && game.spread1 !== 'N/A' && 'spread2' in game && game.spread2 && game.spread2 !== 'N/A' && (
-            <>
-              <span className="ml-1">{game.spread1}/{game.spread2}</span>
-              <span className="text-[10px] bg-accent/20 text-accent px-1 rounded">SPR</span>
-            </>
-          )}
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <Badge
-            variant="outline"
-            className={`text-[10px] px-1.5 py-0
-              ${game.status === 'win' ? 'border-win/30 text-win' : ''}
-              ${game.status === 'neutral' ? 'border-neutral/30 text-neutral' : ''}
-              ${game.status === 'loss' ? 'border-loss/30 text-loss' : ''}
-            `}
-          >
-            {game.confidence}
-          </Badge>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/30">
-            {sportLabel(game.sport)}
-          </Badge>
-        </div>
-      </div>
-    </div>
-  );
+    );
+  };
 
   if (!hasApiKey) {
     return (

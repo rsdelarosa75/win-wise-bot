@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,12 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/40 pl-3 text-muted-foreground italic">{children}</blockquote>,
 };
 
-export const N8nIntegration = () => {
+interface N8nIntegrationProps {
+  pendingPick?: { teams: string; date: string } | null;
+  onPendingPickConsumed?: () => void;
+}
+
+export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegrationProps = {}) => {
   const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_NBA || "";
   const { user } = useAuth();
   const { savePick } = usePicks();
@@ -83,9 +88,8 @@ export const N8nIntegration = () => {
   // Reset saved state whenever new content arrives
   useEffect(() => { setPickSaved(false); }, [briefContent]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  // Core fetch logic — called from both form submit and auto-trigger
+  const triggerFetch = async (teamsValue: string, dateValue: string) => {
     if (!webhookUrl) {
       toast({
         title: "Not configured",
@@ -98,14 +102,14 @@ export const N8nIntegration = () => {
     setIsLoading(true);
 
     try {
-      const teams = specificTeams.trim() || "general recommendations";
+      const teams = teamsValue.trim() || "general recommendations";
       const payload = {
         sport: "NBA",
         sports: ["NBA"],
         teams,
         text: teams,
         persona: "bobby_vegas",
-        targetDate,
+        targetDate: dateValue,
         test: true,
       };
 
@@ -160,16 +164,15 @@ export const N8nIntegration = () => {
       setBriefContent(cleanContent);
 
       // Push this pick to the Home screen's Bobby's Picks section
-      const pickText   = extractField(cleanContent, "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation", "BET", "My Pick");
-      const oddsText   = extractField(cleanContent, "ODDS", "Current Odds", "Moneyline", "Line", "Spread");
-      // Extract confidence from the 🔥 CONFIDENCE line in the analysis text
-      const confMatch  = cleanContent.match(/CONFIDENCE[^:\n]*:\s*\*{0,2}(High|Medium|Low)\*{0,2}/i);
-      const confNorm   = (confMatch ? confMatch[1] : "Medium") as "High" | "Medium" | "Low";
+      const pickText  = extractField(cleanContent, "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation", "BET", "My Pick");
+      const oddsText  = extractField(cleanContent, "ODDS", "Current Odds", "Moneyline", "Line", "Spread");
+      const confMatch = cleanContent.match(/CONFIDENCE[^:\n]*:\s*\*{0,2}(High|Medium|Low)\*{0,2}/i);
+      const confNorm  = (confMatch ? confMatch[1] : "Medium") as "High" | "Medium" | "Low";
       const newAnalysis = {
         id: Date.now().toString(),
         timestamp: new Date().toISOString(),
         command: "/webhook",
-        teams: specificTeams.trim() || "NBA Analysis",
+        teams: teamsValue.trim() || "NBA Analysis",
         persona: "bobby_vegas",
         analysis: cleanContent,
         confidence: confNorm,
@@ -201,6 +204,24 @@ export const N8nIntegration = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Auto-trigger when a game card is tapped from Live Odds
+  const pendingPickRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!pendingPick) return;
+    const key = `${pendingPick.teams}|${pendingPick.date}`;
+    if (pendingPickRef.current === key) return;
+    pendingPickRef.current = key;
+    setSpecificTeams(pendingPick.teams);
+    setTargetDate(pendingPick.date);
+    onPendingPickConsumed?.();
+    triggerFetch(pendingPick.teams, pendingPick.date);
+  }, [pendingPick]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await triggerFetch(specificTeams, targetDate);
   };
 
   const handleSavePick = async () => {
