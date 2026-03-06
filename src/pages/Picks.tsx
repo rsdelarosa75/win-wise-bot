@@ -1,7 +1,8 @@
 import { N8nIntegration } from "@/components/ui/n8n-integration";
+import type { GameOdds } from "@/components/ui/live-odds";
 
 interface PicksProps {
-  pendingPick?: { teams: string; date: string } | null;
+  pendingPick?: { teams: string; date: string; odds?: GameOdds } | null;
   onPendingPickConsumed?: () => void;
 }
 

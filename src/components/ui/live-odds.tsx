@@ -3,8 +3,17 @@ import { Button } from '@/components/ui/button';
 import { useOddsApi } from '@/hooks/use-odds-api';
 import { RefreshCw, Clock, AlertCircle } from 'lucide-react';
 
+export interface GameOdds {
+  team1: string;
+  team2: string;
+  ml1: string;
+  ml2: string;
+  spread1?: string;
+  spread2?: string;
+}
+
 interface LiveOddsProps {
-  onGameSelect?: (teams: string, date: string) => void;
+  onGameSelect?: (teams: string, date: string, odds?: GameOdds) => void;
 }
 
 export const LiveOdds = ({ onGameSelect }: LiveOddsProps = {}) => {
@@ -68,7 +77,15 @@ export const LiveOdds = ({ onGameSelect }: LiveOddsProps = {}) => {
       if (!onGameSelect) return;
       const teams = `${game.team1} vs ${game.team2}`;
       const date = game.commence_time.split('T')[0];
-      onGameSelect(teams, date);
+      const odds: GameOdds = {
+        team1: game.team1,
+        team2: game.team2,
+        ml1: game.odds1,
+        ml2: game.odds2,
+        spread1: 'spread1' in game ? game.spread1 : undefined,
+        spread2: 'spread2' in game ? game.spread2 : undefined,
+      };
+      onGameSelect(teams, date, odds);
     };
 
     return (

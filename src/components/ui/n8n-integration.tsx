@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import type { GameOdds } from "@/components/ui/live-odds";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,7 +73,7 @@ const renderAnalysis = (text: string) => {
 };
 
 interface N8nIntegrationProps {
-  pendingPick?: { teams: string; date: string } | null;
+  pendingPick?: { teams: string; date: string; odds?: GameOdds } | null;
   onPendingPickConsumed?: () => void;
 }
 
@@ -114,7 +115,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
   useEffect(() => { setPickSaved(false); }, [briefContent]);
 
   // Core fetch logic — called from both form submit and auto-trigger
-  const triggerFetch = async (teamsValue: string, dateValue: string) => {
+  const triggerFetch = async (teamsValue: string, dateValue: string, odds?: GameOdds) => {
     if (!webhookUrl) {
       toast({
         title: "Not configured",
@@ -128,7 +129,16 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
 
     try {
       const teams = teamsValue.trim() || "general recommendations";
-      const payload = {
+
+      // Build a human-readable odds string for Bobby to use
+      const oddsContext = odds
+        ? `Moneyline: ${odds.team1} ${odds.ml1} / ${odds.team2} ${odds.ml2}` +
+          (odds.spread1 && odds.spread2 && odds.spread1 !== 'N/A' && odds.spread2 !== 'N/A'
+            ? ` | Spread: ${odds.team1} ${odds.spread1} / ${odds.team2} ${odds.spread2}`
+            : '')
+        : undefined;
+
+      const payload: Record<string, unknown> = {
         sport: "NBA",
         sports: ["NBA"],
         teams,
@@ -136,6 +146,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
         persona: "bobby_vegas",
         targetDate: dateValue,
         test: true,
+        ...(oddsContext ? { odds: oddsContext } : {}),
       };
 
       const response = await fetch(webhookUrl, {
@@ -241,12 +252,13 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
     setSpecificTeams(pendingPick.teams);
     setTargetDate(pendingPick.date);
     onPendingPickConsumed?.();
-    triggerFetch(pendingPick.teams, pendingPick.date);
+    triggerFetch(pendingPick.teams, pendingPick.date, pendingPick.odds);
   }, [pendingPick]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await triggerFetch(specificTeams, targetDate);
+    // Note: manual form submissions don't have odds context — Bobby will rely on his internal feed
   };
 
   const handleSavePick = async () => {

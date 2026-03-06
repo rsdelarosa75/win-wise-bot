@@ -6,16 +6,17 @@ import Dashboard from "@/pages/Dashboard";
 import Picks from "@/pages/Picks";
 import Tracker from "@/pages/Tracker";
 import Profile from "@/pages/Profile";
+import type { GameOdds } from "@/components/ui/live-odds";
 
 type Tab = "home" | "picks" | "tracker" | "profile";
 
 const Index = () => {
   const { user, loading, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("home");
-  const [pendingPick, setPendingPick] = useState<{ teams: string; date: string } | null>(null);
+  const [pendingPick, setPendingPick] = useState<{ teams: string; date: string; odds?: GameOdds } | null>(null);
 
-  const handleGameSelect = useCallback((teams: string, date: string) => {
-    setPendingPick({ teams, date });
+  const handleGameSelect = useCallback((teams: string, date: string, odds?: GameOdds) => {
+    setPendingPick({ teams, date, odds });
     setActiveTab("picks");
   }, []);
 
