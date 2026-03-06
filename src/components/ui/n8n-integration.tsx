@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import ReactMarkdown from "react-markdown";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,18 +31,44 @@ const extractField = (text: string, ...keys: string[]): string | null => {
   return null;
 };
 
-const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
-  p:          ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
-  strong:     ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-  em:         ({ children }) => <em className="italic text-muted-foreground">{children}</em>,
-  h1:         ({ children }) => <h1 className="font-bold text-base mt-3 mb-1 text-primary">{children}</h1>,
-  h2:         ({ children }) => <h2 className="font-semibold text-sm mt-2 mb-1 text-primary">{children}</h2>,
-  h3:         ({ children }) => <h3 className="font-medium text-sm mt-2 mb-0.5 text-primary/80">{children}</h3>,
-  ul:         ({ children }) => <ul className="list-disc list-inside space-y-0.5 mb-1.5 pl-1">{children}</ul>,
-  ol:         ({ children }) => <ol className="list-decimal list-inside space-y-0.5 mb-1.5 pl-1">{children}</ol>,
-  li:         ({ children }) => <li className="leading-snug">{children}</li>,
-  code:       ({ children }) => <code className="bg-primary/10 text-primary px-1 rounded text-xs font-mono">{children}</code>,
-  blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/40 pl-3 text-muted-foreground italic">{children}</blockquote>,
+// ── Plain text renderer (replaces ReactMarkdown for Safari compat) ──
+const renderInline = (raw: string) => {
+  const parts = raw.split("**");
+  return parts.map((part, i) =>
+    i % 2 === 1
+      ? <strong key={i} className="font-semibold text-foreground">{part}</strong>
+      : <span key={i}>{part}</span>
+  );
+};
+
+const renderAnalysis = (text: string) => {
+  if (!text) return null;
+  return (
+    <div className="text-sm leading-relaxed" style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
+      {text.split("\n").map((line, idx) => {
+        if (!line.trim()) return <div key={idx} className="h-2" />;
+        const trimmed = line.trim();
+        if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
+          return (
+            <p key={idx} className="flex gap-1.5 mb-0.5">
+              <span className="shrink-0 text-muted-foreground mt-0.5">•</span>
+              <span>{renderInline(trimmed.replace(/^[-•]\s+/, ""))}</span>
+            </p>
+          );
+        }
+        const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+        if (numMatch) {
+          return (
+            <p key={idx} className="flex gap-1.5 mb-0.5">
+              <span className="shrink-0 text-muted-foreground">{numMatch[1]}.</span>
+              <span>{renderInline(numMatch[2])}</span>
+            </p>
+          );
+        }
+        return <p key={idx} className="mb-1">{renderInline(line)}</p>;
+      })}
+    </div>
+  );
 };
 
 interface N8nIntegrationProps {
@@ -334,11 +359,9 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
             </span>
           </div>
 
-          {/* Markdown analysis */}
+          {/* Analysis text */}
           <div className="bg-background/50 rounded-lg p-3 mb-4 w-full">
-            <ReactMarkdown className="text-sm leading-relaxed break-words [overflow-wrap:anywhere]" components={mdComponents}>
-              {briefContent}
-            </ReactMarkdown>
+            {renderAnalysis(briefContent)}
           </div>
 
           {/* Save Pick button */}
