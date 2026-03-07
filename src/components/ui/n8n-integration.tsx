@@ -180,9 +180,13 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
         const parsed = JSON.parse(rawText);
         console.log("[N8nIntegration] Parsed JSON:", parsed);
         const data = Array.isArray(parsed) ? parsed[0] : parsed;
+        // Handle OpenAI-style response: { message: { role, content } }
+        const messageContent = typeof data?.message === 'object' && data?.message !== null
+          ? data.message?.content ?? null
+          : null;
         const textContent =
           data?.analysis ?? data?.output ?? data?.text ??
-          data?.message ?? data?.content ?? data?.recommendation ??
+          messageContent ?? data?.content ?? data?.recommendation ??
           data?.result ?? null;
 
         if (typeof textContent === "string") {
