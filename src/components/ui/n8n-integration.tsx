@@ -127,9 +127,63 @@ const pickBestGame = (candidates: OddsApiGame[], targetDate: string): OddsApiGam
   )[0];
 };
 
+/** Local calendar date for "yesterday" (back-to-back detection). */
+const yesterdayLocalYmd = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const resolveCanonicalTeam = (userTeam: string, matched: OddsApiGame | null): string => {
+  if (!matched) return userTeam;
+  if (teamMatchesUser(matched.away_team, userTeam)) return matched.away_team;
+  if (teamMatchesUser(matched.home_team, userTeam)) return matched.home_team;
+  return userTeam;
+};
+
+/** True if `team` appears in this game and tip-off falls on `ymd` (local). */
+const teamPlayedOnLocalDate = (games: OddsApiGame[], team: string, ymd: string) =>
+  games.some(
+    (g) =>
+      (teamMatchesUser(g.away_team, team) || teamMatchesUser(g.home_team, team)) &&
+      localYmd(g.commence_time) === ymd
+  );
+
+/**
+ * Uses Odds API scores (recent completed) + odds list (upcoming) to detect a game on yesterday's calendar.
+ */
+const computeBackToBack = (
+  oddsGames: OddsApiGame[],
+  scoresGames: OddsApiGame[],
+  awayUser: string,
+  homeUser: string,
+  matchedGame: OddsApiGame | null
+): string => {
+  const y = yesterdayLocalYmd();
+  const away = resolveCanonicalTeam(awayUser, matchedGame);
+  const home = resolveCanonicalTeam(homeUser, matchedGame);
+  const seen = new Set<string>();
+  const parts: string[] = [];
+  for (const t of [away, home]) {
+    const key = normalizeTeamToken(t);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const played =
+      teamPlayedOnLocalDate(scoresGames, t, y) || teamPlayedOnLocalDate(oddsGames, t, y);
+    if (played) {
+      parts.push(`${t} are on a back to back - played yesterday`);
+    }
+  }
+  return parts.join(" ");
+};
+
 type MatchupOddsResult = {
   matchedGame: OddsApiGame | null;
   oddsPayload: string;
+  backToBack: string;
 };
 
 /** Local calendar YYYY-MM-DD (matches <input type="date"> and localYmd on game times). */
@@ -148,7 +202,11 @@ async function fetchMatchupOddsForWebhook(
   teamsValue: string,
   targetDate: string
 ): Promise<MatchupOddsResult> {
-  const empty = (): MatchupOddsResult => ({ matchedGame: null, oddsPayload: "" });
+  const empty = (): MatchupOddsResult => ({
+    matchedGame: null,
+    oddsPayload: "",
+    backToBack: "",
+  });
 
   const apiKey = import.meta.env.VITE_ODDS_API_KEY as string | undefined;
   if (!apiKey?.trim()) {
@@ -164,7 +222,7 @@ async function fetchMatchupOddsForWebhook(
   }
 
   const [awayTeam, homeTeam] = pair;
-  const url =
+  const oddsUrl =
     "https://api.the-odds-api.com/v4/sports/basketball_nba/odds/?" +
     new URLSearchParams({
       apiKey: apiKey.trim(),
@@ -174,22 +232,54 @@ async function fetchMatchupOddsForWebhook(
       dateFormat: "iso",
     });
 
+  const scoresUrl =
+    "https://api.the-odds-api.com/v4/sports/basketball_nba/scores/?" +
+    new URLSearchParams({
+      apiKey: apiKey.trim(),
+      daysFrom: "3",
+      dateFormat: "iso",
+    });
+
   try {
-    const res = await fetch(url);
-    const data: unknown = await res.json();
+    const [oddsRes, scoresRes] = await Promise.all([fetch(oddsUrl), fetch(scoresUrl)]);
+    const oddsData: unknown = await oddsRes.json();
+    const scoresData: unknown = await scoresRes.json();
 
-    console.log("[N8nIntegration] Odds API full response:", data);
+    console.log("[N8nIntegration] Odds API full response:", oddsData);
+    console.log("[N8nIntegration] Scores API (recent games):", scoresData);
 
-    if (!res.ok) {
-      console.log("[N8nIntegration] Odds API HTTP error:", res.status, data);
-      return empty();
+    const scoresGames = Array.isArray(scoresData) ? (scoresData as OddsApiGame[]) : [];
+    console.log(
+      "[N8nIntegration] Back-to-back check: yesterday (local) =",
+      yesterdayLocalYmd(),
+      "| score rows:",
+      scoresGames.length
+    );
+
+    if (!oddsRes.ok) {
+      console.log("[N8nIntegration] Odds API HTTP error:", oddsRes.status, oddsData);
     }
-    if (!Array.isArray(data)) {
-      console.log("[N8nIntegration] Odds API: expected games array, got:", typeof data);
-      return empty();
+    const games = Array.isArray(oddsData) ? (oddsData as OddsApiGame[]) : [];
+    if (!Array.isArray(oddsData)) {
+      console.log("[N8nIntegration] Odds API: expected games array, got:", typeof oddsData);
     }
 
-    const games = data as OddsApiGame[];
+    if (!oddsRes.ok || !Array.isArray(oddsData)) {
+      const backToBackOnly = computeBackToBack(
+        games,
+        scoresGames,
+        awayTeam,
+        homeTeam,
+        null
+      );
+      console.log("[N8nIntegration] backToBack (odds unavailable):", backToBackOnly || "(empty)");
+      return {
+        matchedGame: null,
+        oddsPayload: "",
+        backToBack: backToBackOnly,
+      };
+    }
+
     console.log(
       "Odds API games:",
       games.map((g) => g.away_team + " vs " + g.home_team)
@@ -207,10 +297,13 @@ async function fetchMatchupOddsForWebhook(
     const matchedGame = pickBestGame(matches, targetDate);
     const oddsPayload = matchedGame ? formatOddsForPayload(matchedGame) : "";
 
+    const backToBack = computeBackToBack(games, scoresGames, awayTeam, homeTeam, matchedGame);
+
     console.log("Matched game:", matchedGame);
     console.log("Odds payload being sent:", oddsPayload);
+    console.log("[N8nIntegration] backToBack:", backToBack || "(empty)");
 
-    return { matchedGame, oddsPayload };
+    return { matchedGame, oddsPayload, backToBack };
   } catch (e) {
     console.log("[N8nIntegration] Odds prefetch fetch error:", e);
     return empty();
@@ -331,10 +424,8 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
     try {
       const teams = teamsValue.trim() || "general recommendations";
 
-      const { oddsPayload: apiOddsPayload } = await fetchMatchupOddsForWebhook(
-        teamsValue,
-        dateValue
-      );
+      const { oddsPayload: apiOddsPayload, backToBack: apiBackToBack } =
+        await fetchMatchupOddsForWebhook(teamsValue, dateValue);
       let oddsPayload = apiOddsPayload;
       if (!oddsPayload && odds) {
         oddsPayload = formatGameOddsProp(odds);
@@ -353,6 +444,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
         targetDate: dateValue,
         test: true,
         odds: oddsPayload,
+        backToBack: apiBackToBack,
       };
 
       console.log(
