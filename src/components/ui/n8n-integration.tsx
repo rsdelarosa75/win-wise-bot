@@ -127,15 +127,42 @@ const pickBestGame = (candidates: OddsApiGame[], targetDate: string): OddsApiGam
   )[0];
 };
 
-/** Fetches NBA odds from The Odds API and returns formatted string, or "" if no match / error. */
-async function fetchMatchupOddsString(teamsValue: string, targetDate: string): Promise<string> {
+type MatchupOddsResult = {
+  matchedGame: OddsApiGame | null;
+  oddsPayload: string;
+};
+
+/** Local calendar YYYY-MM-DD (matches <input type="date"> and localYmd on game times). */
+const todayLocalYmd = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+/**
+ * Fetches NBA odds from The Odds API, fuzzy-matches the typed matchup, formats Moneyline | Spread.
+ */
+async function fetchMatchupOddsForWebhook(
+  teamsValue: string,
+  targetDate: string
+): Promise<MatchupOddsResult> {
+  const empty = (): MatchupOddsResult => ({ matchedGame: null, oddsPayload: "" });
+
   const apiKey = import.meta.env.VITE_ODDS_API_KEY as string | undefined;
-  if (!apiKey?.trim()) return "";
+  if (!apiKey?.trim()) {
+    console.log("[N8nIntegration] Odds prefetch: missing VITE_ODDS_API_KEY");
+    return empty();
+  }
 
-  const pair = parseMatchupTeams(teamsValue);
-  if (!pair) return "";
+  const trimmed = teamsValue.trim();
+  const pair = parseMatchupTeams(trimmed);
+  if (!pair) {
+    console.log("[N8nIntegration] Odds prefetch: could not parse teams from:", teamsValue);
+    return empty();
+  }
 
-  // User order: left side vs right side (often matches away @ home wording)
   const [awayTeam, homeTeam] = pair;
   const url =
     "https://api.the-odds-api.com/v4/sports/basketball_nba/odds/?" +
@@ -153,8 +180,14 @@ async function fetchMatchupOddsString(teamsValue: string, targetDate: string): P
 
     console.log("[N8nIntegration] Odds API full response:", data);
 
-    if (!res.ok) return "";
-    if (!Array.isArray(data)) return "";
+    if (!res.ok) {
+      console.log("[N8nIntegration] Odds API HTTP error:", res.status, data);
+      return empty();
+    }
+    if (!Array.isArray(data)) {
+      console.log("[N8nIntegration] Odds API: expected games array, got:", typeof data);
+      return empty();
+    }
 
     const games = data as OddsApiGame[];
     console.log(
@@ -169,12 +202,18 @@ async function fetchMatchupOddsString(teamsValue: string, targetDate: string): P
         g?.home_team &&
         gameMatchesUserTeams(g, awayTeam, homeTeam)
     );
-    const matchedGame = pickBestGame(matches, targetDate);
-    console.log("Match found:", matchedGame);
+    console.log("[N8nIntegration] Odds games matching teams:", matches.length);
 
-    return matchedGame ? formatOddsForPayload(matchedGame) : "";
-  } catch {
-    return "";
+    const matchedGame = pickBestGame(matches, targetDate);
+    const oddsPayload = matchedGame ? formatOddsForPayload(matchedGame) : "";
+
+    console.log("Matched game:", matchedGame);
+    console.log("Odds payload being sent:", oddsPayload);
+
+    return { matchedGame, oddsPayload };
+  } catch (e) {
+    console.log("[N8nIntegration] Odds prefetch fetch error:", e);
+    return empty();
   }
 }
 
@@ -251,9 +290,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
   const [lastTriggered, setLastTriggered] = useState<Date | null>(null);
   const [briefContent, setBriefContent] = useState("");
   const [specificTeams, setSpecificTeams] = useState("");
-  const [targetDate, setTargetDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [targetDate, setTargetDate] = useState(() => todayLocalYmd());
   const [pickSaved, setPickSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
@@ -294,9 +331,17 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
     try {
       const teams = teamsValue.trim() || "general recommendations";
 
-      let oddsPayload = await fetchMatchupOddsString(teamsValue, dateValue);
+      const { oddsPayload: apiOddsPayload } = await fetchMatchupOddsForWebhook(
+        teamsValue,
+        dateValue
+      );
+      let oddsPayload = apiOddsPayload;
       if (!oddsPayload && odds) {
         oddsPayload = formatGameOddsProp(odds);
+        console.log(
+          "[N8nIntegration] Using Live Odds card fallback for odds:",
+          oddsPayload
+        );
       }
 
       const payload: Record<string, unknown> = {
@@ -309,6 +354,11 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
         test: true,
         odds: oddsPayload,
       };
+
+      console.log(
+        "[N8nIntegration] N8N webhook POST body:",
+        JSON.stringify(payload)
+      );
 
       const response = await fetch(webhookUrl, {
         method: "POST",
