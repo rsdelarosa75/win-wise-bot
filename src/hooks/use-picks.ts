@@ -30,7 +30,7 @@ interface UsePicksReturn {
   picks: SavedPick[];
   loading: boolean;
   savePick: (data: SavePickData) => Promise<void>;
-  updateResult: (id: string, result: "win" | "loss" | "push") => Promise<void>;
+  updateResult: (id: string, result: "win" | "loss" | "push" | null) => Promise<void>;
 }
 
 export const usePicks = (): UsePicksReturn => {
@@ -78,7 +78,7 @@ export const usePicks = (): UsePicksReturn => {
 
   const updateResult = async (
     id: string,
-    result: "win" | "loss" | "push"
+    result: "win" | "loss" | "push" | null
   ): Promise<void> => {
     const { error } = await supabase
       .from("saved_picks")
