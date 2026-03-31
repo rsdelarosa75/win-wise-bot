@@ -185,6 +185,7 @@ type MatchupOddsResult = {
   oddsPayload: string;
   backToBack: string;
   injuries: string;
+  teamRecords: string;
 };
 
 /** ESPN /injuries team block */
@@ -265,6 +266,157 @@ async function fetchInjuryReport(awayTeam: string, homeTeam: string): Promise<st
   }
 }
 
+const ESPN_NBA_TEAMS_URL =
+  "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+
+type EspnTeamListEntry = { id: string; displayName: string };
+
+function parseEspnNbaTeamList(data: unknown): EspnTeamListEntry[] {
+  const sports = (data as {
+    sports?: Array<{ leagues?: Array<{ teams?: Array<{ team?: { id?: string; displayName?: string } }> }> }>;
+  })?.sports ?? [];
+  const teams = sports[0]?.leagues?.[0]?.teams ?? [];
+  const out: EspnTeamListEntry[] = [];
+  for (const entry of teams) {
+    const t = entry?.team;
+    const id = t?.id != null ? String(t.id) : "";
+    const displayName = t?.displayName;
+    if (id && displayName) out.push({ id, displayName });
+  }
+  return out;
+}
+
+function findEspnTeamByUserFragment(
+  teams: EspnTeamListEntry[],
+  userFragment: string
+): EspnTeamListEntry | null {
+  for (const t of teams) {
+    if (teamMatchesUser(t.displayName, userFragment)) return t;
+  }
+  return null;
+}
+
+function recordStatValue(
+  stats: Array<{ name?: string; value?: number }> | undefined,
+  name: string
+): number | undefined {
+  const s = stats?.find((x) => x.name === name);
+  return s?.value;
+}
+
+function formatStreakFromStats(
+  stats: Array<{ name?: string; value?: number }> | undefined
+): string {
+  const v = recordStatValue(stats, "streak");
+  if (v === undefined || Number.isNaN(v)) return "—";
+  const n = Math.round(Math.abs(v));
+  if (v > 0) return `W${n}`;
+  if (v < 0) return `L${n}`;
+  return "0";
+}
+
+function formatOneTeamRecordLine(displayName: string, recordJson: unknown): string | null {
+  const items = (recordJson as {
+    team?: { record?: { items?: Array<{ summary?: string; stats?: Array<{ name?: string; value?: number }> }> } };
+  })?.team?.record?.items ?? [];
+  if (items.length < 3) return null;
+  const overall = items[0]?.summary ?? "—";
+  const home = items[1]?.summary ?? "—";
+  const away = items[2]?.summary ?? "—";
+  const stats0 = items[0]?.stats ?? [];
+  const streak = formatStreakFromStats(stats0);
+  const apf = recordStatValue(stats0, "avgPointsFor");
+  const apa = recordStatValue(stats0, "avgPointsAgainst");
+  const apfStr = apf !== undefined ? apf.toFixed(1) : "—";
+  const apaStr = apa !== undefined ? apa.toFixed(1) : "—";
+  const label = displayName.toUpperCase();
+  return `${label}: ${overall} overall | ${home} home | ${away} away | Streak: ${streak} | Avg: ${apfStr} pts for / ${apaStr} pts against`;
+}
+
+/**
+ * ESPN team list + per-team record (overall/home/away, streak, scoring). For Bobby's webhook.
+ */
+async function fetchTeamRecords(awayTeam: string, homeTeam: string): Promise<string> {
+  console.log("[Records] Fetching ESPN NBA team list (ID map)");
+  try {
+    const listRes = await fetch(ESPN_NBA_TEAMS_URL);
+    console.log("[Records] Team list response status:", listRes.status);
+    const listData: unknown = await listRes.json();
+    console.log(
+      "[Records] Team list raw (truncated):",
+      JSON.stringify(listData ?? null).slice(0, 500)
+    );
+
+    if (!listRes.ok) {
+      console.log("[Records] Team list request failed (non-OK status)");
+      return "No team record data available";
+    }
+
+    const teamList = parseEspnNbaTeamList(listData);
+    console.log("[Records] Parsed team count:", teamList.length);
+
+    const awayMatch = findEspnTeamByUserFragment(teamList, awayTeam);
+    const homeMatch = findEspnTeamByUserFragment(teamList, homeTeam);
+    console.log(
+      "[Records] Matched away:",
+      awayMatch?.displayName,
+      awayMatch?.id,
+      "| home:",
+      homeMatch?.displayName,
+      homeMatch?.id
+    );
+
+    if (!awayMatch || !homeMatch || awayMatch.id === homeMatch.id) {
+      console.log("[Records] Could not resolve two distinct ESPN teams for away/home");
+      return "No team record data for these teams on ESPN.";
+    }
+
+    const recordUrl = (id: string) =>
+      `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${id}?enable=record`;
+
+    console.log("[Records] Fetching per-team records (enable=record)");
+    const [recAway, recHome] = await Promise.all([
+      fetch(recordUrl(awayMatch.id)),
+      fetch(recordUrl(homeMatch.id)),
+    ]);
+
+    console.log("[Records] Record response statuses:", recAway.status, recHome.status);
+
+    const [dataAway, dataHome]: [unknown, unknown] = await Promise.all([
+      recAway.json(),
+      recHome.json(),
+    ]);
+
+    console.log(
+      "[Records] Record raw away (truncated):",
+      JSON.stringify(dataAway ?? null).slice(0, 400)
+    );
+    console.log(
+      "[Records] Record raw home (truncated):",
+      JSON.stringify(dataHome ?? null).slice(0, 400)
+    );
+
+    if (!recAway.ok || !recHome.ok) {
+      console.log("[Records] One or both record requests failed");
+      return "No team record data available";
+    }
+
+    const lineAway = formatOneTeamRecordLine(awayMatch.displayName, dataAway);
+    const lineHome = formatOneTeamRecordLine(homeMatch.displayName, dataHome);
+    if (!lineAway || !lineHome) {
+      console.log("[Records] Could not parse record items from response");
+      return "No team record data available";
+    }
+
+    const out = `${lineAway}\n${lineHome}`;
+    console.log("[Records] Formatted result:\n", out);
+    return out;
+  } catch (e) {
+    console.log("[Records] Fetch error:", e);
+    return "No team record data available";
+  }
+}
+
 /** Local calendar YYYY-MM-DD (matches <input type="date"> and localYmd on game times). */
 const todayLocalYmd = () => {
   const d = new Date();
@@ -286,6 +438,7 @@ async function fetchMatchupOddsForWebhook(
     oddsPayload: "",
     backToBack: "",
     injuries: "",
+    teamRecords: "",
   });
 
   const apiKey = import.meta.env.VITE_ODDS_API_KEY as string | undefined;
@@ -317,10 +470,11 @@ async function fetchMatchupOddsForWebhook(
 
   try {
     console.log("[B2B] Fetching ESPN scoreboard (yesterday)");
-    const [oddsRes, espnRes, injuriesStr] = await Promise.all([
+    const [oddsRes, espnRes, injuriesStr, teamRecordsStr] = await Promise.all([
       fetch(oddsUrl),
       fetch(espnUrl),
       fetchInjuryReport(awayTeam, homeTeam),
+      fetchTeamRecords(awayTeam, homeTeam),
     ]);
     const oddsData: unknown = await oddsRes.json();
     const espnData: unknown = await espnRes.json();
@@ -387,6 +541,7 @@ async function fetchMatchupOddsForWebhook(
         oddsPayload: "",
         backToBack: backToBackOnly,
         injuries: injuriesStr,
+        teamRecords: teamRecordsStr,
       };
     }
 
@@ -414,7 +569,13 @@ async function fetchMatchupOddsForWebhook(
     console.log("Odds payload being sent:", oddsPayload);
     console.log("[N8nIntegration] backToBack:", backToBack || "(empty)");
 
-    return { matchedGame, oddsPayload, backToBack, injuries: injuriesStr };
+    return {
+      matchedGame,
+      oddsPayload,
+      backToBack,
+      injuries: injuriesStr,
+      teamRecords: teamRecordsStr,
+    };
   } catch (e) {
     console.log("[N8nIntegration] Odds prefetch fetch error:", e);
     return empty();
@@ -539,6 +700,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
         oddsPayload: apiOddsPayload,
         backToBack: apiBackToBack,
         injuries: apiInjuries,
+        teamRecords: apiTeamRecords,
       } = await fetchMatchupOddsForWebhook(teamsValue, dateValue);
       let oddsPayload = apiOddsPayload;
       if (!oddsPayload && odds) {
@@ -560,6 +722,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
         odds: oddsPayload,
         backToBack: apiBackToBack,
         injuries: apiInjuries,
+        teamRecords: apiTeamRecords,
       };
 
       console.log(
