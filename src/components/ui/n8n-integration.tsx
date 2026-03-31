@@ -184,7 +184,86 @@ type MatchupOddsResult = {
   matchedGame: OddsApiGame | null;
   oddsPayload: string;
   backToBack: string;
+  injuries: string;
 };
+
+/** ESPN /injuries team block */
+interface EspnTeamInjuryBlock {
+  displayName?: string;
+  injuries?: Array<{
+    status?: string;
+    athlete?: { displayName?: string };
+    details?: { type?: string; detail?: string };
+  }>;
+}
+
+const INJURIES_ESPN_URL =
+  "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries";
+
+/**
+ * ESPN NBA injuries, filtered to the two matchup teams. Returns a single line for Bobby's webhook.
+ */
+async function fetchInjuryReport(awayTeam: string, homeTeam: string): Promise<string> {
+  console.log("[Injuries] Fetching ESPN injury report");
+  try {
+    const res = await fetch(INJURIES_ESPN_URL);
+    console.log("[Injuries] Response status:", res.status);
+
+    const data: unknown = await res.json();
+    console.log(
+      "[Injuries] Raw (truncated):",
+      JSON.stringify(data ?? null).slice(0, 500)
+    );
+
+    if (!res.ok) {
+      console.log("[Injuries] Request failed (non-OK status)");
+      return "No injury data available";
+    }
+
+    const blocks = (data as { injuries?: EspnTeamInjuryBlock[] })?.injuries ?? [];
+    const matching = blocks.filter(
+      (b) =>
+        b.displayName &&
+        (teamMatchesUser(b.displayName, awayTeam) ||
+          teamMatchesUser(b.displayName, homeTeam))
+    );
+
+    console.log(
+      "[Injuries] Matching team blocks:",
+      matching.length,
+      matching.map((m) => m.displayName)
+    );
+
+    if (matching.length === 0) {
+      console.log("[Injuries] No ESPN team blocks matched away/home");
+      return "No injury entries for these teams on ESPN.";
+    }
+
+    const parts: string[] = [];
+    for (const block of matching) {
+      const header = `${(block.displayName ?? "Team").toUpperCase()} INJURIES:`;
+      const rows = (block.injuries ?? []).map((inj) => {
+        const name = inj.athlete?.displayName ?? "Unknown";
+        const status = inj.status ?? "Unknown";
+        const typ =
+          inj.details?.type ??
+          inj.details?.detail ??
+          "Unknown";
+        return `${name} - ${status} - ${typ}`;
+      });
+      parts.push(
+        rows.length > 0 ? `${header} ${rows.join("; ")}` : `${header} None listed`
+      );
+    }
+
+    const out = parts.join(" | ");
+    console.log("[Injuries] Formatted result:", out);
+    return out;
+  } catch (e) {
+    console.log("[Injuries] Fetch error:", e);
+    return "No injury data available";
+  }
+}
 
 /** Local calendar YYYY-MM-DD (matches <input type="date"> and localYmd on game times). */
 const todayLocalYmd = () => {
@@ -206,6 +285,7 @@ async function fetchMatchupOddsForWebhook(
     matchedGame: null,
     oddsPayload: "",
     backToBack: "",
+    injuries: "",
   });
 
   const apiKey = import.meta.env.VITE_ODDS_API_KEY as string | undefined;
@@ -237,7 +317,11 @@ async function fetchMatchupOddsForWebhook(
 
   try {
     console.log("[B2B] Fetching ESPN scoreboard (yesterday)");
-    const [oddsRes, espnRes] = await Promise.all([fetch(oddsUrl), fetch(espnUrl)]);
+    const [oddsRes, espnRes, injuriesStr] = await Promise.all([
+      fetch(oddsUrl),
+      fetch(espnUrl),
+      fetchInjuryReport(awayTeam, homeTeam),
+    ]);
     const oddsData: unknown = await oddsRes.json();
     const espnData: unknown = await espnRes.json();
 
@@ -302,6 +386,7 @@ async function fetchMatchupOddsForWebhook(
         matchedGame: null,
         oddsPayload: "",
         backToBack: backToBackOnly,
+        injuries: injuriesStr,
       };
     }
 
@@ -329,7 +414,7 @@ async function fetchMatchupOddsForWebhook(
     console.log("Odds payload being sent:", oddsPayload);
     console.log("[N8nIntegration] backToBack:", backToBack || "(empty)");
 
-    return { matchedGame, oddsPayload, backToBack };
+    return { matchedGame, oddsPayload, backToBack, injuries: injuriesStr };
   } catch (e) {
     console.log("[N8nIntegration] Odds prefetch fetch error:", e);
     return empty();
@@ -450,8 +535,11 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
     try {
       const teams = teamsValue.trim() || "general recommendations";
 
-      const { oddsPayload: apiOddsPayload, backToBack: apiBackToBack } =
-        await fetchMatchupOddsForWebhook(teamsValue, dateValue);
+      const {
+        oddsPayload: apiOddsPayload,
+        backToBack: apiBackToBack,
+        injuries: apiInjuries,
+      } = await fetchMatchupOddsForWebhook(teamsValue, dateValue);
       let oddsPayload = apiOddsPayload;
       if (!oddsPayload && odds) {
         oddsPayload = formatGameOddsProp(odds);
@@ -471,6 +559,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
         test: true,
         odds: oddsPayload,
         backToBack: apiBackToBack,
+        injuries: apiInjuries,
       };
 
       console.log(
