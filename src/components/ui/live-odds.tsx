@@ -17,7 +17,7 @@ interface LiveOddsProps {
 }
 
 export const LiveOdds = ({ onGameSelect }: LiveOddsProps = {}) => {
-  const { games, loading, error, fetchOdds, hasApiKey } = useOddsApi();
+  const { games, loading, error, lastUpdated, fetchOdds, hasApiKey } = useOddsApi();
 
   const mockGames = [
     {
@@ -196,12 +196,17 @@ export const LiveOdds = ({ onGameSelect }: LiveOddsProps = {}) => {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {loading && <RefreshCw className="w-3 h-3 animate-spin text-primary" />}
+        <div className="flex items-center gap-2 min-w-0">
+          {loading && <RefreshCw className="w-3 h-3 animate-spin text-primary shrink-0" />}
+          {!loading && lastUpdated && (
+            <span className="text-[10px] text-muted-foreground truncate">
+              Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
           {error && (
             <div className="text-xs text-loss flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              {error}
+              <AlertCircle className="w-3 h-3 shrink-0" />
+              <span className="truncate">{error}</span>
             </div>
           )}
         </div>
@@ -210,7 +215,7 @@ export const LiveOdds = ({ onGameSelect }: LiveOddsProps = {}) => {
           size="sm"
           onClick={fetchOdds}
           disabled={loading}
-          className="text-xs h-7"
+          className="text-xs h-7 shrink-0"
         >
           <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
           Refresh

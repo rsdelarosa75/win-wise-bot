@@ -206,7 +206,7 @@ const PickCard = ({ analysis, isSaved, onSave, showSaveButton }: PickCardProps) 
         <button
           onClick={onSave}
           disabled={isSaved}
-          className={`w-full min-h-[40px] flex items-center justify-center gap-1.5 text-xs font-bold rounded-lg border transition-colors
+          className={`w-full min-h-[44px] flex items-center justify-center gap-1.5 text-xs font-bold rounded-lg border transition-colors
             ${isSaved
               ? 'border-win/40 text-win bg-win/5 cursor-default'
               : 'border-0 text-black'
@@ -320,7 +320,7 @@ export const TelegramAnalyses = ({ onPicksTabClick }: TelegramAnalysesProps) => 
               {uniqueAnalyses.length}
             </Badge>
           )}
-          <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="h-8 w-8 p-0">
+          <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="h-11 w-11 p-0">
             <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
         </div>

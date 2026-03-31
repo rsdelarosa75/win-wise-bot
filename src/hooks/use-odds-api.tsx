@@ -47,6 +47,7 @@ export const useOddsApi = () => {
   const [games, setGames] = useState<ProcessedGame[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [apiKey] = useState<string>(
     import.meta.env.VITE_ODDS_API_KEY || ''
   );
@@ -185,6 +186,8 @@ export const useOddsApi = () => {
 
       console.log('[OddsAPI] Upcoming games after filter:', upcoming.length);
 
+      setLastUpdated(new Date());
+
       if (upcoming.length === 0) {
         setError('No upcoming games found');
         // Fallback to sample games if no real data available
@@ -213,17 +216,19 @@ export const useOddsApi = () => {
     }
   }, [apiKey, processOddsData]);
 
-  // Fetch once when API key is available (no auto-refresh)
+  // Fetch on load, then auto-refresh every 5 minutes
   useEffect(() => {
-    if (apiKey) {
-      fetchOdds();
-    }
+    if (!apiKey) return;
+    fetchOdds();
+    const interval = setInterval(fetchOdds, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [apiKey, fetchOdds]);
 
   return {
     games,
     loading,
     error,
+    lastUpdated,
     fetchOdds,
     hasApiKey: !!apiKey
   };

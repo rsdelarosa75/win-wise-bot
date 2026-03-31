@@ -407,9 +407,11 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
               )}
             </Button>
           ) : (
-            <p className="text-xs text-center text-muted-foreground py-2">
-              <span className="text-primary">Sign in</span> to save picks to your Tracker
-            </p>
+            <div className="w-full min-h-[44px] flex items-center justify-center rounded-lg border border-border/50 bg-secondary/30">
+              <p className="text-xs text-center text-muted-foreground">
+                <span className="text-primary font-semibold">Sign in</span> to save picks to your Tracker
+              </p>
+            </div>
           )}
         </Card>
       )}

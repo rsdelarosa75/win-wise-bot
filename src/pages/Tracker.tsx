@@ -147,7 +147,7 @@ const PickRow = ({
           <button
             key={value}
             onClick={() => onUpdateResult(pick.id, value)}
-            className={`flex-1 text-xs py-1.5 rounded-lg border font-bold transition-all min-h-[36px]
+            className={`flex-1 text-xs py-2 rounded-lg border font-bold transition-all min-h-[44px]
               ${pick.result === value
                 ? activeClass
                 : "border-border/50 text-muted-foreground hover:border-border active:scale-95"

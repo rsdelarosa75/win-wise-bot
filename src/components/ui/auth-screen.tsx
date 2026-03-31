@@ -80,7 +80,7 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
       <div className="flex bg-secondary rounded-lg p-1 mb-6 w-full max-w-xs">
         <button
           onClick={() => { setMode("signin"); setError(null); }}
-          className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 min-h-[44px] text-sm font-medium rounded-md transition-colors ${
             mode === "signin"
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground"
@@ -90,7 +90,7 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
         </button>
         <button
           onClick={() => { setMode("signup"); setError(null); }}
-          className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 min-h-[44px] text-sm font-medium rounded-md transition-colors ${
             mode === "signup"
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground"
@@ -140,7 +140,12 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           style={{ backgroundColor: '#F5A100' }}
           disabled={loading}
         >
-          {loading ? "Please wait…" : mode === "signin" ? "Sign In" : "Get Started"}
+          {loading ? (
+            <span className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded-full border-2 border-black/30 border-t-black animate-spin" />
+              Please wait…
+            </span>
+          ) : mode === "signin" ? "Sign In" : "Get Started"}
         </Button>
       </form>
 
@@ -156,7 +161,7 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
         <Button
           type="button"
           variant="outline"
-          className="w-full border-border"
+          className="w-full min-h-[48px] border-border"
           onClick={handleGoogle}
         >
           <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" aria-hidden="true">
