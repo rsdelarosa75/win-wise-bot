@@ -22,6 +22,154 @@ const cleanHtmlContent = (html: string): string =>
     .replace(/\n\s*\n/g, "\n\n")
     .trim();
 
+// ── The Odds API: fetch lines for typed matchup before webhook ─────────
+interface OddsApiGame {
+  commence_time: string;
+  away_team: string;
+  home_team: string;
+  bookmakers?: Array<{
+    markets?: Array<{
+      key: string;
+      outcomes?: Array<{ name: string; price: number; point?: number }>;
+    }>;
+  }>;
+}
+
+const normalizeTeamToken = (s: string) =>
+  s.toLowerCase().trim().replace(/\s+/g, " ");
+
+const teamMatchesUser = (apiFullName: string, userFragment: string) => {
+  const a = normalizeTeamToken(apiFullName);
+  const u = normalizeTeamToken(userFragment);
+  if (!u || !a) return false;
+  if (a === u) return true;
+  if (a.includes(u) || u.includes(a)) return true;
+  const words = u.split(/\s+/).filter((w) => w.length > 2);
+  if (words.length === 0) return false;
+  return words.every((w) => a.includes(w));
+};
+
+const parseMatchupTeams = (raw: string): [string, string] | null => {
+  const t = raw.trim();
+  if (!t) return null;
+  const vs = t.split(/\s+vs\.?\s+/i);
+  if (vs.length === 2 && vs[0].trim() && vs[1].trim()) {
+    return [vs[0].trim(), vs[1].trim()];
+  }
+  const at = t.split(/\s+@\s+|\s+at\s+/i);
+  if (at.length === 2 && at[0].trim() && at[1].trim()) {
+    return [at[0].trim(), at[1].trim()];
+  }
+  return null;
+};
+
+const gameMatchesUserTeams = (game: OddsApiGame, u1: string, u2: string) =>
+  (teamMatchesUser(game.away_team, u1) && teamMatchesUser(game.home_team, u2)) ||
+  (teamMatchesUser(game.away_team, u2) && teamMatchesUser(game.home_team, u1));
+
+const localYmd = (iso: string) => {
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const extractMlSpread = (game: OddsApiGame) => {
+  let awayMl = "N/A";
+  let homeMl = "N/A";
+  let awaySpr: string | null = null;
+  let homeSpr: string | null = null;
+
+  for (const bm of game.bookmakers ?? []) {
+    const h2h = bm.markets?.find((m) => m.key === "h2h");
+    if (h2h?.outcomes) {
+      const h = h2h.outcomes.find((o) => o.name === game.home_team);
+      const a = h2h.outcomes.find((o) => o.name === game.away_team);
+      if (h && a) {
+        homeMl = h.price > 0 ? `+${h.price}` : `${h.price}`;
+        awayMl = a.price > 0 ? `+${a.price}` : `${a.price}`;
+        break;
+      }
+    }
+  }
+  for (const bm of game.bookmakers ?? []) {
+    const spreads = bm.markets?.find((m) => m.key === "spreads");
+    if (spreads?.outcomes) {
+      const h = spreads.outcomes.find((o) => o.name === game.home_team);
+      const a = spreads.outcomes.find((o) => o.name === game.away_team);
+      if (h?.point !== undefined && a?.point !== undefined) {
+        homeSpr = h.point > 0 ? `+${h.point}` : `${h.point}`;
+        awaySpr = a.point > 0 ? `+${a.point}` : `${a.point}`;
+        break;
+      }
+    }
+  }
+  return { awayMl, homeMl, awaySpr, homeSpr };
+};
+
+const formatOddsForPayload = (game: OddsApiGame) => {
+  const { awayMl, homeMl, awaySpr, homeSpr } = extractMlSpread(game);
+  let s = `Moneyline: ${game.away_team} ${awayMl} / ${game.home_team} ${homeMl}`;
+  if (awaySpr != null && homeSpr != null) {
+    s += ` | Spread: ${game.away_team} ${awaySpr} / ${game.home_team} ${homeSpr}`;
+  }
+  return s;
+};
+
+const pickBestGame = (candidates: OddsApiGame[], targetDate: string): OddsApiGame | null => {
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+  const onDate = candidates.filter((g) => localYmd(g.commence_time) === targetDate);
+  const pool = onDate.length > 0 ? onDate : candidates;
+  return [...pool].sort(
+    (a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime()
+  )[0];
+};
+
+/** Fetches NBA odds from The Odds API and returns formatted string, or "" if no match / error. */
+async function fetchMatchupOddsString(teamsValue: string, targetDate: string): Promise<string> {
+  const apiKey = import.meta.env.VITE_ODDS_API_KEY as string | undefined;
+  if (!apiKey?.trim()) return "";
+
+  const pair = parseMatchupTeams(teamsValue);
+  if (!pair) return "";
+
+  const [u1, u2] = pair;
+  const url =
+    "https://api.the-odds-api.com/v4/sports/basketball_nba/odds/?" +
+    new URLSearchParams({
+      apiKey: apiKey.trim(),
+      regions: "us",
+      markets: "h2h,spreads",
+      oddsFormat: "american",
+      dateFormat: "iso",
+    });
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return "";
+    const data: unknown = await res.json();
+    if (!Array.isArray(data)) return "";
+
+    const matches = (data as OddsApiGame[]).filter((g) =>
+      g?.away_team && g?.home_team && gameMatchesUserTeams(g, u1, u2)
+    );
+    const best = pickBestGame(matches, targetDate);
+    return best ? formatOddsForPayload(best) : "";
+  } catch {
+    return "";
+  }
+}
+
+const formatGameOddsProp = (o: GameOdds): string => {
+  let s = `Moneyline: ${o.team1} ${o.ml1} / ${o.team2} ${o.ml2}`;
+  if (o.spread1 && o.spread2 && o.spread1 !== "N/A" && o.spread2 !== "N/A") {
+    s += ` | Spread: ${o.team1} ${o.spread1} / ${o.team2} ${o.spread2}`;
+  }
+  return s;
+};
+
 // Extract a labelled field from analysis text, e.g. "CONFIDENCE: High"
 const extractField = (text: string, ...keys: string[]): string | null => {
   for (const key of keys) {
@@ -130,13 +278,10 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
     try {
       const teams = teamsValue.trim() || "general recommendations";
 
-      // Build a human-readable odds string for Bobby to use
-      const oddsContext = odds
-        ? `Moneyline: ${odds.team1} ${odds.ml1} / ${odds.team2} ${odds.ml2}` +
-          (odds.spread1 && odds.spread2 && odds.spread1 !== 'N/A' && odds.spread2 !== 'N/A'
-            ? ` | Spread: ${odds.team1} ${odds.spread1} / ${odds.team2} ${odds.spread2}`
-            : '')
-        : undefined;
+      let oddsPayload = await fetchMatchupOddsString(teamsValue, dateValue);
+      if (!oddsPayload && odds) {
+        oddsPayload = formatGameOddsProp(odds);
+      }
 
       const payload: Record<string, unknown> = {
         sport: "NBA",
@@ -146,7 +291,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
         persona: "bobby_vegas",
         targetDate: dateValue,
         test: true,
-        ...(oddsContext ? { odds: oddsContext } : {}),
+        odds: oddsPayload,
       };
 
       const response = await fetch(webhookUrl, {
@@ -217,7 +362,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
         analysis: cleanContent,
         confidence: confNorm,
         status: "win" as const,
-        odds: oddsText ?? null,
+        odds: oddsPayload || oddsText || null,
         sport: "NBA",
         recommendation: pickText ?? null,
       };
@@ -262,7 +407,6 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await triggerFetch(specificTeams, targetDate);
-    // Note: manual form submissions don't have odds context — Bobby will rely on his internal feed
   };
 
   const handleSavePick = async () => {
