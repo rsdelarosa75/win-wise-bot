@@ -241,9 +241,18 @@ async function fetchMatchupOddsForWebhook(
     });
 
   try {
+    console.log("[B2B] Fetching scores from Odds API");
     const [oddsRes, scoresRes] = await Promise.all([fetch(oddsUrl), fetch(scoresUrl)]);
+    const scoresResponse = scoresRes;
     const oddsData: unknown = await oddsRes.json();
     const scoresData: unknown = await scoresRes.json();
+
+    console.log("[B2B] Scores response status:", scoresResponse.status);
+    console.log(
+      "[B2B] Scores data:",
+      JSON.stringify(scoresData ?? null).slice(0, 500)
+    );
+    console.log("[B2B] Yesterday date:", yesterdayLocalYmd());
 
     console.log("[N8nIntegration] Odds API full response:", oddsData);
     console.log("[N8nIntegration] Scores API (recent games):", scoresData);
@@ -272,6 +281,7 @@ async function fetchMatchupOddsForWebhook(
         homeTeam,
         null
       );
+      console.log("[B2B] Back to back result:", backToBackOnly);
       console.log("[N8nIntegration] backToBack (odds unavailable):", backToBackOnly || "(empty)");
       return {
         matchedGame: null,
@@ -299,6 +309,7 @@ async function fetchMatchupOddsForWebhook(
 
     const backToBack = computeBackToBack(games, scoresGames, awayTeam, homeTeam, matchedGame);
 
+    console.log("[B2B] Back to back result:", backToBack);
     console.log("Matched game:", matchedGame);
     console.log("Odds payload being sent:", oddsPayload);
     console.log("[N8nIntegration] backToBack:", backToBack || "(empty)");
