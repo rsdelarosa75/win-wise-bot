@@ -232,36 +232,51 @@ async function fetchMatchupOddsForWebhook(
       dateFormat: "iso",
     });
 
-  const scoresUrl =
-    "https://api.the-odds-api.com/v4/sports/basketball_nba/scores/?" +
-    new URLSearchParams({
-      apiKey: apiKey.trim(),
-      daysFrom: "3",
-      dateFormat: "iso",
-    });
+  const yesterday = yesterdayLocalYmd().replace(/-/g, "");
+  const espnUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${yesterday}`;
 
   try {
-    console.log("[B2B] Fetching scores from Odds API");
-    const [oddsRes, scoresRes] = await Promise.all([fetch(oddsUrl), fetch(scoresUrl)]);
-    const scoresResponse = scoresRes;
+    console.log("[B2B] Fetching ESPN scoreboard (yesterday)");
+    const [oddsRes, espnRes] = await Promise.all([fetch(oddsUrl), fetch(espnUrl)]);
     const oddsData: unknown = await oddsRes.json();
-    const scoresData: unknown = await scoresRes.json();
+    const espnData: unknown = await espnRes.json();
 
-    console.log("[B2B] Scores response status:", scoresResponse.status);
+    console.log("[B2B] ESPN response status:", espnRes.status);
     console.log(
-      "[B2B] Scores data:",
-      JSON.stringify(scoresData ?? null).slice(0, 500)
+      "[B2B] ESPN raw (truncated):",
+      JSON.stringify(espnData ?? null).slice(0, 500)
     );
     console.log("[B2B] Yesterday date:", yesterdayLocalYmd());
 
-    console.log("[N8nIntegration] Odds API full response:", oddsData);
-    console.log("[N8nIntegration] Scores API (recent games):", scoresData);
+    const espnEvents = (espnData as { events?: unknown[] })?.events ?? [];
+    const scoresData: OddsApiGame[] = espnEvents.map((event: {
+      date?: string;
+      competitions?: Array<{
+        competitors?: Array<{ homeAway?: string; team?: { displayName?: string } }>;
+      }>;
+    }) => {
+      const competitors = event.competitions?.[0]?.competitors ?? [];
+      const away = competitors.find((c) => c.homeAway === "away");
+      const home = competitors.find((c) => c.homeAway === "home");
+      return {
+        commence_time: event.date ?? "",
+        away_team: away?.team?.displayName ?? "",
+        home_team: home?.team?.displayName ?? "",
+      };
+    });
 
-    const scoresGames = Array.isArray(scoresData) ? (scoresData as OddsApiGame[]) : [];
+    console.log(
+      "[B2B] ESPN games:",
+      scoresData.map((g) => `${g.away_team} @ ${g.home_team}`)
+    );
+
+    const scoresGames = scoresData;
+
+    console.log("[N8nIntegration] Odds API full response:", oddsData);
     console.log(
       "[N8nIntegration] Back-to-back check: yesterday (local) =",
       yesterdayLocalYmd(),
-      "| score rows:",
+      "| ESPN game rows:",
       scoresGames.length
     );
 
