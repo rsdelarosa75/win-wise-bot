@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -138,12 +139,29 @@ const Profile = ({ onSignOut }: ProfileProps) => {
         </CardContent>
       </Card>
 
-      {/* App Version */}
+      {/* App Version & legal */}
       <Card>
-        <CardContent className="pt-4 pb-4">
+        <CardContent className="pt-4 pb-4 space-y-3">
           <p className="text-xs text-muted-foreground text-center">
             BobbyVegas v1.0 — Built with 🎲
           </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+            <Link
+              to="/privacy"
+              className="text-primary font-medium underline underline-offset-2 hover:opacity-90 min-h-[44px] inline-flex items-center px-1"
+            >
+              Privacy Policy
+            </Link>
+            <span className="text-muted-foreground" aria-hidden>
+              ·
+            </span>
+            <Link
+              to="/terms"
+              className="text-primary font-medium underline underline-offset-2 hover:opacity-90 min-h-[44px] inline-flex items-center px-1"
+            >
+              Terms of Service
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
