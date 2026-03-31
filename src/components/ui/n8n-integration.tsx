@@ -135,7 +135,8 @@ async function fetchMatchupOddsString(teamsValue: string, targetDate: string): P
   const pair = parseMatchupTeams(teamsValue);
   if (!pair) return "";
 
-  const [u1, u2] = pair;
+  // User order: left side vs right side (often matches away @ home wording)
+  const [awayTeam, homeTeam] = pair;
   const url =
     "https://api.the-odds-api.com/v4/sports/basketball_nba/odds/?" +
     new URLSearchParams({
@@ -148,15 +149,30 @@ async function fetchMatchupOddsString(teamsValue: string, targetDate: string): P
 
   try {
     const res = await fetch(url);
-    if (!res.ok) return "";
     const data: unknown = await res.json();
+
+    console.log("[N8nIntegration] Odds API full response:", data);
+
+    if (!res.ok) return "";
     if (!Array.isArray(data)) return "";
 
-    const matches = (data as OddsApiGame[]).filter((g) =>
-      g?.away_team && g?.home_team && gameMatchesUserTeams(g, u1, u2)
+    const games = data as OddsApiGame[];
+    console.log(
+      "Odds API games:",
+      games.map((g) => g.away_team + " vs " + g.home_team)
     );
-    const best = pickBestGame(matches, targetDate);
-    return best ? formatOddsForPayload(best) : "";
+    console.log("Searching for:", awayTeam, "vs", homeTeam);
+
+    const matches = games.filter(
+      (g) =>
+        g?.away_team &&
+        g?.home_team &&
+        gameMatchesUserTeams(g, awayTeam, homeTeam)
+    );
+    const matchedGame = pickBestGame(matches, targetDate);
+    console.log("Match found:", matchedGame);
+
+    return matchedGame ? formatOddsForPayload(matchedGame) : "";
   } catch {
     return "";
   }
