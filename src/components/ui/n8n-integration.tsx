@@ -702,6 +702,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
         injuries: apiInjuries,
         teamRecords: apiTeamRecords,
       } = await fetchMatchupOddsForWebhook(teamsValue, dateValue);
+      console.log("[BobbyVegas] apiInjuries:", apiInjuries);
       let oddsPayload = apiOddsPayload;
       if (!oddsPayload && odds) {
         oddsPayload = formatGameOddsProp(odds);
