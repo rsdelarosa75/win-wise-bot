@@ -337,98 +337,21 @@ function formatOneTeamRecordLine(displayName: string, recordJson: unknown): stri
  * ESPN team list + per-team record (overall/home/away, streak, scoring). For Bobby's webhook.
  */
 async function fetchTeamRecords(awayTeam: string, homeTeam: string): Promise<string> {
-  console.log("[Records] Fetching ESPN NBA team list (ID map)");
+  console.log("[Records] Fetching team records via proxy");
   try {
-    const listRes = await fetch(ESPN_NBA_TEAMS_URL);
-    console.log("[Records] Team list response status:", listRes.status);
-    const listData: unknown = await listRes.json();
-    console.log(
-      "[Records] Team list raw (truncated):",
-      JSON.stringify(listData ?? null).slice(0, 500)
+    const res = await fetch(
+      `/api/nba-records?homeTeam=${encodeURIComponent(homeTeam)}&awayTeam=${encodeURIComponent(awayTeam)}`
     );
-
-    if (!listRes.ok) {
-      console.log("[Records] Team list request failed (non-OK status)");
-      return "No team record data available";
-    }
-
-    const teamList = parseEspnNbaTeamList(listData);
-    console.log("[Records] Parsed team count:", teamList.length);
-
-    const awayMatch = findEspnTeamByUserFragment(teamList, awayTeam);
-    const homeMatch = findEspnTeamByUserFragment(teamList, homeTeam);
-    console.log(
-      "[Records] Matched away:",
-      awayMatch?.displayName,
-      awayMatch?.id,
-      "| home:",
-      homeMatch?.displayName,
-      homeMatch?.id
-    );
-
-    if (!awayMatch || !homeMatch || awayMatch.id === homeMatch.id) {
-      console.log("[Records] Could not resolve two distinct ESPN teams for away/home");
-      return "No team record data for these teams on ESPN.";
-    }
-
-    const recordUrl = (id: string) =>
-      `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${id}?enable=record`;
-
-    console.log("[Records] Fetching per-team records (enable=record)");
-    const [recAway, recHome] = await Promise.all([
-      fetch(recordUrl(awayMatch.id)),
-      fetch(recordUrl(homeMatch.id)),
-    ]);
-
-    console.log("[Records] Record response statuses:", recAway.status, recHome.status);
-
-    const [dataAway, dataHome]: [unknown, unknown] = await Promise.all([
-      recAway.json(),
-      recHome.json(),
-    ]);
-
-    console.log(
-      "[Records] Record raw away (truncated):",
-      JSON.stringify(dataAway ?? null).slice(0, 400)
-    );
-    console.log(
-      "[Records] Record raw home (truncated):",
-      JSON.stringify(dataHome ?? null).slice(0, 400)
-    );
-
-    if (!recAway.ok || !recHome.ok) {
-      console.log("[Records] One or both record requests failed");
-      return "No team record data available";
-    }
-
-    const lineAway = formatOneTeamRecordLine(awayMatch.displayName, dataAway);
-    const lineHome = formatOneTeamRecordLine(homeMatch.displayName, dataHome);
-    if (!lineAway || !lineHome) {
-      console.log("[Records] Could not parse record items from response");
-      return "No team record data available";
-    }
-
-    const out = `${lineAway}\n${lineHome}`;
-    console.log("[Records] Formatted result:\n", out);
-    return out;
-  } catch (e) {
-    console.log("[Records] Fetch error:", e);
+    if (!res.ok) return "No team record data available";
+    const data = await res.json();
+    return data.records || "No team record data available";
+  } catch (err) {
+    console.error("[Records] Proxy fetch error:", err);
     return "No team record data available";
   }
 }
 
-/** Local calendar YYYY-MM-DD (matches <input type="date"> and localYmd on game times). */
-const todayLocalYmd = () => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
 
-/**
- * Fetches NBA odds from The Odds API, fuzzy-matches the typed matchup, formats Moneyline | Spread.
- */
 async function fetchMatchupOddsForWebhook(
   teamsValue: string,
   targetDate: string
