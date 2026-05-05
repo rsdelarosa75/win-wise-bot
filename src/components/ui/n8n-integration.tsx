@@ -137,6 +137,12 @@ const yesterdayLocalYmd = () => {
   return `${y}-${m}-${day}`;
 };
 
+const todayLocalYmd = () => {
+  const d = new Date();
+  return d.toLocaleDateString("en-CA", { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+};
+
+
 const resolveCanonicalTeam = (userTeam: string, matched: OddsApiGame | null): string => {
   if (!matched) return userTeam;
   if (teamMatchesUser(matched.away_team, userTeam)) return matched.away_team;
