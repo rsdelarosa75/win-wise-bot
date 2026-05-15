@@ -1,0 +1,48 @@
+cat > ~/Documents/win-wise-bot/capacitor.config.ts << 'EOF'
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.bobbyvegasai.picks',
+  appName: 'Bobby Vegas',
+  webDir: 'dist',
+  server: {
+    allowNavigation: ['*'],
+  },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 0,
+    },
+  },
+};
+
+export default config;
+EOFimport type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.bobbyvegasai.picks',
+  appName: 'Bobby Vegas',
+  webDir: 'dist',
+  server: {
+    allowNavigation: ['*'],
+  },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 0,
+    },
+  },
+};
+
+export default config;import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.bobbyvegasai.picks',
+  appName: 'Bobby Vegas',
+  webDir: 'dist',
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 0,
+    },
+  },
+};
+
+export default config;
