@@ -5,9 +5,10 @@ const config: CapacitorConfig = {
   appId: 'com.bobbyvegasai.picks',
   appName: 'Bobby Vegas',
   webDir: 'dist',
-  server: {
-    allowNavigation: ['*'],
-  },
+server: {
+  iosScheme: 'ionic',
+  allowNavigation: ['*'],
+},
   plugins: {
     SplashScreen: {
       launchShowDuration: 0,

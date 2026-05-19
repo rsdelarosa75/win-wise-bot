@@ -5,6 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Bobby Vegas',
   webDir: 'dist',
   server: {
+    iosScheme: 'ionic',
     allowNavigation: ['*'],
   },
   plugins: {
