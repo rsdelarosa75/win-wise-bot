@@ -53,7 +53,7 @@ const Dashboard = ({ onUpgradeClick, onPicksTabClick, onGameSelect }: DashboardP
 
       {/* Live Odds */}
       <div>
-        <h2 className="text-base font-semibold mb-3">Live Odds</h2>
+        <h2 className="text-base font-semibold mb-3">Live Odds 🏀⚾</h2>
         <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-x-hidden">
           <LiveOdds onGameSelect={onGameSelect} />
         </Card>

@@ -35,13 +35,10 @@ interface ProcessedGame {
   status: 'win' | 'neutral' | 'loss';
 }
 
-const SPORT_KEYS = {
-  'NBA': 'basketball_nba',
-  // 'NFL': 'americanfootball_nfl',
-  // 'College Football': 'americanfootball_ncaaf',
-  // 'MLB': 'baseball_mlb',
-  // 'NHL': 'icehockey_nhl',
-};
+const SPORT_CONFIGS: Array<{ name: string; key: string; markets: string }> = [
+  { name: 'NBA', key: 'basketball_nba', markets: 'h2h,spreads' },
+  { name: 'MLB', key: 'baseball_mlb', markets: 'h2h,spreads,totals' },
+];
 
 export const useOddsApi = () => {
   const [games, setGames] = useState<ProcessedGame[]>([]);
@@ -53,7 +50,7 @@ export const useOddsApi = () => {
   );
 
   const processOddsData = useCallback((rawGames: OddsData[]): ProcessedGame[] => {
-    return rawGames.slice(0, 6).map((game) => {
+    return rawGames.slice(0, 10).map((game) => {
       let homeOdds = 'N/A';
       let awayOdds = 'N/A';
       let homeSpread = 'N/A';
@@ -143,38 +140,40 @@ export const useOddsApi = () => {
 
     try {
       const allGames: OddsData[] = [];
-      
-      // Fetch odds for each sport
-      for (const [sportName, sportKey] of Object.entries(SPORT_KEYS)) {
-        try {
-          const response = await fetch(
-            `https://api.the-odds-api.com/v4/sports/${sportKey}/odds?` +
-            new URLSearchParams({
-              apiKey: apiKey,
-              regions: 'us',
-              markets: 'h2h,spreads',
-              oddsFormat: 'american',
-              dateFormat: 'iso'
-            })
-          );
 
-          console.log(`[OddsAPI] ${sportName} response status:`, response.status);
+      // Fetch odds for each sport in parallel
+      await Promise.all(
+        SPORT_CONFIGS.map(async ({ name: sportName, key: sportKey, markets }) => {
+          try {
+            const response = await fetch(
+              `https://api.the-odds-api.com/v4/sports/${sportKey}/odds?` +
+              new URLSearchParams({
+                apiKey: apiKey,
+                regions: 'us',
+                markets,
+                oddsFormat: 'american',
+                dateFormat: 'iso',
+              })
+            );
 
-          if (response.ok) {
-            const data = await response.json();
-            console.log(`[OddsAPI] ${sportName} games returned:`, Array.isArray(data) ? data.length : data);
-            if (Array.isArray(data)) {
-              allGames.push(...data);
+            console.log(`[OddsAPI] ${sportName} response status:`, response.status);
+
+            if (response.ok) {
+              const data = await response.json();
+              console.log(`[OddsAPI] ${sportName} games returned:`, Array.isArray(data) ? data.length : data);
+              if (Array.isArray(data)) {
+                allGames.push(...data);
+              }
+            } else if (response.status === 401) {
+              throw new Error('Invalid API key');
+            } else if (response.status === 429) {
+              throw new Error('API rate limit exceeded');
             }
-          } else if (response.status === 401) {
-            throw new Error('Invalid API key');
-          } else if (response.status === 429) {
-            throw new Error('API rate limit exceeded');
+          } catch (err) {
+            console.warn(`Failed to fetch ${sportName}:`, err);
           }
-        } catch (err) {
-          console.warn(`Failed to fetch ${sportName}:`, err);
-        }
-      }
+        })
+      );
 
       const now = new Date();
       console.log('[OddsAPI] Total games fetched:', allGames.length, '| Now:', now.toISOString());
@@ -197,7 +196,7 @@ export const useOddsApi = () => {
           { id: 'demo3', sport: 'NBA', team1: 'Knicks', team2: 'Heat', odds1: '+180', odds2: '-220', commence_time: new Date().toISOString(), confidence: 'Low', status: 'loss' }
         ]);
       } else {
-        const processedGames = processOddsData(upcoming.slice(0, 6));
+        const processedGames = processOddsData(upcoming.slice(0, 10));
         setGames(processedGames);
       }
     } catch (err) {

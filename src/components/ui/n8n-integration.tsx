@@ -272,6 +272,66 @@ async function fetchInjuryReport(awayTeam: string, homeTeam: string): Promise<st
   }
 }
 
+/**
+ * Fetch probable starting pitchers for an MLB matchup from ESPN's scoreboard.
+ * Returns a formatted string like "Away: Gerrit Cole | Home: Shane Bieber" or fallback.
+ */
+async function fetchMlbProbablePitchers(
+  awayTeam: string,
+  homeTeam: string,
+  targetDate: string
+): Promise<string> {
+  try {
+    const dateParam = targetDate.replace(/-/g, "");
+    const url = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${dateParam}`;
+    console.log("[MLB Pitchers] Fetching ESPN MLB scoreboard:", url);
+    const res = await fetch(url);
+    if (!res.ok) return "Probable pitchers unavailable";
+    const data: unknown = await res.json();
+
+    const events = (data as { events?: unknown[] })?.events ?? [];
+    for (const event of events as Array<{
+      competitions?: Array<{
+        competitors?: Array<{ homeAway?: string; team?: { displayName?: string } }>;
+        probables?: Array<{
+          homeAway?: string;
+          athlete?: { displayName?: string; shortName?: string };
+        }>;
+      }>;
+    }>) {
+      const comp = event.competitions?.[0];
+      if (!comp) continue;
+
+      const competitors = comp.competitors ?? [];
+      const away = competitors.find((c) => c.homeAway === "away");
+      const home = competitors.find((c) => c.homeAway === "home");
+      if (!away?.team?.displayName || !home?.team?.displayName) continue;
+
+      if (
+        !teamMatchesUser(away.team.displayName, awayTeam) &&
+        !teamMatchesUser(home.team.displayName, awayTeam)
+      ) continue;
+      if (
+        !teamMatchesUser(away.team.displayName, homeTeam) &&
+        !teamMatchesUser(home.team.displayName, homeTeam)
+      ) continue;
+
+      const probables = comp.probables ?? [];
+      const awayPitcher = probables.find((p) => p.homeAway === "away")?.athlete?.displayName ?? "TBD";
+      const homePitcher = probables.find((p) => p.homeAway === "home")?.athlete?.displayName ?? "TBD";
+      const result = `${away.team.displayName}: ${awayPitcher} | ${home.team.displayName}: ${homePitcher}`;
+      console.log("[MLB Pitchers] Found:", result);
+      return result;
+    }
+
+    console.log("[MLB Pitchers] No matching game found for", awayTeam, "vs", homeTeam);
+    return "Probable pitchers not yet announced";
+  } catch (e) {
+    console.log("[MLB Pitchers] Fetch error:", e);
+    return "Probable pitchers unavailable";
+  }
+}
+
 const ESPN_NBA_TEAMS_URL =
   "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
 
@@ -569,13 +629,18 @@ const renderAnalysis = (text: string) => {
   );
 };
 
+const MLB_WEBHOOK_URL = "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks";
+
 interface N8nIntegrationProps {
+  sport?: "NBA" | "MLB";
   pendingPick?: { teams: string; date: string; odds?: GameOdds } | null;
   onPendingPickConsumed?: () => void;
 }
 
-export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegrationProps = {}) => {
-  const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_NBA || "";
+export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsumed }: N8nIntegrationProps = {}) => {
+  const nbaWebhookUrl = import.meta.env.VITE_N8N_WEBHOOK_NBA || "";
+  const mlbWebhookUrl = import.meta.env.VITE_N8N_WEBHOOK_MLB || MLB_WEBHOOK_URL;
+  const webhookUrl = sport === "MLB" ? mlbWebhookUrl : nbaWebhookUrl;
   const { user } = useAuth();
   const { savePick } = usePicks();
   const { toast } = useToast();
@@ -614,7 +679,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
     if (!webhookUrl) {
       toast({
         title: "Not configured",
-        description: "VITE_N8N_WEBHOOK_NBA is not set.",
+        description: sport === "MLB" ? "MLB webhook URL is not set." : "VITE_N8N_WEBHOOK_NBA is not set.",
         variant: "destructive",
       });
       return;
@@ -625,34 +690,44 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
     try {
       const teams = teamsValue.trim() || "general recommendations";
 
-      const {
-        oddsPayload: apiOddsPayload,
-        backToBack: apiBackToBack,
-        injuries: apiInjuries,
-        teamRecords: apiTeamRecords,
-      } = await fetchMatchupOddsForWebhook(teamsValue, dateValue);
-      console.log("[BobbyVegas] apiInjuries:", apiInjuries);
-      let oddsPayload = apiOddsPayload;
-      if (!oddsPayload && odds) {
-        oddsPayload = formatGameOddsProp(odds);
-        console.log(
-          "[N8nIntegration] Using Live Odds card fallback for odds:",
-          oddsPayload
-        );
+      let oddsPayload = "";
+      let sportPayload: Record<string, unknown> = {};
+
+      if (sport === "NBA") {
+        const result = await fetchMatchupOddsForWebhook(teamsValue, dateValue);
+        oddsPayload = result.oddsPayload;
+        if (!oddsPayload && odds) {
+          oddsPayload = formatGameOddsProp(odds);
+          console.log("[N8nIntegration] Using Live Odds card fallback for odds:", oddsPayload);
+        }
+        console.log("[BobbyVegas] apiInjuries:", result.injuries);
+        sportPayload = {
+          odds: oddsPayload,
+          backToBack: result.backToBack,
+          injuries: result.injuries,
+          teamRecords: result.teamRecords,
+        };
+      } else if (sport === "MLB") {
+        const pair = parseMatchupTeams(teamsValue.trim());
+        const [awayTeam, homeTeam] = pair ?? [teamsValue.trim(), ""];
+        const pitchers = await fetchMlbProbablePitchers(awayTeam, homeTeam, dateValue);
+        if (odds) oddsPayload = formatGameOddsProp(odds);
+        console.log("[MLB] Probable pitchers:", pitchers);
+        sportPayload = {
+          ...(oddsPayload && { odds: oddsPayload }),
+          probablePitchers: pitchers,
+        };
       }
 
       const payload: Record<string, unknown> = {
-        sport: "NBA",
-        sports: ["NBA"],
+        sport,
+        sports: [sport],
         teams,
         text: teams,
         persona: "bobby_vegas",
         targetDate: dateValue,
         test: true,
-        odds: oddsPayload,
-        backToBack: apiBackToBack,
-        injuries: apiInjuries,
-        teamRecords: apiTeamRecords,
+        ...sportPayload,
       };
 
       console.log(
@@ -723,13 +798,13 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
         id: Date.now().toString(),
         timestamp: new Date().toISOString(),
         command: "/webhook",
-        teams: teamsValue.trim() || "NBA Analysis",
+        teams: teamsValue.trim() || `${sport} Analysis`,
         persona: "bobby_vegas",
         analysis: cleanContent,
         confidence: confNorm,
         status: "win" as const,
         odds: oddsPayload || oddsText || null,
-        sport: "NBA",
+        sport,
         recommendation: pickText ?? null,
       };
       const existing: unknown[] = JSON.parse(localStorage.getItem("webhook_analyses") ?? "[]");
@@ -783,7 +858,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
 
     setIsSaving(true);
     try {
-      const teams = specificTeams.trim() || "NBA Analysis";
+      const teams = specificTeams.trim() || `${sport} Analysis`;
       const pick = extractField(
         briefContent,
         "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation", "BET", "My Pick"
@@ -795,7 +870,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
 
       await savePick({
         teams,
-        sport: "NBA",
+        sport,
         pick: pick ?? null,
         confidence: (confidence as "High" | "Medium" | "Low") ?? "High",
         analysis: briefContent,
@@ -823,7 +898,7 @@ export const N8nIntegration = ({ pendingPick, onPendingPickConsumed }: N8nIntegr
             </Label>
             <Input
               id="teams"
-              placeholder="e.g., Lakers vs Warriors"
+              placeholder={sport === "MLB" ? "e.g., Yankees vs Red Sox" : "e.g., Lakers vs Warriors"}
               value={specificTeams}
               onChange={(e) => setSpecificTeams(e.target.value)}
               className="h-11 text-sm bg-background/50"
