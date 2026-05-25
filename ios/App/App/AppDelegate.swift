@@ -5,6 +5,7 @@ import Capacitor
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
+    private var didCheckInitialLoad = false
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
@@ -26,7 +27,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        // Workaround for Capacitor + iPadOS 26 blank screen on launch.
+        // Run once per app lifecycle to avoid unnecessary reloads on foreground transitions.
+        guard !didCheckInitialLoad else { return }
+        didCheckInitialLoad = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.reloadWebViewIfBlank()
+        }
+    }
+
+    private func reloadWebViewIfBlank() {
+        guard let rootVC = window?.rootViewController as? CAPBridgeViewController,
+              let webView = rootVC.bridge?.webView,
+              !webView.isLoading else { return }
+
+        let urlString = webView.url?.absoluteString ?? ""
+        if urlString.isEmpty || urlString == "about:blank" {
+            // Page never loaded — drive Capacitor to its initial URL.
+            if let url = URL(string: "ionic://localhost") {
+                webView.load(URLRequest(url: url))
+            }
+            return
+        }
+
+        // Page has a URL but may have rendered blank; check via JS once the
+        // document is fully parsed before deciding to reload.
+        webView.evaluateJavaScript("document.readyState === 'complete' && document.body.children.length === 0") { [weak webView] result, _ in
+            if result as? Bool == true {
+                webView?.reload()
+            }
+        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
