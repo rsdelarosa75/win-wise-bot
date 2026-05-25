@@ -1,16 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { N8nIntegration } from "@/components/ui/n8n-integration";
 import type { GameOdds } from "@/components/ui/live-odds";
 
 type Sport = "NBA" | "MLB";
 
 interface PicksProps {
-  pendingPick?: { teams: string; date: string; odds?: GameOdds } | null;
+  pendingPick?: { teams: string; date: string; odds?: GameOdds; sport?: Sport } | null;
   onPendingPickConsumed?: () => void;
 }
 
 const Picks = ({ pendingPick, onPendingPickConsumed }: PicksProps = {}) => {
   const [sport, setSport] = useState<Sport>("NBA");
+
+  // Auto-select the correct sport tab when a game card tap arrives with sport info
+  useEffect(() => {
+    if (pendingPick?.sport) {
+      console.log("[Picks] Auto-selecting sport from pendingPick:", pendingPick.sport);
+      setSport(pendingPick.sport);
+    }
+  }, [pendingPick]);
 
   return (
     <div className="px-4 pt-6 pb-24 space-y-4">

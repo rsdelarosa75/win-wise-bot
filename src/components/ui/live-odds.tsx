@@ -13,7 +13,7 @@ export interface GameOdds {
 }
 
 interface LiveOddsProps {
-  onGameSelect?: (teams: string, date: string, odds?: GameOdds) => void;
+  onGameSelect?: (teams: string, date: string, odds?: GameOdds, sport?: "NBA" | "MLB") => void;
 }
 
 export const LiveOdds = ({ onGameSelect }: LiveOddsProps = {}) => {
@@ -85,7 +85,12 @@ export const LiveOdds = ({ onGameSelect }: LiveOddsProps = {}) => {
         spread1: 'spread1' in game ? game.spread1 : undefined,
         spread2: 'spread2' in game ? game.spread2 : undefined,
       };
-      onGameSelect(teams, date, odds);
+      const normalizedSport: "NBA" | "MLB" =
+        game.sport?.toLowerCase().includes("baseball") || game.sport === "MLB"
+          ? "MLB"
+          : "NBA";
+      console.log("[LiveOdds] Game tapped:", teams, "| sport field:", game.sport, "| normalized:", normalizedSport);
+      onGameSelect(teams, date, odds, normalizedSport);
     };
 
     return (

@@ -35,8 +35,27 @@ interface OddsApiGame {
   }>;
 }
 
-const normalizeTeamToken = (s: string) =>
-  s.toLowerCase().trim().replace(/\s+/g, " ");
+// Known alternate names → canonical nickname (lowercase)
+const TEAM_ALIASES: Record<string, string> = {
+  "a's": "athletics",
+  "oak": "athletics",
+  "sac": "athletics",      // Sacramento Athletics
+  "chisox": "white sox",
+  "chi sox": "white sox",
+  "sox": "sox",            // matches both Red Sox and White Sox via substring
+  "la dodgers": "dodgers",
+  "la angels": "angels",
+  "la rams": "rams",
+  "ny yankees": "yankees",
+  "ny mets": "mets",
+  "sf giants": "giants",
+  "sf": "giants",
+};
+
+const normalizeTeamToken = (s: string): string => {
+  const lower = s.toLowerCase().trim().replace(/\s+/g, " ");
+  return TEAM_ALIASES[lower] ?? lower;
+};
 
 const teamMatchesUser = (apiFullName: string, userFragment: string) => {
   const a = normalizeTeamToken(apiFullName);
@@ -44,7 +63,9 @@ const teamMatchesUser = (apiFullName: string, userFragment: string) => {
   if (!u || !a) return false;
   if (a === u) return true;
   if (a.includes(u) || u.includes(a)) return true;
-  const words = u.split(/\s+/).filter((w) => w.length > 2);
+  // Word-level fallback: every meaningful word in the user fragment appears in the API name
+  // Use length > 1 (not > 2) so short but meaningful tokens like "A's" → "athletics" alias handles it
+  const words = u.split(/\s+/).filter((w) => w.length > 1);
   if (words.length === 0) return false;
   return words.every((w) => a.includes(w));
 };
@@ -286,10 +307,20 @@ async function fetchMlbProbablePitchers(
     const url = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${dateParam}`;
     console.log("[MLB Pitchers] Fetching ESPN MLB scoreboard:", url);
     const res = await fetch(url);
+    console.log("[MLB Pitchers] ESPN response status:", res.status);
     if (!res.ok) return "Probable pitchers unavailable";
     const data: unknown = await res.json();
 
     const events = (data as { events?: unknown[] })?.events ?? [];
+    console.log("[MLB Pitchers] Total events on scoreboard:", events.length);
+    console.log("[MLB Pitchers] All games:", events.map((e: any) => {
+      const c = e.competitions?.[0];
+      const away = c?.competitors?.find((x: any) => x.homeAway === "away")?.team?.displayName ?? "?";
+      const home = c?.competitors?.find((x: any) => x.homeAway === "home")?.team?.displayName ?? "?";
+      const probables = (c?.probables ?? []).map((p: any) => `${p.homeAway}: ${p.athlete?.displayName ?? "TBD"}`);
+      return `${away} @ ${home} | probables: [${probables.join(", ") || "none"}]`;
+    }));
+
     for (const event of events as Array<{
       competitions?: Array<{
         competitors?: Array<{ homeAway?: string; team?: { displayName?: string } }>;
@@ -317,10 +348,12 @@ async function fetchMlbProbablePitchers(
       ) continue;
 
       const probables = comp.probables ?? [];
+      console.log("[MLB Pitchers] Matched game:", away.team.displayName, "@", home.team.displayName);
+      console.log("[MLB Pitchers] Raw probables array:", JSON.stringify(probables));
       const awayPitcher = probables.find((p) => p.homeAway === "away")?.athlete?.displayName ?? "TBD";
       const homePitcher = probables.find((p) => p.homeAway === "home")?.athlete?.displayName ?? "TBD";
       const result = `${away.team.displayName}: ${awayPitcher} | ${home.team.displayName}: ${homePitcher}`;
-      console.log("[MLB Pitchers] Found:", result);
+      console.log("[MLB Pitchers] Final result:", result);
       return result;
     }
 
@@ -329,6 +362,29 @@ async function fetchMlbProbablePitchers(
   } catch (e) {
     console.log("[MLB Pitchers] Fetch error:", e);
     return "Probable pitchers unavailable";
+  }
+}
+
+/**
+ * Fetch MLB team records (overall/home/away, streak, runs/game, run differential)
+ * via the same proxy pattern used for NBA records to avoid CORS.
+ */
+async function fetchMlbTeamRecords(awayTeam: string, homeTeam: string): Promise<string> {
+  console.log("[MLB Records] Fetching via proxy — away:", awayTeam, "| home:", homeTeam);
+  try {
+    const url = `/api/mlb-records?homeTeam=${encodeURIComponent(homeTeam)}&awayTeam=${encodeURIComponent(awayTeam)}`;
+    console.log("[MLB Records] Proxy URL:", url);
+    const res = await fetch(url);
+    console.log("[MLB Records] Proxy response status:", res.status);
+    if (!res.ok) return "No team record data available";
+    const data = await res.json();
+    console.log("[MLB Records] Raw proxy response:", JSON.stringify(data));
+    const records = data.records || "No team record data available";
+    console.log("[MLB Records] Final records string:\n", records);
+    return records;
+  } catch (err) {
+    console.error("[MLB Records] Proxy fetch error:", err);
+    return "No team record data available";
   }
 }
 
@@ -571,6 +627,54 @@ async function fetchMatchupOddsForWebhook(
   }
 }
 
+const isProcessingResponse = (rawText: string): boolean => {
+  try {
+    const data = JSON.parse(rawText);
+    return (Array.isArray(data) ? data[0] : data)?.status === "processing";
+  } catch {
+    return false;
+  }
+};
+
+// True when the response contains a real analysis (stop polling)
+const isReadyResponse = (rawText: string): boolean => {
+  if (!rawText || !rawText.trim()) return false;
+  if (rawText.includes("MONEYLINE")) return true;
+  try {
+    const data = JSON.parse(rawText);
+    const obj = Array.isArray(data) ? data[0] : data;
+    if (obj?.analysis != null) return true;
+    // Any non-processing JSON with meaningful text content counts
+    const textContent =
+      obj?.output ?? obj?.text ?? obj?.content ?? obj?.recommendation ?? obj?.result;
+    return typeof textContent === "string" && textContent.trim().length > 20;
+  } catch {
+    // Plain text response long enough to be an analysis
+    return rawText.trim().length > 20;
+  }
+};
+
+const parseWebhookDisplayContent = (rawText: string): string => {
+  try {
+    const parsed = JSON.parse(rawText);
+    const data = Array.isArray(parsed) ? parsed[0] : parsed;
+    const messageContent =
+      typeof data?.message === "object" && data?.message !== null
+        ? data.message?.content ?? null
+        : null;
+    const textContent =
+      data?.analysis ?? data?.output ?? data?.text ??
+      messageContent ?? data?.content ?? data?.recommendation ??
+      data?.result ?? null;
+    if (typeof textContent === "string") return textContent;
+    if (typeof textContent === "object" && textContent !== null)
+      return JSON.stringify(textContent, null, 2);
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return rawText;
+  }
+};
+
 const formatGameOddsProp = (o: GameOdds): string => {
   let s = `Moneyline: ${o.team1} ${o.ml1} / ${o.team2} ${o.ml2}`;
   if (o.spread1 && o.spread2 && o.spread1 !== "N/A" && o.spread2 !== "N/A") {
@@ -633,14 +737,21 @@ const MLB_WEBHOOK_URL = "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks";
 
 interface N8nIntegrationProps {
   sport?: "NBA" | "MLB";
-  pendingPick?: { teams: string; date: string; odds?: GameOdds } | null;
+  pendingPick?: { teams: string; date: string; odds?: GameOdds; sport?: "NBA" | "MLB" } | null;
   onPendingPickConsumed?: () => void;
 }
 
 export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsumed }: N8nIntegrationProps = {}) => {
   const nbaWebhookUrl = import.meta.env.VITE_N8N_WEBHOOK_NBA || "";
   const mlbWebhookUrl = import.meta.env.VITE_N8N_WEBHOOK_MLB || MLB_WEBHOOK_URL;
-  const webhookUrl = sport === "MLB" ? mlbWebhookUrl : nbaWebhookUrl;
+
+  // Ref always holds the latest sport so async closures never read a stale value
+  const sportRef = useRef<"NBA" | "MLB">(sport);
+  sportRef.current = sport;
+
+  const webhookUrlRef = useRef(nbaWebhookUrl);
+  webhookUrlRef.current = sport === "MLB" ? mlbWebhookUrl : nbaWebhookUrl;
+
   const { user } = useAuth();
   const { savePick } = usePicks();
   const { toast } = useToast();
@@ -653,6 +764,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
   const [pickSaved, setPickSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+  const [pollingMsg, setPollingMsg] = useState<string | null>(null);
 
   const LOADING_MESSAGES = [
     "Bobby is analyzing the odds...",
@@ -676,10 +788,20 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
 
   // Core fetch logic — called from both form submit and auto-trigger
   const triggerFetch = async (teamsValue: string, dateValue: string, odds?: GameOdds) => {
-    if (!webhookUrl) {
+    // Read from refs so stale closures always get the current sport + URL
+    const currentSport = sportRef.current;
+    const currentWebhookUrl = webhookUrlRef.current;
+
+    console.group("[N8nIntegration] triggerFetch called");
+    console.log("sport (ref):", currentSport);
+    console.log("webhookUrl (ref):", currentWebhookUrl);
+    console.log("teams:", teamsValue, "| date:", dateValue);
+    console.groupEnd();
+
+    if (!currentWebhookUrl) {
       toast({
         title: "Not configured",
-        description: sport === "MLB" ? "MLB webhook URL is not set." : "VITE_N8N_WEBHOOK_NBA is not set.",
+        description: currentSport === "MLB" ? "MLB webhook URL is not set." : "VITE_N8N_WEBHOOK_NBA is not set.",
         variant: "destructive",
       });
       return;
@@ -693,7 +815,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       let oddsPayload = "";
       let sportPayload: Record<string, unknown> = {};
 
-      if (sport === "NBA") {
+      if (currentSport === "NBA") {
         const result = await fetchMatchupOddsForWebhook(teamsValue, dateValue);
         oddsPayload = result.oddsPayload;
         if (!oddsPayload && odds) {
@@ -707,84 +829,159 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           injuries: result.injuries,
           teamRecords: result.teamRecords,
         };
-      } else if (sport === "MLB") {
+      } else if (currentSport === "MLB") {
         const pair = parseMatchupTeams(teamsValue.trim());
         const [awayTeam, homeTeam] = pair ?? [teamsValue.trim(), ""];
-        const pitchers = await fetchMlbProbablePitchers(awayTeam, homeTeam, dateValue);
         if (odds) oddsPayload = formatGameOddsProp(odds);
+
+        const [pitchers, mlbTeamRecords] = await Promise.all([
+          fetchMlbProbablePitchers(awayTeam, homeTeam, dateValue),
+          fetchMlbTeamRecords(awayTeam, homeTeam),
+        ]);
+
         console.log("[MLB] Probable pitchers:", pitchers);
+        console.log("[MLB] Team records:", mlbTeamRecords);
+
+        // Build a fully-interpolated prompt so n8n workflows that inject
+        // {{ $json.text }} pick up every data point without extra field mappings.
+        const mlbPromptText = [
+          `MLB BETTING ANALYSIS REQUEST — ${teams} — ${dateValue}`,
+          ``,
+          `STARTING PITCHERS (Factor #1 — most important):`,
+          `${pitchers}`,
+          ``,
+          `TEAM RECORDS & STANDINGS:`,
+          `${mlbTeamRecords}`,
+          ...(oddsPayload ? [``, `CURRENT ODDS:`, `${oddsPayload}`] : []),
+          ``,
+          `ANALYSIS INSTRUCTIONS:`,
+          `You are Bobby Vegas, an elite MLB betting analyst. Provide a structured pick for the matchup above.`,
+          ``,
+          `REQUIRED ANALYSIS ORDER:`,
+          `1. STARTING PITCHER MATCHUP — This is the #1 factor. Analyze each pitcher's ERA, last 3-5 starts, K/9, WHIP, BB/9, and historical splits vs this opposing lineup. Who has the edge on the mound?`,
+          `2. TEAM RECORDS & FORM — Use the records above. Which team is playing better baseball right now? Factor in home/away splits and current streak.`,
+          `3. BULLPEN — Which bullpen is better rested and more reliable in the late innings?`,
+          `4. OFFENSIVE MATCHUP — How does each lineup fare against the opposing starter's pitch mix and handedness?`,
+          `5. PARK FACTORS & CONDITIONS — Is this a hitter's park or pitcher's park? Any weather factors affecting ball flight?`,
+          ``,
+          `DO NOT mention back-to-back games, rest days, pace of play, or any basketball-related metrics. This is baseball.`,
+          ``,
+          `Conclude with a clear BOBBY'S PICK, BET TYPE (moneyline / run line / total), CONFIDENCE (High/Medium/Low), and UNITS (1-5).`,
+        ].join("\n");
+
         sportPayload = {
           ...(oddsPayload && { odds: oddsPayload }),
           probablePitchers: pitchers,
+          teamRecords: mlbTeamRecords,
+          text: mlbPromptText,
+          prompt: mlbPromptText,
         };
       }
 
       const payload: Record<string, unknown> = {
-        sport,
-        sports: [sport],
+        sport: currentSport,
+        sports: [currentSport],
         teams,
-        text: teams,
+        text: teams,          // overridden by sportPayload.text for MLB
         persona: "bobby_vegas",
         targetDate: dateValue,
         test: true,
-        ...sportPayload,
+        ...sportPayload,      // MLB sets text + prompt to the full interpolated prompt
       };
 
-      console.log(
-        "[N8nIntegration] N8N webhook POST body:",
-        JSON.stringify(payload)
-      );
-
-      const response = await fetch(webhookUrl, {
+      const POST_OPTS = {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      };
+
+      console.group(`[N8nIntegration] ▶ ${currentSport} initial request`);
+      console.log("URL:", currentWebhookUrl);
+      console.log("Payload:", JSON.stringify(payload, null, 2));
+      console.groupEnd();
+
+      const response = await fetch(currentWebhookUrl, {
+        ...POST_OPTS,
         body: JSON.stringify(payload),
       });
 
       if (response.status === 403) throw new Error("403");
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const rawText = await response.text();
-      console.log("[N8nIntegration] Response status:", response.status);
-      console.log("[N8nIntegration] Response body:", rawText);
+      let rawText = await response.text();
+      console.group(`[N8nIntegration] ◀ Initial response`);
+      console.log("Status:", response.status);
+      console.log("Body:", rawText);
+      console.log("Is processing?", isProcessingResponse(rawText));
+      console.groupEnd();
+
+      // ── Async / polling path ────────────────────────────────────────────
+      if (isProcessingResponse(rawText)) {
+        const MAX_POLLS = 8;
+        const POLL_INTERVAL = 8000;
+        const POLL_MESSAGES = [
+          "🎰 Bobby Vegas is analyzing...",
+          "⚾ Checking pitcher stats...",
+          "📊 Running the numbers...",
+          "💰 Almost ready...",
+        ];
+        let resolved = false;
+
+        for (let attempt = 1; attempt <= MAX_POLLS; attempt++) {
+          setPollingMsg(POLL_MESSAGES[(attempt - 1) % POLL_MESSAGES.length]);
+          console.log(`[N8nIntegration] ⏳ Waiting ${POLL_INTERVAL / 1000}s before poll ${attempt}/${MAX_POLLS}…`);
+          await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
+
+          console.group(`[N8nIntegration] ▶ Poll ${attempt}/${MAX_POLLS}`);
+          console.log("URL:", currentWebhookUrl);
+          console.log("Payload:", JSON.stringify(payload, null, 2));
+          console.groupEnd();
+
+          const pollRes = await fetch(currentWebhookUrl, {
+            ...POST_OPTS,
+            body: JSON.stringify(payload),
+          });
+
+          if (!pollRes.ok) {
+            console.warn(`[N8nIntegration] ✗ Poll ${attempt} HTTP error:`, pollRes.status);
+            break;
+          }
+
+          rawText = await pollRes.text();
+          console.group(`[N8nIntegration] ◀ Poll ${attempt}/${MAX_POLLS} response`);
+          console.log("Status:", pollRes.status);
+          console.log("Body:", rawText);
+          console.log("Is processing?", isProcessingResponse(rawText));
+          console.log("Is ready?", isReadyResponse(rawText));
+          console.groupEnd();
+
+          if (isReadyResponse(rawText)) {
+            resolved = true;
+            break;
+          }
+        }
+
+        setPollingMsg(null);
+
+        if (!resolved) {
+          setBriefContent("Taking longer than usual — try again in a moment 🎲");
+          setLastTriggered(new Date());
+          return;
+        }
+      }
+      // ── End polling path ────────────────────────────────────────────────
 
       setLastTriggered(new Date());
       toast({ title: "Bobby's pick is ready 🎲" });
 
-      if (!rawText || rawText.trim().length === 0) {
+      if (!rawText || !rawText.trim()) {
         setBriefContent(
           'Bobby returned an empty response. Make sure your n8n workflow has a "Respond to Webhook" node at the end.'
         );
         return;
       }
 
-      let displayContent = rawText;
-      try {
-        const parsed = JSON.parse(rawText);
-        console.log("[N8nIntegration] Parsed JSON:", parsed);
-        const data = Array.isArray(parsed) ? parsed[0] : parsed;
-        // Handle OpenAI-style response: { message: { role, content } }
-        const messageContent = typeof data?.message === 'object' && data?.message !== null
-          ? data.message?.content ?? null
-          : null;
-        const textContent =
-          data?.analysis ?? data?.output ?? data?.text ??
-          messageContent ?? data?.content ?? data?.recommendation ??
-          data?.result ?? null;
-
-        if (typeof textContent === "string") {
-          displayContent = textContent;
-        } else if (typeof textContent === "object" && textContent !== null) {
-          displayContent = JSON.stringify(textContent, null, 2);
-        } else {
-          displayContent = JSON.stringify(parsed, null, 2);
-        }
-      } catch {
-        console.log("[N8nIntegration] Not JSON — showing raw text as-is");
-      }
+      const displayContent = parseWebhookDisplayContent(rawText);
+      console.log("[N8nIntegration] Display content:", displayContent.slice(0, 200));
 
       const cleanContent = cleanHtmlContent(displayContent);
       setBriefContent(cleanContent);
@@ -798,13 +995,13 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         id: Date.now().toString(),
         timestamp: new Date().toISOString(),
         command: "/webhook",
-        teams: teamsValue.trim() || `${sport} Analysis`,
+        teams: teamsValue.trim() || `${currentSport} Analysis`,
         persona: "bobby_vegas",
         analysis: cleanContent,
         confidence: confNorm,
         status: "win" as const,
         odds: oddsPayload || oddsText || null,
-        sport,
+        sport: currentSport,
         recommendation: pickText ?? null,
       };
       const existing: unknown[] = JSON.parse(localStorage.getItem("webhook_analyses") ?? "[]");
@@ -829,6 +1026,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       });
     } finally {
       setIsLoading(false);
+      setPollingMsg(null);
     }
   };
 
@@ -858,7 +1056,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
 
     setIsSaving(true);
     try {
-      const teams = specificTeams.trim() || `${sport} Analysis`;
+      const teams = specificTeams.trim() || `${sportRef.current} Analysis`;
       const pick = extractField(
         briefContent,
         "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation", "BET", "My Pick"
@@ -870,7 +1068,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
 
       await savePick({
         teams,
-        sport,
+        sport: sportRef.current,
         pick: pick ?? null,
         confidence: (confidence as "High" | "Medium" | "Low") ?? "High",
         analysis: briefContent,
@@ -941,10 +1139,13 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       {isLoading && (
         <Card className="p-8 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
           <div className="flex flex-col items-center justify-center gap-4 py-4">
-            <span className="text-6xl animate-bounce">🎲</span>
+            <span className="text-6xl animate-bounce">{pollingMsg ? "⚾" : "🎲"}</span>
             <p className="text-sm font-medium text-foreground/80 text-center transition-all duration-500">
-              {LOADING_MESSAGES[loadingMsgIdx]}
+              {pollingMsg ?? LOADING_MESSAGES[loadingMsgIdx]}
             </p>
+            {pollingMsg && (
+              <p className="text-xs text-muted-foreground">Checking every 8 seconds…</p>
+            )}
           </div>
         </Card>
       )}

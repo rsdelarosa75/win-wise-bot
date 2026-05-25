@@ -6,7 +6,7 @@ import type { GameOdds } from "@/components/ui/live-odds";
 interface DashboardProps {
   onUpgradeClick: () => void;
   onPicksTabClick: () => void;
-  onGameSelect: (teams: string, date: string, odds?: GameOdds) => void;
+  onGameSelect: (teams: string, date: string, odds?: GameOdds, sport?: "NBA" | "MLB") => void;
 }
 
 const getGreeting = () => {
