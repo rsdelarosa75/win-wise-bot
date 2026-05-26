@@ -13,9 +13,10 @@ type Tab = "home" | "picks" | "tracker" | "profile";
 const Index = () => {
   const { user, loading, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("home");
-  const [pendingPick, setPendingPick] = useState<{ teams: string; date: string; odds?: GameOdds; sport?: "NBA" | "MLB" } | null>(null);
+  type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL";
+  const [pendingPick, setPendingPick] = useState<{ teams: string; date: string; odds?: GameOdds; sport?: Sport } | null>(null);
 
-  const handleGameSelect = useCallback((teams: string, date: string, odds?: GameOdds, sport?: "NBA" | "MLB") => {
+  const handleGameSelect = useCallback((teams: string, date: string, odds?: GameOdds, sport?: Sport) => {
     console.log("[Index] Game selected:", teams, "| sport:", sport);
     setPendingPick({ teams, date, odds, sport });
     setActiveTab("picks");

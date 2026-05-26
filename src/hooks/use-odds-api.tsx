@@ -35,12 +35,17 @@ interface ProcessedGame {
   status: 'win' | 'neutral' | 'loss';
 }
 
-const SPORT_CONFIGS: Array<{ name: string; key: string; markets: string }> = [
-  { name: 'NBA', key: 'basketball_nba', markets: 'h2h,spreads' },
-  { name: 'MLB', key: 'baseball_mlb', markets: 'h2h,spreads,totals' },
-];
+type OddsSport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL";
 
-export const useOddsApi = () => {
+const SPORT_CONFIGS: Record<OddsSport, { key: string; markets: string }> = {
+  NBA:  { key: 'basketball_nba',        markets: 'h2h,spreads' },
+  MLB:  { key: 'baseball_mlb',          markets: 'h2h,spreads,totals' },
+  WNBA: { key: 'basketball_wnba',       markets: 'h2h,spreads' },
+  NHL:  { key: 'icehockey_nhl',         markets: 'h2h,spreads' },
+  NFL:  { key: 'americanfootball_nfl',  markets: 'h2h,spreads' },
+};
+
+export const useOddsApi = (sport: OddsSport = "NBA") => {
   const [games, setGames] = useState<ProcessedGame[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -134,46 +139,40 @@ export const useOddsApi = () => {
       return;
     }
 
-    console.log('[OddsAPI] Fetching with key:', apiKey.slice(0, 8) + '…');
+    const { key: sportKey, markets } = SPORT_CONFIGS[sport];
+    console.log(`[OddsAPI] Fetching ${sport} (${sportKey})`);
     setLoading(true);
     setError(null);
 
     try {
       const allGames: OddsData[] = [];
 
-      // Fetch odds for each sport in parallel
-      await Promise.all(
-        SPORT_CONFIGS.map(async ({ name: sportName, key: sportKey, markets }) => {
-          try {
-            const response = await fetch(
-              `https://api.the-odds-api.com/v4/sports/${sportKey}/odds?` +
-              new URLSearchParams({
-                apiKey: apiKey,
-                regions: 'us',
-                markets,
-                oddsFormat: 'american',
-                dateFormat: 'iso',
-              })
-            );
+      try {
+        const response = await fetch(
+          `https://api.the-odds-api.com/v4/sports/${sportKey}/odds?` +
+          new URLSearchParams({
+            apiKey: apiKey,
+            regions: 'us',
+            markets,
+            oddsFormat: 'american',
+            dateFormat: 'iso',
+          })
+        );
 
-            console.log(`[OddsAPI] ${sportName} response status:`, response.status);
+        console.log(`[OddsAPI] ${sport} response status:`, response.status);
 
-            if (response.ok) {
-              const data = await response.json();
-              console.log(`[OddsAPI] ${sportName} games returned:`, Array.isArray(data) ? data.length : data);
-              if (Array.isArray(data)) {
-                allGames.push(...data);
-              }
-            } else if (response.status === 401) {
-              throw new Error('Invalid API key');
-            } else if (response.status === 429) {
-              throw new Error('API rate limit exceeded');
-            }
-          } catch (err) {
-            console.warn(`Failed to fetch ${sportName}:`, err);
-          }
-        })
-      );
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`[OddsAPI] ${sport} games returned:`, Array.isArray(data) ? data.length : data);
+          if (Array.isArray(data)) allGames.push(...data);
+        } else if (response.status === 401) {
+          throw new Error('Invalid API key');
+        } else if (response.status === 429) {
+          throw new Error('API rate limit exceeded');
+        }
+      } catch (err) {
+        console.warn(`[OddsAPI] Failed to fetch ${sport}:`, err);
+      }
 
       const now = new Date();
       console.log('[OddsAPI] Total games fetched:', allGames.length, '| Now:', now.toISOString());
@@ -213,9 +212,9 @@ export const useOddsApi = () => {
     } finally {
       setLoading(false);
     }
-  }, [apiKey, processOddsData]);
+  }, [apiKey, sport, processOddsData]);
 
-  // Fetch on load, then auto-refresh every 5 minutes
+  // Fetch on load and whenever sport changes, then auto-refresh every 5 minutes
   useEffect(() => {
     if (!apiKey) return;
     fetchOdds();

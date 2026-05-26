@@ -12,12 +12,15 @@ export interface GameOdds {
   spread2?: string;
 }
 
+type LiveOddsSport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL";
+
 interface LiveOddsProps {
-  onGameSelect?: (teams: string, date: string, odds?: GameOdds, sport?: "NBA" | "MLB") => void;
+  sport?: LiveOddsSport;
+  onGameSelect?: (teams: string, date: string, odds?: GameOdds, sport?: LiveOddsSport) => void;
 }
 
-export const LiveOdds = ({ onGameSelect }: LiveOddsProps = {}) => {
-  const { games, loading, error, lastUpdated, fetchOdds, hasApiKey } = useOddsApi();
+export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) => {
+  const { games, loading, error, lastUpdated, fetchOdds, hasApiKey } = useOddsApi(sport);
 
   const mockGames = [
     {
@@ -85,12 +88,8 @@ export const LiveOdds = ({ onGameSelect }: LiveOddsProps = {}) => {
         spread1: 'spread1' in game ? game.spread1 : undefined,
         spread2: 'spread2' in game ? game.spread2 : undefined,
       };
-      const normalizedSport: "NBA" | "MLB" =
-        game.sport?.toLowerCase().includes("baseball") || game.sport === "MLB"
-          ? "MLB"
-          : "NBA";
-      console.log("[LiveOdds] Game tapped:", teams, "| sport field:", game.sport, "| normalized:", normalizedSport);
-      onGameSelect(teams, date, odds, normalizedSport);
+      console.log("[LiveOdds] Game tapped:", teams, "| sport:", sport);
+      onGameSelect(teams, date, odds, sport);
     };
 
     return (

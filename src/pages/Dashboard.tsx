@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { TelegramAnalyses } from "@/components/ui/telegram-analyses";
 import { LiveOdds } from "@/components/ui/live-odds";
 import { Card } from "@/components/ui/card";
 import type { GameOdds } from "@/components/ui/live-odds";
 
+type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL";
+
 interface DashboardProps {
   onUpgradeClick: () => void;
   onPicksTabClick: () => void;
-  onGameSelect: (teams: string, date: string, odds?: GameOdds, sport?: "NBA" | "MLB") => void;
+  onGameSelect: (teams: string, date: string, odds?: GameOdds, sport?: Sport) => void;
 }
 
 const getGreeting = () => {
@@ -16,7 +19,17 @@ const getGreeting = () => {
   return "Good evening 👋";
 };
 
+const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] = [
+  { sport: "NBA",  emoji: "🏀", label: "NBA" },
+  { sport: "MLB",  emoji: "⚾", label: "MLB" },
+  { sport: "WNBA", emoji: "🏀", label: "WNBA" },
+  { sport: "NHL",  emoji: "🏒", label: "NHL" },
+  { sport: "NFL",  emoji: "🏈", label: "NFL" },
+];
+
 const Dashboard = ({ onUpgradeClick, onPicksTabClick, onGameSelect }: DashboardProps) => {
+  const [oddsSport, setOddsSport] = useState<Sport>("NBA");
+
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -53,9 +66,27 @@ const Dashboard = ({ onUpgradeClick, onPicksTabClick, onGameSelect }: DashboardP
 
       {/* Live Odds */}
       <div>
-        <h2 className="text-base font-semibold mb-3">Live Odds 🏀⚾</h2>
+        <h2 className="text-base font-semibold mb-2">Live Odds</h2>
+
+        {/* Sport selector */}
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {SPORT_BUTTONS.map(({ sport, emoji, label }) => (
+            <button
+              key={sport}
+              onClick={() => setOddsSport(sport)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                oddsSport === sport
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background/50 text-muted-foreground border-border/50 hover:border-primary/40"
+              }`}
+            >
+              <span>{emoji}</span> {label}
+            </button>
+          ))}
+        </div>
+
         <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-x-hidden">
-          <LiveOdds onGameSelect={onGameSelect} />
+          <LiveOdds sport={oddsSport} onGameSelect={onGameSelect} />
         </Card>
       </div>
     </div>

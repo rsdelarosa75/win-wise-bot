@@ -1175,7 +1175,13 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
             </Label>
             <Input
               id="teams"
-              placeholder={sport === "MLB" ? "e.g., Yankees vs Red Sox" : "e.g., Lakers vs Warriors"}
+              placeholder={
+                sport === "MLB"  ? "e.g., Red Sox vs Yankees"  :
+                sport === "WNBA" ? "e.g., Liberty vs Aces"     :
+                sport === "NHL"  ? "e.g., Panthers vs Oilers"  :
+                sport === "NFL"  ? "e.g., Chiefs vs Bills"      :
+                                   "e.g., Lakers vs Warriors"
+              }
               value={specificTeams}
               onChange={(e) => setSpecificTeams(e.target.value)}
               className="h-11 text-sm bg-background/50"
