@@ -10,9 +10,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Enable WKWebView scroll early — before the view is fully painted.
         // Delayed slightly so Capacitor has time to attach the bridge and webView.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            self.configureWebViewScroll()
-        }
+        // Fire at 0.5s, 1.0s, and 2.0s — Capacitor resets scrollView after bridge init,
+        // so multiple passes ensure the settings survive.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.configureWebViewScroll() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { self.configureWebViewScroll() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { self.configureWebViewScroll() }
         return true
     }
 
