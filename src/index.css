@@ -119,8 +119,16 @@ All colors MUST be HSL.
 /* ── Mobile baseline ─────────────────────────────────────────── */
 html, body {
   width: 100%;
-  overflow-x: hidden;
+  height: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
   -webkit-text-size-adjust: 100%;
+}
+
+#root {
+  height: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── BobbyVegas brand animations ────────────────────────────── */
