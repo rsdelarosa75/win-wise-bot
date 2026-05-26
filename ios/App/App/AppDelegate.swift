@@ -17,8 +17,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     private func configureWebViewScroll() {
-        guard let rootVC = window?.rootViewController as? CAPBridgeViewController,
-              let webView = rootVC.bridge?.webView else { return }
+        guard let vc = window?.rootViewController as? CAPBridgeViewController,
+              let webView = vc.webView else { return }
         webView.scrollView.isScrollEnabled = true
         webView.scrollView.bounces = true
         webView.scrollView.alwaysBounceVertical = true
