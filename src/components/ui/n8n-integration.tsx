@@ -816,20 +816,28 @@ const renderAnalysis = (text: string) => {
   );
 };
 
-const MLB_WEBHOOK_URL = "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks";
+type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL";
+
+const SUPABASE_URL = "https://mocdziwqxbvjibylqxoz.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI";
+
+const SPORT_CONFIG: Record<Sport, { webhookUrl: string; supabaseTable: string | null }> = {
+  NBA:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nba-picks",  supabaseTable: null },
+  MLB:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks",  supabaseTable: "mlb_picks" },
+  WNBA: { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/wnba-picks", supabaseTable: "wnba_picks" },
+  NHL:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nhl-picks",  supabaseTable: "nhl_picks" },
+  NFL:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nfl-picks",  supabaseTable: "nfl_picks" },
+};
 
 interface N8nIntegrationProps {
-  sport?: "NBA" | "MLB";
-  pendingPick?: { teams: string; date: string; odds?: GameOdds; sport?: "NBA" | "MLB" } | null;
+  sport?: Sport;
+  pendingPick?: { teams: string; date: string; odds?: GameOdds; sport?: Sport } | null;
   onPendingPickConsumed?: () => void;
 }
 
 export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsumed }: N8nIntegrationProps = {}) => {
-  const nbaWebhookUrl = import.meta.env.VITE_N8N_WEBHOOK_NBA || "";
-  const mlbWebhookUrl = import.meta.env.VITE_N8N_WEBHOOK_MLB || MLB_WEBHOOK_URL;
-
   // Ref always holds the latest sport so async closures never read a stale value
-  const sportRef = useRef<"NBA" | "MLB">(sport);
+  const sportRef = useRef<Sport>(sport);
   sportRef.current = sport;
 
   const { user } = useAuth();
@@ -867,13 +875,11 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
   useEffect(() => { setPickSaved(false); }, [briefContent]);
 
   // Core fetch logic — called from both form submit and auto-trigger
-  const triggerFetch = async (teamsValue: string, dateValue: string, odds?: GameOdds, sportOverride?: "NBA" | "MLB") => {
+  const triggerFetch = async (teamsValue: string, dateValue: string, odds?: GameOdds, sportOverride?: Sport) => {
     console.log("[DEBUG] sportRef.current at fetch time:", sportRef.current);
     console.log("[DEBUG] sportOverride:", sportOverride);
     const currentSport = sportOverride ?? sportRef.current;
-    const url = currentSport === "MLB"
-      ? "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks"
-      : "https://eleven48ai.app.n8n.cloud/webhook/nba-picks";
+    const { webhookUrl: url, supabaseTable } = SPORT_CONFIG[currentSport];
     console.log("[DEBUG] derived url:", url);
 
     console.group("[N8nIntegration] triggerFetch called");
@@ -983,9 +989,9 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       console.log("Body:", initialText);
       console.groupEnd();
 
-      // ── MLB async path: poll Supabase until analysis is ready ──────────────
+      // ── Async path: poll Supabase for sports that return a jobId ─────────────
       let rawText = initialText;
-      if (currentSport === "MLB") {
+      if (supabaseTable) {
         let jobId: string | null = null;
         try {
           const parsed = JSON.parse(initialText);
@@ -993,11 +999,9 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         } catch { /* not JSON — fall through and display as-is */ }
 
         if (jobId) {
-          const SUPABASE_URL = "https://mocdziwqxbvjibylqxoz.supabase.co";
-          const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI";
           const POLL_MESSAGES = [
             "🎰 Bobby Vegas is analyzing...",
-            "⚾ Checking pitcher stats...",
+            "⚾ Checking the matchup...",
             "📊 Running the numbers...",
             "💰 Almost ready...",
           ];
@@ -1005,25 +1009,25 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           const POLL_INTERVAL = 10_000;
           let resolved = false;
 
-          console.log("[MLB] Got jobId:", jobId, "— polling Supabase");
+          console.log(`[${currentSport}] Got jobId:`, jobId, `— polling Supabase table: ${supabaseTable}`);
 
           for (let attempt = 1; attempt <= MAX_POLLS; attempt++) {
             setPollingMsg(POLL_MESSAGES[(attempt - 1) % POLL_MESSAGES.length]);
-            console.log(`[MLB] ⏳ Poll ${attempt}/${MAX_POLLS} — waiting ${POLL_INTERVAL / 1000}s…`);
+            console.log(`[${currentSport}] ⏳ Poll ${attempt}/${MAX_POLLS} — waiting ${POLL_INTERVAL / 1000}s…`);
             await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
 
             const statusRes = await fetch(
-              `${SUPABASE_URL}/rest/v1/mlb_picks?job_id=eq.${encodeURIComponent(jobId)}&select=status,analysis`,
+              `${SUPABASE_URL}/rest/v1/${supabaseTable}?job_id=eq.${encodeURIComponent(jobId)}&select=status,analysis`,
               { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
             );
 
             if (!statusRes.ok) {
-              console.warn(`[MLB] Supabase poll ${attempt} HTTP error:`, statusRes.status);
+              console.warn(`[${currentSport}] Supabase poll ${attempt} HTTP error:`, statusRes.status);
               continue;
             }
 
             const rows = await statusRes.json();
-            console.log(`[MLB] Poll ${attempt} response:`, rows);
+            console.log(`[${currentSport}] Poll ${attempt} response:`, rows);
 
             if (Array.isArray(rows) && rows[0]?.status === "complete" && rows[0]?.analysis) {
               rawText = rows[0].analysis;
@@ -1041,7 +1045,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           }
         }
       }
-      // ── End MLB async path ─────────────────────────────────────────────────
+      // ── End async path ─────────────────────────────────────────────────────
 
       setLastTriggered(new Date());
       toast({ title: "Bobby's pick is ready 🎲" });

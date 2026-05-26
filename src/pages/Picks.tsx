@@ -2,12 +2,20 @@ import { useState, useEffect } from "react";
 import { N8nIntegration } from "@/components/ui/n8n-integration";
 import type { GameOdds } from "@/components/ui/live-odds";
 
-type Sport = "NBA" | "MLB";
+type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL";
 
 interface PicksProps {
   pendingPick?: { teams: string; date: string; odds?: GameOdds; sport?: Sport } | null;
   onPendingPickConsumed?: () => void;
 }
+
+const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] = [
+  { sport: "NBA",  emoji: "🏀", label: "NBA" },
+  { sport: "MLB",  emoji: "⚾", label: "MLB" },
+  { sport: "WNBA", emoji: "🏀", label: "WNBA" },
+  { sport: "NHL",  emoji: "🏒", label: "NHL" },
+  { sport: "NFL",  emoji: "🏈", label: "NFL" },
+];
 
 const Picks = ({ pendingPick, onPendingPickConsumed }: PicksProps = {}) => {
   const [sport, setSport] = useState<Sport>("NBA");
@@ -29,27 +37,20 @@ const Picks = ({ pendingPick, onPendingPickConsumed }: PicksProps = {}) => {
         </p>
 
         {/* Sport selector */}
-        <div className="flex items-center gap-2 mt-3">
-          <button
-            onClick={() => setSport("NBA")}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all border ${
-              sport === "NBA"
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background/50 text-muted-foreground border-border/50 hover:border-primary/40"
-            }`}
-          >
-            <span>🏀</span> NBA
-          </button>
-          <button
-            onClick={() => setSport("MLB")}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all border ${
-              sport === "MLB"
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background/50 text-muted-foreground border-border/50 hover:border-primary/40"
-            }`}
-          >
-            <span>⚾</span> MLB
-          </button>
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          {SPORT_BUTTONS.map(({ sport: s, emoji, label }) => (
+            <button
+              key={s}
+              onClick={() => setSport(s)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all border ${
+                sport === s
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background/50 text-muted-foreground border-border/50 hover:border-primary/40"
+              }`}
+            >
+              <span>{emoji}</span> {label}
+            </button>
+          ))}
         </div>
       </div>
 
