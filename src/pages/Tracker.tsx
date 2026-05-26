@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -131,6 +131,7 @@ const Tracker = () => {
   }
 
   return (
+    <div style={{ height: '100dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
     <div className="w-full space-y-5 overflow-x-hidden px-4 pb-28 pt-6">
       <h1 className="text-2xl font-bold">Season Tracker</h1>
 
@@ -401,6 +402,7 @@ const Tracker = () => {
           </p>
         </div>
       )}
+    </div>
     </div>
   );
 };

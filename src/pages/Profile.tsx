@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -35,6 +35,7 @@ const Profile = ({ onSignOut }: ProfileProps) => {
   );
 
   return (
+    <div style={{ height: '100dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
     <div className="space-y-4 px-4 pt-6 pb-24">
       <h1 className="text-2xl font-bold">Profile ⚙️</h1>
 
@@ -164,6 +165,7 @@ const Profile = ({ onSignOut }: ProfileProps) => {
           </div>
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 };

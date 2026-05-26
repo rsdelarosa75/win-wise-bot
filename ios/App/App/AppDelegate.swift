@@ -8,8 +8,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private var didCheckInitialLoad = false
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Enable WKWebView scroll early — before the view is fully painted.
+        // Delayed slightly so Capacitor has time to attach the bridge and webView.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.configureWebViewScroll()
+        }
         return true
+    }
+
+    private func configureWebViewScroll() {
+        guard let rootVC = window?.rootViewController as? CAPBridgeViewController,
+              let webView = rootVC.bridge?.webView else { return }
+        webView.scrollView.isScrollEnabled = true
+        webView.scrollView.bounces = true
+        webView.scrollView.alwaysBounceVertical = true
+        webView.scrollView.showsVerticalScrollIndicator = false
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
@@ -31,15 +44,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Run once per app lifecycle to avoid unnecessary reloads on foreground transitions.
         guard !didCheckInitialLoad else { return }
         didCheckInitialLoad = true
-
-        // Force WKWebView scrollView settings — Capacitor's scrollEnabled config
-        // is not always honoured on iPadOS 26, so set it directly here.
-        if let rootVC = window?.rootViewController as? CAPBridgeViewController,
-           let webView = rootVC.bridge?.webView {
-            webView.scrollView.isScrollEnabled = true
-            webView.scrollView.bounces = true
-            webView.scrollView.alwaysBounceVertical = true
-        }
 
         // First pass at 0.5s; second pass at 2.0s covers slower iPad WebKit init.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {

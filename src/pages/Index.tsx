@@ -53,12 +53,7 @@ const Index = () => {
 
   return (
     <div className="phone-shell">
-      <main
-        className="h-full pb-16 overflow-y-auto"
-        style={{ WebkitOverflowScrolling: 'touch' }}
-      >
-        {renderPage()}
-      </main>
+      <main className="pb-16">{renderPage()}</main>
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );

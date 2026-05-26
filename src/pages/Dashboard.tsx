@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { TelegramAnalyses } from "@/components/ui/telegram-analyses";
 import { LiveOdds } from "@/components/ui/live-odds";
 import { Card } from "@/components/ui/card";
@@ -36,7 +36,14 @@ const Dashboard = ({ onUpgradeClick, onPicksTabClick, onGameSelect }: DashboardP
     day: "numeric",
   });
 
+  const scrollStyle: React.CSSProperties = {
+    height: '100dvh',
+    overflowY: 'auto',
+    WebkitOverflowScrolling: 'touch',
+  };
+
   return (
+    <div style={scrollStyle}>
     <div className="space-y-5 px-4 pt-6 pb-24">
       {/* Greeting */}
       <div>
@@ -89,6 +96,7 @@ const Dashboard = ({ onUpgradeClick, onPicksTabClick, onGameSelect }: DashboardP
           <LiveOdds sport={oddsSport} onGameSelect={onGameSelect} />
         </Card>
       </div>
+    </div>
     </div>
   );
 };

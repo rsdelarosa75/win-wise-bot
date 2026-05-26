@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { N8nIntegration } from "@/components/ui/n8n-integration";
 import type { GameOdds } from "@/components/ui/live-odds";
 
@@ -29,6 +29,7 @@ const Picks = ({ pendingPick, onPendingPickConsumed }: PicksProps = {}) => {
   }, [pendingPick]);
 
   return (
+    <div style={{ height: '100dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
     <div className="px-4 pt-6 pb-24 space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Today's Picks 🎲</h1>
@@ -59,6 +60,7 @@ const Picks = ({ pendingPick, onPendingPickConsumed }: PicksProps = {}) => {
         pendingPick={pendingPick}
         onPendingPickConsumed={onPendingPickConsumed}
       />
+    </div>
     </div>
   );
 };
