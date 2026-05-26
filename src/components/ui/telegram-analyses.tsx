@@ -230,10 +230,24 @@ export const TelegramAnalyses = ({ onPicksTabClick }: TelegramAnalysesProps) => 
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const isRealAnalysis = (text: string): boolean => {
+    if (!text || text.trim().length < 50) return false;
+    const lower = text.toLowerCase();
+    if (lower.includes('"status"') || lower.includes('"jobid"') || lower.includes('"processing"')) return false;
+    return /GAME:|PICK:|CONFIDENCE:|MONEYLINE|BOBBY'S PICK|BET TYPE/i.test(text);
+  };
+
   const loadFromStorage = (): TelegramAnalysis[] => {
     try {
       const stored = localStorage.getItem('webhook_analyses');
-      return stored ? JSON.parse(stored) : [];
+      if (!stored) return [];
+      const all: TelegramAnalysis[] = JSON.parse(stored);
+      const clean = all.filter(a => isRealAnalysis(a.analysis ?? ""));
+      // Persist the cleaned list so stale entries don't re-appear
+      if (clean.length !== all.length) {
+        localStorage.setItem('webhook_analyses', JSON.stringify(clean));
+      }
+      return clean;
     } catch {
       return [];
     }

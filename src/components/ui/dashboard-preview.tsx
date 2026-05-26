@@ -36,11 +36,19 @@ export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
   const [analyses, setAnalyses] = useState<TelegramAnalysis[]>([]);
   
   useEffect(() => {
+    const isRealAnalysis = (text: string): boolean => {
+      if (!text || text.trim().length < 50) return false;
+      const lower = text.toLowerCase();
+      if (lower.includes('"status"') || lower.includes('"jobid"') || lower.includes('"processing"')) return false;
+      return /GAME:|PICK:|CONFIDENCE:|MONEYLINE|BOBBY'S PICK|BET TYPE/i.test(text);
+    };
+
     const loadAnalyses = () => {
       try {
         const stored = localStorage.getItem('webhook_analyses');
         if (stored) {
-          setAnalyses(JSON.parse(stored));
+          const all = JSON.parse(stored);
+          setAnalyses(all.filter((a: { analysis?: string }) => isRealAnalysis(a.analysis ?? "")));
         }
       } catch (error) {
         console.error('Failed to load analyses:', error);

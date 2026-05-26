@@ -8,6 +8,11 @@ const config: CapacitorConfig = {
     iosScheme: 'ionic',
     allowNavigation: ['*'],
   },
+  ios: {
+    contentInset: 'automatic',
+    allowsLinkPreview: false,
+    scrollEnabled: true,
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 0,

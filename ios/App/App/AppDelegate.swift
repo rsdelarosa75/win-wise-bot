@@ -31,28 +31,46 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Run once per app lifecycle to avoid unnecessary reloads on foreground transitions.
         guard !didCheckInitialLoad else { return }
         didCheckInitialLoad = true
+
+        // Force WKWebView scrollView settings — Capacitor's scrollEnabled config
+        // is not always honoured on iPadOS 26, so set it directly here.
+        if let rootVC = window?.rootViewController as? CAPBridgeViewController,
+           let webView = rootVC.bridge?.webView {
+            webView.scrollView.isScrollEnabled = true
+            webView.scrollView.bounces = true
+            webView.scrollView.alwaysBounceVertical = true
+        }
+
+        // First pass at 0.5s; second pass at 2.0s covers slower iPad WebKit init.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.reloadWebViewIfBlank()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             self.reloadWebViewIfBlank()
         }
     }
 
     private func reloadWebViewIfBlank() {
         guard let rootVC = window?.rootViewController as? CAPBridgeViewController,
-              let webView = rootVC.bridge?.webView,
-              !webView.isLoading else { return }
+              let webView = rootVC.bridge?.webView else { return }
 
         let urlString = webView.url?.absoluteString ?? ""
+
+        // WebView never navigated — force load the Capacitor initial URL.
         if urlString.isEmpty || urlString == "about:blank" {
-            // Page never loaded — drive Capacitor to its initial URL.
-            if let url = URL(string: "ionic://localhost") {
+            let scheme = "ionic"
+            if let url = URL(string: "\(scheme)://localhost") {
                 webView.load(URLRequest(url: url))
             }
             return
         }
 
-        // Page has a URL but may have rendered blank; check via JS once the
-        // document is fully parsed before deciding to reload.
-        webView.evaluateJavaScript("document.readyState === 'complete' && document.body.children.length === 0") { [weak webView] result, _ in
+        // WebView has a URL but content may be blank (iPadOS 26 rendering bug).
+        // Only reload if page is done loading and body is empty.
+        guard !webView.isLoading else { return }
+        webView.evaluateJavaScript(
+            "document.readyState === 'complete' && document.body && document.body.children.length === 0"
+        ) { [weak webView] result, _ in
             if result as? Bool == true {
                 webView?.reload()
             }

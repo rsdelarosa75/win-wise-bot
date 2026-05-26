@@ -818,15 +818,12 @@ const renderAnalysis = (text: string) => {
 
 type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL";
 
-const SUPABASE_URL = "https://mocdziwqxbvjibylqxoz.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI";
-
-const SPORT_CONFIG: Record<Sport, { webhookUrl: string; supabaseTable: string | null }> = {
-  NBA:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nba-picks",  supabaseTable: null },
-  MLB:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks",  supabaseTable: "mlb_picks" },
-  WNBA: { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/wnba-picks", supabaseTable: "wnba_picks" },
-  NHL:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nhl-picks",  supabaseTable: "nhl_picks" },
-  NFL:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nfl-picks",  supabaseTable: "nfl_picks" },
+const SPORT_CONFIG: Record<Sport, { webhookUrl: string }> = {
+  NBA:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nba-picks"  },
+  MLB:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks"  },
+  WNBA: { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/wnba-picks" },
+  NHL:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nhl-picks"  },
+  NFL:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nfl-picks"  },
 };
 
 interface N8nIntegrationProps {
@@ -852,7 +849,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
   const [pickSaved, setPickSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
-  const [pollingMsg, setPollingMsg] = useState<string | null>(null);
 
   const LOADING_MESSAGES = [
     "Bobby is analyzing the odds...",
@@ -879,7 +875,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
     console.log("[DEBUG] sportRef.current at fetch time:", sportRef.current);
     console.log("[DEBUG] sportOverride:", sportOverride);
     const currentSport = sportOverride ?? sportRef.current;
-    const { webhookUrl: url, supabaseTable } = SPORT_CONFIG[currentSport];
+    const { webhookUrl: url } = SPORT_CONFIG[currentSport];
     console.log("[DEBUG] derived url:", url);
 
     console.group("[N8nIntegration] triggerFetch called");
@@ -978,74 +974,27 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       console.log("Payload:", payload);
       console.groupEnd();
 
-      const response = await fetch(url, { method: "POST", headers, body });
+      // NBA responds in seconds; all other sports use a 180s timeout
+      const controller = new AbortController();
+      const timeoutId = currentSport !== "NBA"
+        ? setTimeout(() => controller.abort(), 180_000)
+        : null;
+
+      let response: Response;
+      try {
+        response = await fetch(url, { method: "POST", headers, body, signal: controller.signal });
+      } finally {
+        if (timeoutId !== null) clearTimeout(timeoutId);
+      }
 
       if (response.status === 403) throw new Error("403");
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const initialText = await response.text();
-      console.group(`[N8nIntegration] ◀ Initial response`);
+      const rawText = await response.text();
+      console.group(`[N8nIntegration] ◀ Response`);
       console.log("Status:", response.status);
-      console.log("Body:", initialText);
+      console.log("Body:", rawText);
       console.groupEnd();
-
-      // ── Async path: poll Supabase for sports that return a jobId ─────────────
-      let rawText = initialText;
-      if (supabaseTable) {
-        let jobId: string | null = null;
-        try {
-          const parsed = JSON.parse(initialText);
-          jobId = parsed?.jobId ?? null;
-        } catch { /* not JSON — fall through and display as-is */ }
-
-        if (jobId) {
-          const POLL_MESSAGES = [
-            "🎰 Bobby Vegas is analyzing...",
-            "⚾ Checking the matchup...",
-            "📊 Running the numbers...",
-            "💰 Almost ready...",
-          ];
-          const MAX_POLLS = 30;
-          const POLL_INTERVAL = 10_000;
-          let resolved = false;
-
-          console.log(`[${currentSport}] Got jobId:`, jobId, `— polling Supabase table: ${supabaseTable}`);
-
-          for (let attempt = 1; attempt <= MAX_POLLS; attempt++) {
-            setPollingMsg(POLL_MESSAGES[(attempt - 1) % POLL_MESSAGES.length]);
-            console.log(`[${currentSport}] ⏳ Poll ${attempt}/${MAX_POLLS} — waiting ${POLL_INTERVAL / 1000}s…`);
-            await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
-
-            const statusRes = await fetch(
-              `${SUPABASE_URL}/rest/v1/${supabaseTable}?job_id=eq.${encodeURIComponent(jobId)}&select=status,analysis`,
-              { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
-            );
-
-            if (!statusRes.ok) {
-              console.warn(`[${currentSport}] Supabase poll ${attempt} HTTP error:`, statusRes.status);
-              continue;
-            }
-
-            const rows = await statusRes.json();
-            console.log(`[${currentSport}] Poll ${attempt} response:`, rows);
-
-            if (Array.isArray(rows) && rows[0]?.status === "complete" && rows[0]?.analysis) {
-              rawText = rows[0].analysis;
-              resolved = true;
-              break;
-            }
-          }
-
-          setPollingMsg(null);
-
-          if (!resolved) {
-            setBriefContent("Taking longer than usual — try again in a moment 🎲");
-            setLastTriggered(new Date());
-            return;
-          }
-        }
-      }
-      // ── End async path ─────────────────────────────────────────────────────
 
       setLastTriggered(new Date());
       toast({ title: "Bobby's pick is ready 🎲" });
@@ -1063,32 +1012,47 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       const cleanContent = cleanHtmlContent(displayContent);
       setBriefContent(cleanContent);
 
-      // Push this pick to the Home screen's Bobby's Picks section
-      const pickText  = extractField(cleanContent, "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation", "BET", "My Pick");
-      const oddsText  = extractField(cleanContent, "ODDS", "Current Odds", "Moneyline", "Line", "Spread");
-      const confMatch = cleanContent.match(/CONFIDENCE[^:\n]*:\s*\*{0,2}(High|Medium|Low)\*{0,2}/i);
-      const confNorm  = (confMatch ? confMatch[1] : "Medium") as "High" | "Medium" | "Low";
-      const newAnalysis = {
-        id: Date.now().toString(),
-        timestamp: new Date().toISOString(),
-        command: "/webhook",
-        teams: teamsValue.trim() || `${currentSport} Analysis`,
-        persona: "bobby_vegas",
-        analysis: cleanContent,
-        confidence: confNorm,
-        status: "win" as const,
-        odds: oddsPayload || oddsText || null,
-        sport: currentSport,
-        recommendation: pickText ?? null,
+      // Only save real Bobby Vegas analysis — never raw JSON or processing stubs.
+      const isRealAnalysis = (text: string): boolean => {
+        if (!text || text.trim().length < 50) return false;
+        const lower = text.toLowerCase();
+        if (lower.includes('"status"') || lower.includes('"jobid"') || lower.includes('"processing"')) return false;
+        return /GAME:|PICK:|CONFIDENCE:|MONEYLINE|BOBBY'S PICK|BET TYPE/i.test(text);
       };
-      const existing: unknown[] = JSON.parse(localStorage.getItem("webhook_analyses") ?? "[]");
-      const updated = [newAnalysis, ...existing]
-        .filter((a, i, arr) =>
-          arr.findIndex((x) => (x as { id: string }).id === (a as { id: string }).id) === i
-        )
-        .slice(0, 10);
-      localStorage.setItem("webhook_analyses", JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent("webhookAnalysisAdded", { detail: newAnalysis }));
+
+      // Push this pick to the Home screen's Bobby's Picks section
+      if (isRealAnalysis(cleanContent)) {
+        const pickText  = extractField(cleanContent, "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation", "BET", "My Pick");
+        const oddsText  = extractField(cleanContent, "ODDS", "Current Odds", "Moneyline", "Line", "Spread");
+        const confMatch = cleanContent.match(/CONFIDENCE[^:\n]*:\s*\*{0,2}(High|Medium|Low)\*{0,2}/i);
+        const confNorm  = (confMatch ? confMatch[1] : "Medium") as "High" | "Medium" | "Low";
+        const newAnalysis = {
+          id: Date.now().toString(),
+          timestamp: new Date().toISOString(),
+          command: "/webhook",
+          teams: teamsValue.trim() || `${currentSport} Analysis`,
+          persona: "bobby_vegas",
+          analysis: cleanContent,
+          confidence: confNorm,
+          status: "win" as const,
+          odds: oddsPayload || oddsText || null,
+          sport: currentSport,
+          recommendation: pickText ?? null,
+        };
+        // Purge any existing entries that contain raw JSON / processing stubs.
+        const existing: unknown[] = JSON.parse(localStorage.getItem("webhook_analyses") ?? "[]");
+        const updated = [newAnalysis, ...existing]
+          .filter((a) => isRealAnalysis((a as { analysis?: string }).analysis ?? ""))
+          .filter((a, i, arr) =>
+            arr.findIndex((x) => (x as { id: string }).id === (a as { id: string }).id) === i
+          )
+          .slice(0, 10);
+        localStorage.setItem("webhook_analyses", JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent("webhookAnalysisAdded", { detail: newAnalysis }));
+        console.log("[N8nIntegration] Pick saved to history.");
+      } else {
+        console.warn("[N8nIntegration] Skipped saving — response does not look like real analysis:", cleanContent.slice(0, 100));
+      }
     } catch (err) {
       const isAbort = err instanceof Error && err.name === "AbortError";
       const msg = err instanceof Error ? err.message : "Unknown error";
@@ -1105,7 +1069,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       });
     } finally {
       setIsLoading(false);
-      setPollingMsg(null);
     }
   };
 
@@ -1225,12 +1188,10 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         <Card className="p-8 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
           <div className="flex flex-col items-center justify-center gap-4 py-4">
             <span className="text-6xl animate-bounce">
-              {pollingMsg
-                ? ({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈" } as Record<string, string>)[sport] ?? "🎲"
-                : "🎲"}
+              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈" } as Record<string, string>)[sport] ?? "🎲"}
             </span>
             <p className="text-sm font-medium text-foreground/80 text-center transition-all duration-500">
-              {pollingMsg ?? LOADING_MESSAGES[loadingMsgIdx]}
+              {LOADING_MESSAGES[loadingMsgIdx]}
             </p>
           </div>
         </Card>

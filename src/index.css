@@ -146,7 +146,8 @@ html, body {
     max-width: 430px;
     margin-left: auto;
     margin-right: auto;
-    min-height: 100svh;
+    height: 100svh;
+    overflow: hidden;
     background-color: hsl(var(--background));
     box-shadow: 0 0 80px rgba(245, 161, 0, 0.08), 0 0 40px rgba(0, 0, 0, 0.6);
     position: relative;
