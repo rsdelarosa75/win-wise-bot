@@ -370,20 +370,70 @@ async function fetchMlbProbablePitchers(
  * via the same proxy pattern used for NBA records to avoid CORS.
  */
 async function fetchMlbTeamRecords(awayTeam: string, homeTeam: string): Promise<string> {
-  console.log("[MLB Records] Fetching via proxy — away:", awayTeam, "| home:", homeTeam);
+  console.log("[MLB Records] Fetching direct from ESPN — away:", awayTeam, "| home:", homeTeam);
   try {
-    const url = `/api/mlb-records?homeTeam=${encodeURIComponent(homeTeam)}&awayTeam=${encodeURIComponent(awayTeam)}`;
-    console.log("[MLB Records] Proxy URL:", url);
-    const res = await fetch(url);
-    console.log("[MLB Records] Proxy response status:", res.status);
-    if (!res.ok) return "No team record data available";
-    const data = await res.json();
-    console.log("[MLB Records] Raw proxy response:", JSON.stringify(data));
-    const records = data.records || "No team record data available";
-    console.log("[MLB Records] Final records string:\n", records);
+    const teamsRes = await fetch(
+      "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams?limit=50"
+    );
+    if (!teamsRes.ok) return "No team record data available";
+    const teamsData = await teamsRes.json();
+    const teams: Array<{ id: string; displayName: string; shortDisplayName?: string; nickname?: string }> =
+      teamsData.sports[0].leagues[0].teams.map((t: { team: unknown }) => t.team);
+
+    const findTeam = (name: string) => {
+      const lower = name.toLowerCase();
+      return teams.find(
+        (t) =>
+          t.displayName.toLowerCase().includes(lower) ||
+          lower.includes(t.displayName.toLowerCase()) ||
+          t.shortDisplayName?.toLowerCase().includes(lower) ||
+          t.nickname?.toLowerCase().includes(lower)
+      );
+    };
+
+    const homeObj = findTeam(homeTeam);
+    const awayObj = findTeam(awayTeam);
+    console.log("[MLB Records] Matched teams — home:", homeObj?.displayName, "| away:", awayObj?.displayName);
+
+    if (!homeObj || !awayObj) return "Team records unavailable";
+
+    const [homeRes, awayRes] = await Promise.all([
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/${homeObj.id}`),
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/${awayObj.id}`),
+    ]);
+    const [homeData, awayData] = await Promise.all([homeRes.json(), awayRes.json()]);
+
+    const formatRecord = (data: unknown, name: string): string => {
+      const items = (data as { team?: { record?: { items?: Array<{ type?: string; summary?: string; stats?: Array<{ name?: string; value?: number }> }> } } })?.team?.record?.items ?? [];
+      const overall = items.find((r) => r.type === "total") ?? items[0];
+      const home    = items.find((r) => r.type === "home")  ?? items[1];
+      const away    = items.find((r) => r.type === "road")  ?? items[2];
+      if (!overall) return `${name}: Record unavailable`;
+      const stats = overall.stats ?? [];
+      const statVal = (key: string) => stats.find((s) => s.name === key)?.value;
+      const streakRaw = statVal("streak");
+      const streak =
+        streakRaw === undefined ? "—"
+        : streakRaw > 0 ? `W${Math.round(Math.abs(streakRaw))}`
+        : streakRaw < 0 ? `L${Math.round(Math.abs(streakRaw))}`
+        : "0";
+      const rfStr   = statVal("avgPointsFor")     !== undefined ? statVal("avgPointsFor")!.toFixed(1)     : "—";
+      const raStr   = statVal("avgPointsAgainst") !== undefined ? statVal("avgPointsAgainst")!.toFixed(1) : "—";
+      const diff    = statVal("differential");
+      const diffStr = diff !== undefined ? (diff >= 0 ? `+${Math.round(diff)}` : `${Math.round(diff)}`) : "—";
+      return (
+        `${name.toUpperCase()}: ${overall.summary ?? "—"} overall | ` +
+        `${home?.summary ?? "—"} home | ${away?.summary ?? "—"} away | ` +
+        `Streak: ${streak} | Runs: ${rfStr}/game scored, ${raStr}/game allowed | ` +
+        `Run differential: ${diffStr}`
+      );
+    };
+
+    const records = formatRecord(homeData, homeObj.displayName) + "\n" + formatRecord(awayData, awayObj.displayName);
+    console.log("[MLB Records] Final records:\n", records);
     return records;
   } catch (err) {
-    console.error("[MLB Records] Proxy fetch error:", err);
+    console.error("[MLB Records] ESPN fetch error:", err);
     return "No team record data available";
   }
 }
@@ -455,20 +505,53 @@ function formatOneTeamRecordLine(displayName: string, recordJson: unknown): stri
   return `${label}: ${overall} overall | ${home} home | ${away} away | Streak: ${streak} | Avg: ${apfStr} pts for / ${apaStr} pts against`;
 }
 
-/**
- * ESPN team list + per-team record (overall/home/away, streak, scoring). For Bobby's webhook.
- */
 async function fetchTeamRecords(awayTeam: string, homeTeam: string): Promise<string> {
-  console.log("[Records] Fetching team records via proxy");
+  console.log("[NBA Records] Fetching direct from ESPN — away:", awayTeam, "| home:", homeTeam);
   try {
-    const res = await fetch(
-      `/api/nba-records?homeTeam=${encodeURIComponent(homeTeam)}&awayTeam=${encodeURIComponent(awayTeam)}`
+    const teamsRes = await fetch(
+      "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams?limit=50"
     );
-    if (!res.ok) return "No team record data available";
-    const data = await res.json();
-    return data.records || "No team record data available";
+    if (!teamsRes.ok) return "No team record data available";
+    const teamsData = await teamsRes.json();
+    const teams: Array<{ id: string; displayName: string }> =
+      teamsData.sports[0].leagues[0].teams.map((t: { team: unknown }) => t.team);
+
+    const findTeam = (name: string) => {
+      const lower = name.toLowerCase();
+      return teams.find(
+        (t) =>
+          t.displayName.toLowerCase().includes(lower) ||
+          lower.includes(t.displayName.toLowerCase())
+      );
+    };
+
+    const homeObj = findTeam(homeTeam);
+    const awayObj = findTeam(awayTeam);
+    console.log("[NBA Records] Matched — home:", homeObj?.displayName, "| away:", awayObj?.displayName);
+
+    if (!homeObj || !awayObj) return "Team records unavailable";
+
+    const [homeRes, awayRes] = await Promise.all([
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${homeObj.id}`),
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${awayObj.id}`),
+    ]);
+    const [homeData, awayData] = await Promise.all([homeRes.json(), awayRes.json()]);
+
+    const formatRecord = (data: unknown, name: string): string => {
+      const items = (data as { team?: { record?: { items?: Array<{ type?: string; summary?: string }> } } })
+        ?.team?.record?.items ?? [];
+      const overall = items.find((r) => r.type === "total") ?? items[0];
+      const home    = items.find((r) => r.type === "home")  ?? items[1];
+      const away    = items.find((r) => r.type === "road")  ?? items[2];
+      if (!overall) return `${name}: Record unavailable`;
+      return `${name}: ${overall.summary ?? "—"} overall | Home: ${home?.summary ?? "—"} | Away: ${away?.summary ?? "—"}`;
+    };
+
+    const records = formatRecord(homeData, homeObj.displayName) + "\n" + formatRecord(awayData, awayObj.displayName);
+    console.log("[NBA Records] Final records:\n", records);
+    return records;
   } catch (err) {
-    console.error("[Records] Proxy fetch error:", err);
+    console.error("[NBA Records] ESPN fetch error:", err);
     return "No team record data available";
   }
 }
@@ -749,9 +832,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
   const sportRef = useRef<"NBA" | "MLB">(sport);
   sportRef.current = sport;
 
-  const webhookUrlRef = useRef(nbaWebhookUrl);
-  webhookUrlRef.current = sport === "MLB" ? mlbWebhookUrl : nbaWebhookUrl;
-
   const { user } = useAuth();
   const { savePick } = usePicks();
   const { toast } = useToast();
@@ -787,25 +867,20 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
   useEffect(() => { setPickSaved(false); }, [briefContent]);
 
   // Core fetch logic — called from both form submit and auto-trigger
-  const triggerFetch = async (teamsValue: string, dateValue: string, odds?: GameOdds) => {
-    // Read from refs so stale closures always get the current sport + URL
-    const currentSport = sportRef.current;
-    const currentWebhookUrl = webhookUrlRef.current;
+  const triggerFetch = async (teamsValue: string, dateValue: string, odds?: GameOdds, sportOverride?: "NBA" | "MLB") => {
+    console.log("[DEBUG] sportRef.current at fetch time:", sportRef.current);
+    console.log("[DEBUG] sportOverride:", sportOverride);
+    const currentSport = sportOverride ?? sportRef.current;
+    const url = currentSport === "MLB"
+      ? "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks"
+      : "https://eleven48ai.app.n8n.cloud/webhook/nba-picks";
+    console.log("[DEBUG] derived url:", url);
 
     console.group("[N8nIntegration] triggerFetch called");
     console.log("sport (ref):", currentSport);
-    console.log("webhookUrl (ref):", currentWebhookUrl);
+    console.log("url (derived):", url);
     console.log("teams:", teamsValue, "| date:", dateValue);
     console.groupEnd();
-
-    if (!currentWebhookUrl) {
-      toast({
-        title: "Not configured",
-        description: currentSport === "MLB" ? "MLB webhook URL is not set." : "VITE_N8N_WEBHOOK_NBA is not set.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     setIsLoading(true);
 
@@ -889,86 +964,84 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         ...sportPayload,      // MLB sets text + prompt to the full interpolated prompt
       };
 
-      const POST_OPTS = {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      };
+      const headers = { "Content-Type": "application/json", "Accept": "application/json" };
+      const body = JSON.stringify(payload);
 
-      console.group(`[N8nIntegration] ▶ ${currentSport} initial request`);
-      console.log("URL:", currentWebhookUrl);
-      console.log("Payload:", JSON.stringify(payload, null, 2));
+      console.group(`[N8nIntegration] ▶ ${currentSport} request`);
+      console.log("URL:", url);
+      console.log("Payload:", payload);
       console.groupEnd();
 
-      const response = await fetch(currentWebhookUrl, {
-        ...POST_OPTS,
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(url, { method: "POST", headers, body });
 
       if (response.status === 403) throw new Error("403");
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      let rawText = await response.text();
+      const initialText = await response.text();
       console.group(`[N8nIntegration] ◀ Initial response`);
       console.log("Status:", response.status);
-      console.log("Body:", rawText);
-      console.log("Is processing?", isProcessingResponse(rawText));
+      console.log("Body:", initialText);
       console.groupEnd();
 
-      // ── Async / polling path ────────────────────────────────────────────
-      if (isProcessingResponse(rawText)) {
-        const MAX_POLLS = 8;
-        const POLL_INTERVAL = 8000;
-        const POLL_MESSAGES = [
-          "🎰 Bobby Vegas is analyzing...",
-          "⚾ Checking pitcher stats...",
-          "📊 Running the numbers...",
-          "💰 Almost ready...",
-        ];
-        let resolved = false;
+      // ── MLB async path: poll Supabase until analysis is ready ──────────────
+      let rawText = initialText;
+      if (currentSport === "MLB") {
+        let jobId: string | null = null;
+        try {
+          const parsed = JSON.parse(initialText);
+          jobId = parsed?.jobId ?? null;
+        } catch { /* not JSON — fall through and display as-is */ }
 
-        for (let attempt = 1; attempt <= MAX_POLLS; attempt++) {
-          setPollingMsg(POLL_MESSAGES[(attempt - 1) % POLL_MESSAGES.length]);
-          console.log(`[N8nIntegration] ⏳ Waiting ${POLL_INTERVAL / 1000}s before poll ${attempt}/${MAX_POLLS}…`);
-          await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
+        if (jobId) {
+          const SUPABASE_URL = "https://mocdziwqxbvjibylqxoz.supabase.co";
+          const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI";
+          const POLL_MESSAGES = [
+            "🎰 Bobby Vegas is analyzing...",
+            "⚾ Checking pitcher stats...",
+            "📊 Running the numbers...",
+            "💰 Almost ready...",
+          ];
+          const MAX_POLLS = 30;
+          const POLL_INTERVAL = 10_000;
+          let resolved = false;
 
-          console.group(`[N8nIntegration] ▶ Poll ${attempt}/${MAX_POLLS}`);
-          console.log("URL:", currentWebhookUrl);
-          console.log("Payload:", JSON.stringify(payload, null, 2));
-          console.groupEnd();
+          console.log("[MLB] Got jobId:", jobId, "— polling Supabase");
 
-          const pollRes = await fetch(currentWebhookUrl, {
-            ...POST_OPTS,
-            body: JSON.stringify(payload),
-          });
+          for (let attempt = 1; attempt <= MAX_POLLS; attempt++) {
+            setPollingMsg(POLL_MESSAGES[(attempt - 1) % POLL_MESSAGES.length]);
+            console.log(`[MLB] ⏳ Poll ${attempt}/${MAX_POLLS} — waiting ${POLL_INTERVAL / 1000}s…`);
+            await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
 
-          if (!pollRes.ok) {
-            console.warn(`[N8nIntegration] ✗ Poll ${attempt} HTTP error:`, pollRes.status);
-            break;
+            const statusRes = await fetch(
+              `${SUPABASE_URL}/rest/v1/mlb_picks?job_id=eq.${encodeURIComponent(jobId)}&select=status,analysis`,
+              { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+            );
+
+            if (!statusRes.ok) {
+              console.warn(`[MLB] Supabase poll ${attempt} HTTP error:`, statusRes.status);
+              continue;
+            }
+
+            const rows = await statusRes.json();
+            console.log(`[MLB] Poll ${attempt} response:`, rows);
+
+            if (Array.isArray(rows) && rows[0]?.status === "complete" && rows[0]?.analysis) {
+              rawText = rows[0].analysis;
+              resolved = true;
+              break;
+            }
           }
 
-          rawText = await pollRes.text();
-          console.group(`[N8nIntegration] ◀ Poll ${attempt}/${MAX_POLLS} response`);
-          console.log("Status:", pollRes.status);
-          console.log("Body:", rawText);
-          console.log("Is processing?", isProcessingResponse(rawText));
-          console.log("Is ready?", isReadyResponse(rawText));
-          console.groupEnd();
+          setPollingMsg(null);
 
-          if (isReadyResponse(rawText)) {
-            resolved = true;
-            break;
+          if (!resolved) {
+            setBriefContent("Taking longer than usual — try again in a moment 🎲");
+            setLastTriggered(new Date());
+            return;
           }
-        }
-
-        setPollingMsg(null);
-
-        if (!resolved) {
-          setBriefContent("Taking longer than usual — try again in a moment 🎲");
-          setLastTriggered(new Date());
-          return;
         }
       }
-      // ── End polling path ────────────────────────────────────────────────
+      // ── End MLB async path ─────────────────────────────────────────────────
 
       setLastTriggered(new Date());
       toast({ title: "Bobby's pick is ready 🎲" });
@@ -1013,15 +1086,17 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       localStorage.setItem("webhook_analyses", JSON.stringify(updated));
       window.dispatchEvent(new CustomEvent("webhookAnalysisAdded", { detail: newAnalysis }));
     } catch (err) {
+      const isAbort = err instanceof Error && err.name === "AbortError";
       const msg = err instanceof Error ? err.message : "Unknown error";
       toast({
-        title: "Connection Error",
-        description:
-          msg === "403" || msg.includes("403")
-            ? "Bobby's taking a timeout, try again in a moment 🎲"
-            : msg.includes("Failed to fetch")
-            ? "Could not reach Bobby's Engine. Check the URL."
-            : msg,
+        title: isAbort ? "Analysis timed out" : "Connection Error",
+        description: isAbort
+          ? "Bobby's analysis took longer than 3 minutes — try again 🎲"
+          : msg === "403" || msg.includes("403")
+          ? "Bobby's taking a timeout, try again in a moment 🎲"
+          : msg.includes("Failed to fetch")
+          ? "Could not reach Bobby's Engine. Check the URL."
+          : msg,
         variant: "destructive",
       });
     } finally {
@@ -1040,7 +1115,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
     setSpecificTeams(pendingPick.teams);
     setTargetDate(pendingPick.date);
     onPendingPickConsumed?.();
-    triggerFetch(pendingPick.teams, pendingPick.date, pendingPick.odds);
+    triggerFetch(pendingPick.teams, pendingPick.date, pendingPick.odds, pendingPick.sport);
   }, [pendingPick]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1143,9 +1218,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
             <p className="text-sm font-medium text-foreground/80 text-center transition-all duration-500">
               {pollingMsg ?? LOADING_MESSAGES[loadingMsgIdx]}
             </p>
-            {pollingMsg && (
-              <p className="text-xs text-muted-foreground">Checking every 8 seconds…</p>
-            )}
           </div>
         </Card>
       )}
