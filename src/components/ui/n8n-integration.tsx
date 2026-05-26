@@ -1224,7 +1224,11 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       {isLoading && (
         <Card className="p-8 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
           <div className="flex flex-col items-center justify-center gap-4 py-4">
-            <span className="text-6xl animate-bounce">{pollingMsg ? "⚾" : "🎲"}</span>
+            <span className="text-6xl animate-bounce">
+              {pollingMsg
+                ? ({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈" } as Record<string, string>)[sport] ?? "🎲"
+                : "🎲"}
+            </span>
             <p className="text-sm font-medium text-foreground/80 text-center transition-all duration-500">
               {pollingMsg ?? LOADING_MESSAGES[loadingMsgIdx]}
             </p>
@@ -1236,7 +1240,9 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       {briefContent && !isLoading && (
         <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-x-hidden">
           <div className="flex items-center gap-2 mb-3">
-            <FileText className="w-4 h-4 text-neutral shrink-0" />
+            <span className="text-base leading-none">
+              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈" } as Record<string, string>)[sport] ?? "🎲"}
+            </span>
             <h3 className="text-sm font-semibold">Bobby's Pick</h3>
             <span className="ml-auto text-xs text-muted-foreground">
               {new Date().toLocaleTimeString()}
