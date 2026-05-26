@@ -8,13 +8,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private var didCheckInitialLoad = false
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Enable WKWebView scroll early — before the view is fully painted.
-        // Delayed slightly so Capacitor has time to attach the bridge and webView.
-        // Fire at 0.5s, 1.0s, and 2.0s — Capacitor resets scrollView after bridge init,
-        // so multiple passes ensure the settings survive.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.configureWebViewScroll() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { self.configureWebViewScroll() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { self.configureWebViewScroll() }
+        // Wait 1 second for Capacitor to finish attaching the bridge and WKWebView,
+        // then force-enable scrolling. Capacitor sometimes resets these after init.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.configureWebViewScroll()
+        }
         return true
     }
 
@@ -25,21 +23,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         webView.scrollView.bounces = true
         webView.scrollView.alwaysBounceVertical = true
         webView.scrollView.showsVerticalScrollIndicator = false
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
     }
 
-    func applicationWillResignActive(_ application: UIApplication) {
-        // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
-        // Use this method to pause ongoing tasks, disable timers, and invalidate graphics rendering callbacks. Games should use this method to pause the game.
-    }
+    func applicationWillResignActive(_ application: UIApplication) {}
 
-    func applicationDidEnterBackground(_ application: UIApplication) {
-        // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
-        // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
-    }
+    func applicationDidEnterBackground(_ application: UIApplication) {}
 
-    func applicationWillEnterForeground(_ application: UIApplication) {
-        // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
-    }
+    func applicationWillEnterForeground(_ application: UIApplication) {}
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         // Workaround for Capacitor + iPadOS 26 blank screen on launch.
@@ -47,7 +38,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         guard !didCheckInitialLoad else { return }
         didCheckInitialLoad = true
 
-        // First pass at 0.5s; second pass at 2.0s covers slower iPad WebKit init.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.reloadWebViewIfBlank()
         }
@@ -62,7 +52,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         let urlString = webView.url?.absoluteString ?? ""
 
-        // WebView never navigated — force load the Capacitor initial URL.
         if urlString.isEmpty || urlString == "about:blank" {
             let scheme = "ionic"
             if let url = URL(string: "\(scheme)://localhost") {
@@ -71,8 +60,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             return
         }
 
-        // WebView has a URL but content may be blank (iPadOS 26 rendering bug).
-        // Only reload if page is done loading and body is empty.
         guard !webView.isLoading else { return }
         webView.evaluateJavaScript(
             "document.readyState === 'complete' && document.body && document.body.children.length === 0"
@@ -83,20 +70,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
-    func applicationWillTerminate(_ application: UIApplication) {
-        // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
-    }
+    func applicationWillTerminate(_ application: UIApplication) {}
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        // Called when the app was launched with a url. Feel free to add additional processing here,
-        // but if you want the App API to support tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        // Called when the app was launched with an activity, including Universal Links.
-        // Feel free to add additional processing here, but if you want the App API to support
-        // tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
