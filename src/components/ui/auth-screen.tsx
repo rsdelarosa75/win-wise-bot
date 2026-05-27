@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +46,15 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12" style={{ backgroundColor: '#0A0A0A' }}>
+    <div
+      style={{
+        height: '100dvh',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        backgroundColor: '#0A0A0A',
+      } as React.CSSProperties}
+    >
+    <div className="min-h-full flex flex-col items-center justify-center px-6 py-12">
       {/* Logo */}
       <div className="mb-10 text-center">
         <img
@@ -185,6 +193,7 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
           Continue with Google
         </Button>
       </div>
+    </div>
     </div>
   );
 };
