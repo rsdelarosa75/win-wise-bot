@@ -8,15 +8,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private var didCheckInitialLoad = false
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Wait 1 second for Capacitor to finish attaching the bridge and WKWebView,
-        // then force-enable scrolling. Capacitor sometimes resets these after init.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.configureWebViewScroll()
-        }
+        // CapacitorViewDidAppear fires after CAPBridgeViewController.viewDidAppear,
+        // which is AFTER prepareWebView() sets bounces=false and isScrollEnabled.
+        // This is the only reliable hook to override those values.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(capacitorViewDidAppear),
+            name: Notification.Name("CapacitorViewDidAppear"),
+            object: nil
+        )
         return true
     }
 
-    private func configureWebViewScroll() {
+    @objc private func capacitorViewDidAppear() {
         guard let vc = window?.rootViewController as? CAPBridgeViewController,
               let webView = vc.webView else { return }
         webView.scrollView.isScrollEnabled = true
@@ -34,7 +38,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         // Workaround for Capacitor + iPadOS 26 blank screen on launch.
-        // Run once per app lifecycle to avoid unnecessary reloads on foreground transitions.
         guard !didCheckInitialLoad else { return }
         didCheckInitialLoad = true
 
@@ -47,14 +50,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     private func reloadWebViewIfBlank() {
-        guard let rootVC = window?.rootViewController as? CAPBridgeViewController,
-              let webView = rootVC.bridge?.webView else { return }
+        guard let vc = window?.rootViewController as? CAPBridgeViewController,
+              let webView = vc.webView else { return }
 
         let urlString = webView.url?.absoluteString ?? ""
 
         if urlString.isEmpty || urlString == "about:blank" {
-            let scheme = "ionic"
-            if let url = URL(string: "\(scheme)://localhost") {
+            if let url = URL(string: "ionic://localhost") {
                 webView.load(URLRequest(url: url))
             }
             return
