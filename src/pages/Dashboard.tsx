@@ -38,16 +38,7 @@ const Dashboard = ({ onUpgradeClick, onPicksTabClick, onGameSelect }: DashboardP
   });
 
   return (
-    <div style={{
-      height: '100vh',
-      overflowY: 'scroll',
-      WebkitOverflowScrolling: 'touch',
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-    }}>
+    <div style={{ height: '100dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
     <div className="space-y-5 px-4 pt-6 pb-24">
       {/* Greeting */}
       <div>
