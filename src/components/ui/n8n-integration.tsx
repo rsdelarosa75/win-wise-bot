@@ -928,9 +928,10 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         };
       } else if (currentSport === "NCAAFB") {
         if (odds) oddsPayload = formatGameOddsProp(odds);
+        console.log("[NCAAFB] oddsPayload:", oddsPayload || "(none — no Live Odds card data)");
         const ncaafbPromptText = NCAAFB_PROMPT(teams, dateValue, oddsPayload);
         sportPayload = {
-          ...(oddsPayload && { odds: oddsPayload }),
+          odds: oddsPayload,   // always present — matches NBA pattern
           text: ncaafbPromptText,
           prompt: ncaafbPromptText,
         };
