@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { N8nIntegration } from "@/components/ui/n8n-integration";
 import type { GameOdds } from "@/components/ui/live-odds";
 
-type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL";
+type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB";
 
 interface PicksProps {
   pendingPick?: { teams: string; date: string; odds?: GameOdds; sport?: Sport } | null;
@@ -10,11 +10,12 @@ interface PicksProps {
 }
 
 const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] = [
-  { sport: "NBA",  emoji: "🏀", label: "NBA" },
-  { sport: "MLB",  emoji: "⚾", label: "MLB" },
-  { sport: "WNBA", emoji: "🏀", label: "WNBA" },
-  { sport: "NHL",  emoji: "🏒", label: "NHL" },
-  { sport: "NFL",  emoji: "🏈", label: "NFL" },
+  { sport: "NBA",    emoji: "🏀", label: "NBA" },
+  { sport: "MLB",    emoji: "⚾", label: "MLB" },
+  { sport: "WNBA",   emoji: "🏀", label: "WNBA" },
+  { sport: "NHL",    emoji: "🏒", label: "NHL" },
+  { sport: "NFL",    emoji: "🏈", label: "NFL" },
+  { sport: "NCAAFB", emoji: "🏈", label: "NCAAFB" },
 ];
 
 const Picks = ({ pendingPick, onPendingPickConsumed }: PicksProps = {}) => {

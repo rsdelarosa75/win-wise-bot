@@ -816,14 +816,15 @@ const renderAnalysis = (text: string) => {
   );
 };
 
-type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL";
+type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB";
 
 const SPORT_CONFIG: Record<Sport, { webhookUrl: string }> = {
-  NBA:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nba-picks"  },
-  MLB:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks"  },
-  WNBA: { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/wnba-picks" },
-  NHL:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nhl-picks"  },
-  NFL:  { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nfl-picks"  },
+  NBA:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nba-picks"    },
+  MLB:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks"    },
+  WNBA:   { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/wnba-picks"   },
+  NHL:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nhl-picks"    },
+  NFL:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nfl-picks"    },
+  NCAAFB: { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/ncaafb-picks" },
 };
 
 interface N8nIntegrationProps {
@@ -831,6 +832,25 @@ interface N8nIntegrationProps {
   pendingPick?: { teams: string; date: string; odds?: GameOdds; sport?: Sport } | null;
   onPendingPickConsumed?: () => void;
 }
+
+const NCAAFB_PROMPT = (teams: string, dateValue: string, oddsPayload: string): string => [
+  `COLLEGE FOOTBALL BETTING ANALYSIS REQUEST — ${teams} — ${dateValue}`,
+  ``,
+  `ANALYSIS INSTRUCTIONS:`,
+  `You are Bobby Vegas, a sharp college football analyst. Provide a structured pick for the matchup above.`,
+  ``,
+  `REQUIRED ANALYSIS ORDER:`,
+  `1. QB MATCHUP — This is the #1 factor. Analyze each starting QB's experience, stats, recent form, and how they perform vs this defensive scheme.`,
+  `2. HOME FIELD ADVANTAGE — Assess venue impact: crowd noise, travel fatigue, altitude, neutral site if applicable. College home field matters more than any pro sport.`,
+  `3. RANKINGS & PLAYOFF IMPLICATIONS — Note AP/CFP rankings, conference standing, College Football Playoff picture, and whether either team is playing for their season.`,
+  `4. TEAM RECORDS & FORM — Which team is playing better football right now? Factor in strength of schedule, home/away splits, and recent results.`,
+  `5. KEY MATCHUP FACTORS — Run game vs run defense, pass rush vs OL, turnover margin, special teams, weather/field conditions.`,
+  ...(oddsPayload ? [``, `CURRENT ODDS:`, `${oddsPayload}`] : []),
+  ``,
+  `DO NOT reference basketball, baseball, hockey, or any non-football metrics.`,
+  ``,
+  `Conclude with a clear BOBBY'S PICK, BET TYPE (moneyline / spread / total), CONFIDENCE (High/Medium/Low), and UNITS (1-3).`,
+].join("\n");
 
 export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsumed }: N8nIntegrationProps = {}) => {
   // Ref always holds the latest sport so async closures never read a stale value
@@ -905,6 +925,14 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           backToBack: result.backToBack,
           injuries: result.injuries,
           teamRecords: result.teamRecords,
+        };
+      } else if (currentSport === "NCAAFB") {
+        if (odds) oddsPayload = formatGameOddsProp(odds);
+        const ncaafbPromptText = NCAAFB_PROMPT(teams, dateValue, oddsPayload);
+        sportPayload = {
+          ...(oddsPayload && { odds: oddsPayload }),
+          text: ncaafbPromptText,
+          prompt: ncaafbPromptText,
         };
       } else if (currentSport === "MLB") {
         const pair = parseMatchupTeams(teamsValue.trim());
@@ -1139,11 +1167,12 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
             <Input
               id="teams"
               placeholder={
-                sport === "MLB"  ? "e.g., Red Sox vs Yankees"  :
-                sport === "WNBA" ? "e.g., Liberty vs Aces"     :
-                sport === "NHL"  ? "e.g., Panthers vs Oilers"  :
-                sport === "NFL"  ? "e.g., Chiefs vs Bills"      :
-                                   "e.g., Lakers vs Warriors"
+                sport === "MLB"    ? "e.g., Red Sox vs Yankees"  :
+                sport === "WNBA"   ? "e.g., Liberty vs Aces"     :
+                sport === "NHL"    ? "e.g., Panthers vs Oilers"  :
+                sport === "NFL"    ? "e.g., Chiefs vs Bills"      :
+                sport === "NCAAFB" ? "e.g., Alabama vs Georgia"  :
+                                     "e.g., Lakers vs Warriors"
               }
               value={specificTeams}
               onChange={(e) => setSpecificTeams(e.target.value)}
@@ -1188,7 +1217,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         <Card className="p-8 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
           <div className="flex flex-col items-center justify-center gap-4 py-4">
             <span className="text-6xl animate-bounce">
-              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈" } as Record<string, string>)[sport] ?? "🎲"}
+              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈" } as Record<string, string>)[sport] ?? "🎲"}
             </span>
             <p className="text-sm font-medium text-foreground/80 text-center transition-all duration-500">
               {LOADING_MESSAGES[loadingMsgIdx]}
@@ -1202,7 +1231,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-x-hidden">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-base leading-none">
-              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈" } as Record<string, string>)[sport] ?? "🎲"}
+              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈" } as Record<string, string>)[sport] ?? "🎲"}
             </span>
             <h3 className="text-sm font-semibold">Bobby's Pick</h3>
             <span className="ml-auto text-xs text-muted-foreground">

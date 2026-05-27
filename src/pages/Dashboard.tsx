@@ -4,7 +4,7 @@ import { LiveOdds } from "@/components/ui/live-odds";
 import { Card } from "@/components/ui/card";
 import type { GameOdds } from "@/components/ui/live-odds";
 
-type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL";
+type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB";
 
 interface DashboardProps {
   onUpgradeClick: () => void;
@@ -20,11 +20,12 @@ const getGreeting = () => {
 };
 
 const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] = [
-  { sport: "NBA",  emoji: "🏀", label: "NBA" },
-  { sport: "MLB",  emoji: "⚾", label: "MLB" },
-  { sport: "WNBA", emoji: "🏀", label: "WNBA" },
-  { sport: "NHL",  emoji: "🏒", label: "NHL" },
-  { sport: "NFL",  emoji: "🏈", label: "NFL" },
+  { sport: "NBA",    emoji: "🏀", label: "NBA" },
+  { sport: "MLB",    emoji: "⚾", label: "MLB" },
+  { sport: "WNBA",   emoji: "🏀", label: "WNBA" },
+  { sport: "NHL",    emoji: "🏒", label: "NHL" },
+  { sport: "NFL",    emoji: "🏈", label: "NFL" },
+  { sport: "NCAAFB", emoji: "🏈", label: "NCAAFB" },
 ];
 
 const Dashboard = ({ onUpgradeClick, onPicksTabClick, onGameSelect }: DashboardProps) => {
@@ -36,14 +37,17 @@ const Dashboard = ({ onUpgradeClick, onPicksTabClick, onGameSelect }: DashboardP
     day: "numeric",
   });
 
-  const scrollStyle: React.CSSProperties = {
-    height: '100dvh',
-    overflowY: 'auto',
-    WebkitOverflowScrolling: 'touch',
-  };
-
   return (
-    <div style={scrollStyle}>
+    <div style={{
+      height: '100vh',
+      overflowY: 'scroll',
+      WebkitOverflowScrolling: 'touch',
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    }}>
     <div className="space-y-5 px-4 pt-6 pb-24">
       {/* Greeting */}
       <div>

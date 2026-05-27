@@ -35,14 +35,15 @@ interface ProcessedGame {
   status: 'win' | 'neutral' | 'loss';
 }
 
-type OddsSport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL";
+type OddsSport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB";
 
 const SPORT_CONFIGS: Record<OddsSport, { key: string; markets: string }> = {
-  NBA:  { key: 'basketball_nba',        markets: 'h2h,spreads' },
-  MLB:  { key: 'baseball_mlb',          markets: 'h2h,spreads,totals' },
-  WNBA: { key: 'basketball_wnba',       markets: 'h2h,spreads' },
-  NHL:  { key: 'icehockey_nhl',         markets: 'h2h,spreads' },
-  NFL:  { key: 'americanfootball_nfl',  markets: 'h2h,spreads' },
+  NBA:    { key: 'basketball_nba',           markets: 'h2h,spreads' },
+  MLB:    { key: 'baseball_mlb',             markets: 'h2h,spreads,totals' },
+  WNBA:   { key: 'basketball_wnba',          markets: 'h2h,spreads' },
+  NHL:    { key: 'icehockey_nhl',            markets: 'h2h,spreads' },
+  NFL:    { key: 'americanfootball_nfl',     markets: 'h2h,spreads' },
+  NCAAFB: { key: 'americanfootball_ncaaf',   markets: 'h2h,spreads' },
 };
 
 export const useOddsApi = (sport: OddsSport = "NBA") => {
