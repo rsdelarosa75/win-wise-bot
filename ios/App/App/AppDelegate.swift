@@ -28,6 +28,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         webView.scrollView.alwaysBounceVertical = true
         webView.scrollView.showsVerticalScrollIndicator = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
+
+        // iPadOS blocks touch-scroll when WKWebView's internal gesture recognizers
+        // cancel the scrollView's pan gesture. Requiring 1 touch and making every
+        // other recognizer on the scrollView defer to the pan gesture fixes this.
+        webView.scrollView.panGestureRecognizer.minimumNumberOfTouches = 1
+        for recognizer in webView.scrollView.gestureRecognizers ?? [] {
+            if recognizer !== webView.scrollView.panGestureRecognizer {
+                recognizer.require(toFail: webView.scrollView.panGestureRecognizer)
+            }
+        }
     }
 
     func applicationWillResignActive(_ application: UIApplication) {}
