@@ -85,7 +85,7 @@
             { "name": "regions", "value": "us" },
             { "name": "markets", "value": "h2h,spreads" },
             { "name": "oddsFormat", "value": "american" },
-            { "name": "apiKey", "value": "16662df6215115f9fc96050edad5dbb5" }
+            { "name": "apiKey", "value": "2d4bb7ff92134e499ec4f53affda0e94" }
           ]
         },
         "options": {
