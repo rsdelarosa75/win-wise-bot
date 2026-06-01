@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 
 interface AuthScreenProps {
   onAuthSuccess: () => void;
@@ -43,6 +44,44 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
       options: { redirectTo: window.location.origin },
     });
     if (error) setError(error.message);
+  };
+
+  const handleApple = async () => {
+    setError(null);
+    try {
+      const rawNonce = crypto.randomUUID();
+      const encoder = new TextEncoder();
+      const data = encoder.encode(rawNonce);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      const hashedNonce = Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const { response } = await SignInWithApple.authorize({
+        clientId: "com.bobbyvegasai.picks",
+        redirectURI: `${supabaseUrl}/auth/v1/callback`,
+        scopes: "name email",
+        state: crypto.randomUUID(),
+        nonce: hashedNonce,
+      });
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: "apple",
+        token: response.identityToken,
+        nonce: rawNonce,
+      });
+      if (error) throw error;
+      onAuthSuccess();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // 1001 = user cancelled, 1000 = unknown (simulator / iCloud not signed in)
+      if (msg.includes("1001") || msg.includes("1000")) return;
+      if (msg.toLowerCase().includes("icloud") || msg.toLowerCase().includes("not signed in")) {
+        setError("Sign in with Apple requires iCloud. Please sign in to iCloud in Settings.");
+      } else {
+        setError(msg);
+      }
+    }
   };
 
   return (
@@ -165,7 +204,7 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
       </div>
 
       {/* Google OAuth */}
-      <div className="w-full max-w-xs">
+      <div className="w-full max-w-xs space-y-3">
         <Button
           type="button"
           variant="outline"
@@ -191,6 +230,19 @@ export const AuthScreen = ({ onAuthSuccess }: AuthScreenProps) => {
             />
           </svg>
           Continue with Google
+        </Button>
+
+        {/* Sign in with Apple — required per App Store Guideline 4.8 */}
+        <Button
+          type="button"
+          className="w-full min-h-[48px] font-medium"
+          style={{ backgroundColor: '#000000', color: '#FFFFFF', border: 'none' }}
+          onClick={handleApple}
+        >
+          <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.36.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.39-1.32 2.76-2.54 3.99zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+          </svg>
+          Sign in with Apple
         </Button>
       </div>
     </div>
