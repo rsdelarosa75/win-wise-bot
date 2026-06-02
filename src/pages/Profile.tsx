@@ -4,9 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { LogOut } from "lucide-react";
-import { useVip } from "@/hooks/use-vip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { LogOut, ChevronLeft } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 const SPORTS = [
   { id: "nfl", label: "NFL", defaultOn: true },
@@ -23,10 +34,11 @@ const NOTIFICATIONS = [
 
 interface ProfileProps {
   onSignOut: () => Promise<void>;
+  onBack: () => void;
 }
 
-const Profile = ({ onSignOut }: ProfileProps) => {
-  const { isVIP, setVIP } = useVip();
+const Profile = ({ onSignOut, onBack }: ProfileProps) => {
+  const [deleting, setDeleting] = useState(false);
   const [sports, setSports] = useState<Record<string, boolean>>(
     Object.fromEntries(SPORTS.map((s) => [s.id, s.defaultOn]))
   );
@@ -36,8 +48,17 @@ const Profile = ({ onSignOut }: ProfileProps) => {
 
   return (
     <div style={{ height: '100dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-    <div className="space-y-4 px-4 pt-6 pb-24">
-      <h1 className="text-2xl font-bold">Profile ⚙️</h1>
+    <div className="space-y-4 px-4 pt-4 pb-24">
+      <div className="flex items-center gap-1 mb-2">
+        <button
+          onClick={onBack}
+          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 transition-colors -ml-1"
+          aria-label="Back to Home"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <h1 className="text-2xl font-bold">Profile ⚙️</h1>
+      </div>
 
       {/* Sport Preferences */}
       <Card>
@@ -85,47 +106,6 @@ const Profile = ({ onSignOut }: ProfileProps) => {
         </CardContent>
       </Card>
 
-      {/* VIP Upgrade */}
-      <Card className="border-amber-400/50 bg-amber-50/5">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Go VIP 🔥</CardTitle>
-            {isVIP && (
-              <Badge className="bg-amber-500/20 text-amber-500 border border-amber-500/30 text-xs">
-                ✅ VIP Active
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {isVIP ? (
-            <>
-              <p className="text-sm text-muted-foreground">
-                You have full access to all picks, reasoning, props and parlays.
-              </p>
-              <button
-                onClick={() => setVIP(false)}
-                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
-              >
-                Remove VIP (test)
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Unlock full picks, reasoning, props and parlays. $19.99/month
-              </p>
-              <Button
-                className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold"
-                onClick={() => setVIP(true)}
-              >
-                Upgrade to VIP
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Sign Out */}
       <Card>
         <CardContent className="pt-4 pb-4">
@@ -137,6 +117,52 @@ const Profile = ({ onSignOut }: ProfileProps) => {
             <LogOut className="w-4 h-4 mr-2" />
             Sign Out
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Delete Account */}
+      <Card>
+        <CardContent className="pt-4 pb-4">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                disabled={deleting}
+              >
+                Delete Account
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete your account? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={async () => {
+                    setDeleting(true);
+                    try {
+                      const { error } = await supabase.rpc("delete_user");
+                      if (error) throw error;
+                      toast.success("Account deleted successfully");
+                      await supabase.auth.signOut();
+                      await onSignOut();
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Failed to delete account");
+                      setDeleting(false);
+                    }
+                  }}
+                >
+                  Delete Account
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
 

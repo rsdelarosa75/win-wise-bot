@@ -41,13 +41,13 @@ const Index = () => {
   const renderPage = () => {
     switch (activeTab) {
       case "home":
-        return <Dashboard onUpgradeClick={() => setActiveTab("profile")} onPicksTabClick={() => setActiveTab("picks")} onGameSelect={handleGameSelect} />;
+        return <Dashboard onPicksTabClick={() => setActiveTab("picks")} onGameSelect={handleGameSelect} />;
       case "picks":
-        return <Picks pendingPick={pendingPick} onPendingPickConsumed={() => setPendingPick(null)} />;
+        return <Picks pendingPick={pendingPick} onPendingPickConsumed={() => setPendingPick(null)} onBack={() => setActiveTab("home")} />;
       case "tracker":
-        return <Tracker />;
+        return <Tracker onBack={() => setActiveTab("home")} />;
       case "profile":
-        return <Profile onSignOut={signOut} />;
+        return <Profile onSignOut={signOut} onBack={() => setActiveTab("home")} />;
     }
   };
 

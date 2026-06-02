@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ChevronLeft } from "lucide-react";
 import { N8nIntegration } from "@/components/ui/n8n-integration";
 import type { GameOdds } from "@/components/ui/live-odds";
 
@@ -7,6 +8,7 @@ type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB";
 interface PicksProps {
   pendingPick?: { teams: string; date: string; odds?: GameOdds; sport?: Sport } | null;
   onPendingPickConsumed?: () => void;
+  onBack?: () => void;
 }
 
 const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] = [
@@ -18,7 +20,7 @@ const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] = [
   { sport: "NCAAFB", emoji: "🏈", label: "NCAAFB" },
 ];
 
-const Picks = ({ pendingPick, onPendingPickConsumed }: PicksProps = {}) => {
+const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) => {
   const [sport, setSport] = useState<Sport>("NBA");
 
   // Auto-select the correct sport tab when a game card tap arrives with sport info
@@ -33,7 +35,16 @@ const Picks = ({ pendingPick, onPendingPickConsumed }: PicksProps = {}) => {
     <div style={{ height: '100dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
     <div className="px-4 pt-6 pb-24 space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Today's Picks 🎲</h1>
+        <div className="flex items-center gap-1 mb-1">
+          <button
+            onClick={onBack}
+            className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 transition-colors -ml-1"
+            aria-label="Back to Home"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-2xl font-bold">Today's Picks 🎲</h1>
+        </div>
         <p className="text-sm text-muted-foreground mt-1">
           Ask Bobby for AI-powered betting picks
         </p>

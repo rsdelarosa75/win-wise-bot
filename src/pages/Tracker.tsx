@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { ChevronLeft } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -60,7 +61,11 @@ const ChartTooltip = ({
   );
 };
 
-const Tracker = () => {
+interface TrackerProps {
+  onBack?: () => void;
+}
+
+const Tracker = ({ onBack }: TrackerProps = {}) => {
   const { picks, loading, updateResult } = usePicks();
 
   const wins = useMemo(
@@ -132,8 +137,17 @@ const Tracker = () => {
 
   return (
     <div style={{ height: '100dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-    <div className="w-full space-y-5 overflow-x-hidden px-4 pb-28 pt-6">
-      <h1 className="text-2xl font-bold">Season Tracker</h1>
+    <div className="w-full space-y-5 overflow-x-hidden px-4 pb-28 pt-4">
+      <div className="flex items-center gap-1">
+        <button
+          onClick={onBack}
+          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 transition-colors -ml-1"
+          aria-label="Back to Home"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <h1 className="text-2xl font-bold">Season Tracker</h1>
+      </div>
 
       {/* HEADER STATS — 4 cards */}
       <div className="grid grid-cols-2 gap-2">

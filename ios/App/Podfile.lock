@@ -1,22 +1,28 @@
 PODS:
   - Capacitor (7.6.1):
     - CapacitorCordova
+  - CapacitorCommunityAppleSignIn (7.1.0):
+    - Capacitor
   - CapacitorCordova (7.6.1)
 
 DEPENDENCIES:
   - "Capacitor (from `../../node_modules/@capacitor/ios`)"
+  - "CapacitorCommunityAppleSignIn (from `../../node_modules/@capacitor-community/apple-sign-in`)"
   - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
 
 EXTERNAL SOURCES:
   Capacitor:
     :path: "../../node_modules/@capacitor/ios"
+  CapacitorCommunityAppleSignIn:
+    :path: "../../node_modules/@capacitor-community/apple-sign-in"
   CapacitorCordova:
     :path: "../../node_modules/@capacitor/ios"
 
 SPEC CHECKSUMS:
   Capacitor: b8dd0e1151c953171b0e02d04aa57f3389edcd97
+  CapacitorCommunityAppleSignIn: 271cb2860576fd2961508bbfa7a82117d93eadca
   CapacitorCordova: 6ab7337f25a2c9ce7a3fdc2f249c480f447853e0
 
-PODFILE CHECKSUM: e5aad413742a07f9e736126612b43b6c058babcd
+PODFILE CHECKSUM: 3e1e20367b7f02d25dbc5f30ece45b40965bbe70
 
 COCOAPODS: 1.16.2
