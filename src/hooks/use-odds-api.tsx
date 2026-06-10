@@ -179,8 +179,9 @@ export const useOddsApi = (sport: OddsSport = "NBA") => {
       console.log('[OddsAPI] Total games fetched:', allGames.length, '| Now:', now.toISOString());
       console.log('[OddsAPI] Game start times:', allGames.map(g => g.commence_time));
 
+      const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
       const upcoming = allGames
-        .filter(g => new Date(g.commence_time) > now)
+        .filter(g => new Date(g.commence_time) > threeHoursAgo)
         .sort((a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime());
 
       console.log('[OddsAPI] Upcoming games after filter:', upcoming.length);
