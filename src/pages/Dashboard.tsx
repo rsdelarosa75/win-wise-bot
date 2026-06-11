@@ -4,10 +4,9 @@ import { LiveOdds } from "@/components/ui/live-odds";
 import { Card } from "@/components/ui/card";
 import type { GameOdds } from "@/components/ui/live-odds";
 
-type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB";
+type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB" | "Soccer";
 
 interface DashboardProps {
-  onUpgradeClick: () => void;
   onPicksTabClick: () => void;
   onGameSelect: (teams: string, date: string, odds?: GameOdds, sport?: Sport) => void;
 }
@@ -26,10 +25,20 @@ const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] = [
   { sport: "NHL",    emoji: "🏒", label: "NHL" },
   { sport: "NFL",    emoji: "🏈", label: "NFL" },
   { sport: "NCAAFB", emoji: "🏈", label: "NCAAFB" },
+  { sport: "Soccer", emoji: "⚽", label: "Soccer" },
 ];
 
-const Dashboard = ({ onUpgradeClick, onPicksTabClick, onGameSelect }: DashboardProps) => {
+const Dashboard = ({ onPicksTabClick, onGameSelect }: DashboardProps) => {
   const [oddsSport, setOddsSport] = useState<Sport>("NBA");
+  const [picksLabel, setPicksLabel] = useState("Today's Picks");
+
+  const handleSportsChange = (sports: string[]) => {
+    if (sports.length === 1) {
+      setPicksLabel(`Today's ${sports[0]} Picks`);
+    } else {
+      setPicksLabel("Today's Picks");
+    }
+  };
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -49,7 +58,7 @@ const Dashboard = ({ onUpgradeClick, onPicksTabClick, onGameSelect }: DashboardP
         </p>
         {/* Sports icons */}
         <div className="flex items-center gap-3 text-xl mt-2">
-          {['🏈', '⚾', '🏀', '🏒'].map((emoji, i) => (
+          {['🏈', '⚾', '🏀', '🏒', '⚽'].map((emoji, i) => (
             <span
               key={emoji}
               style={{ animation: `bv-shimmer 2.6s ease-in-out ${i * 0.4}s infinite` }}
@@ -60,10 +69,10 @@ const Dashboard = ({ onUpgradeClick, onPicksTabClick, onGameSelect }: DashboardP
         </div>
       </div>
 
-      {/* Today's NBA Picks */}
+      {/* Today's Picks */}
       <div>
-        <h2 className="text-base font-semibold mb-3">Today's NBA Picks</h2>
-        <TelegramAnalyses onUpgradeClick={onUpgradeClick} onPicksTabClick={onPicksTabClick} />
+        <h2 className="text-base font-semibold mb-3">{picksLabel}</h2>
+        <TelegramAnalyses onPicksTabClick={onPicksTabClick} onSportsChange={handleSportsChange} />
       </div>
 
       {/* Live Odds */}

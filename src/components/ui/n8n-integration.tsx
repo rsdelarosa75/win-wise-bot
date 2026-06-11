@@ -9,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { usePicks } from "@/hooks/use-picks";
 import { toast as sonnerToast } from "sonner";
-
 const cleanHtmlContent = (html: string): string =>
   html
     .replace(/<[^>]*>/g, "")
@@ -21,7 +20,6 @@ const cleanHtmlContent = (html: string): string =>
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/\n\s*\n/g, "\n\n")
     .trim();
-
 // ── The Odds API: fetch lines for typed matchup before webhook ─────────
 interface OddsApiGame {
   commence_time: string;
@@ -34,7 +32,6 @@ interface OddsApiGame {
     }>;
   }>;
 }
-
 // Known alternate names → canonical nickname (lowercase)
 const TEAM_ALIASES: Record<string, string> = {
   "a's": "athletics",
@@ -51,12 +48,10 @@ const TEAM_ALIASES: Record<string, string> = {
   "sf giants": "giants",
   "sf": "giants",
 };
-
 const normalizeTeamToken = (s: string): string => {
   const lower = s.toLowerCase().trim().replace(/\s+/g, " ");
   return TEAM_ALIASES[lower] ?? lower;
 };
-
 const teamMatchesUser = (apiFullName: string, userFragment: string) => {
   const a = normalizeTeamToken(apiFullName);
   const u = normalizeTeamToken(userFragment);
@@ -69,7 +64,6 @@ const teamMatchesUser = (apiFullName: string, userFragment: string) => {
   if (words.length === 0) return false;
   return words.every((w) => a.includes(w));
 };
-
 const parseMatchupTeams = (raw: string): [string, string] | null => {
   const t = raw.trim();
   if (!t) return null;
@@ -83,11 +77,9 @@ const parseMatchupTeams = (raw: string): [string, string] | null => {
   }
   return null;
 };
-
 const gameMatchesUserTeams = (game: OddsApiGame, u1: string, u2: string) =>
   (teamMatchesUser(game.away_team, u1) && teamMatchesUser(game.home_team, u2)) ||
   (teamMatchesUser(game.away_team, u2) && teamMatchesUser(game.home_team, u1));
-
 const localYmd = (iso: string) => {
   const d = new Date(iso);
   const y = d.getFullYear();
@@ -95,13 +87,11 @@ const localYmd = (iso: string) => {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 };
-
 const extractMlSpread = (game: OddsApiGame) => {
   let awayMl = "N/A";
   let homeMl = "N/A";
   let awaySpr: string | null = null;
   let homeSpr: string | null = null;
-
   for (const bm of game.bookmakers ?? []) {
     const h2h = bm.markets?.find((m) => m.key === "h2h");
     if (h2h?.outcomes) {
@@ -128,7 +118,6 @@ const extractMlSpread = (game: OddsApiGame) => {
   }
   return { awayMl, homeMl, awaySpr, homeSpr };
 };
-
 const formatOddsForPayload = (game: OddsApiGame) => {
   const { awayMl, homeMl, awaySpr, homeSpr } = extractMlSpread(game);
   let s = `Moneyline: ${game.away_team} ${awayMl} / ${game.home_team} ${homeMl}`;
@@ -137,7 +126,6 @@ const formatOddsForPayload = (game: OddsApiGame) => {
   }
   return s;
 };
-
 const pickBestGame = (candidates: OddsApiGame[], targetDate: string): OddsApiGame | null => {
   if (candidates.length === 0) return null;
   if (candidates.length === 1) return candidates[0];
@@ -147,7 +135,6 @@ const pickBestGame = (candidates: OddsApiGame[], targetDate: string): OddsApiGam
     (a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime()
   )[0];
 };
-
 /** Local calendar date for "yesterday" (back-to-back detection). */
 const yesterdayLocalYmd = () => {
   const d = new Date();
@@ -157,20 +144,16 @@ const yesterdayLocalYmd = () => {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 };
-
 const todayLocalYmd = () => {
   const d = new Date();
   return d.toLocaleDateString("en-CA", { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
 };
-
-
 const resolveCanonicalTeam = (userTeam: string, matched: OddsApiGame | null): string => {
   if (!matched) return userTeam;
   if (teamMatchesUser(matched.away_team, userTeam)) return matched.away_team;
   if (teamMatchesUser(matched.home_team, userTeam)) return matched.home_team;
   return userTeam;
 };
-
 /** True if `team` appears in this game and tip-off falls on `ymd` (local). */
 const teamPlayedOnLocalDate = (games: OddsApiGame[], team: string, ymd: string) =>
   games.some(
@@ -178,7 +161,6 @@ const teamPlayedOnLocalDate = (games: OddsApiGame[], team: string, ymd: string) 
       (teamMatchesUser(g.away_team, team) || teamMatchesUser(g.home_team, team)) &&
       localYmd(g.commence_time) === ymd
   );
-
 /**
  * Uses Odds API scores (recent completed) + odds list (upcoming) to detect a game on yesterday's calendar.
  */
@@ -206,7 +188,6 @@ const computeBackToBack = (
   }
   return parts.join(" ");
 };
-
 type MatchupOddsResult = {
   matchedGame: OddsApiGame | null;
   oddsPayload: string;
@@ -214,7 +195,6 @@ type MatchupOddsResult = {
   injuries: string;
   teamRecords: string;
 };
-
 /** ESPN /injuries team block */
 interface EspnTeamInjuryBlock {
   displayName?: string;
@@ -224,10 +204,8 @@ interface EspnTeamInjuryBlock {
     details?: { type?: string; detail?: string };
   }>;
 }
-
 const INJURIES_ESPN_URL =
   "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries";
-
 /**
  * ESPN NBA injuries, filtered to the two matchup teams. Returns a single line for Bobby's webhook.
  */
@@ -236,18 +214,15 @@ async function fetchInjuryReport(awayTeam: string, homeTeam: string): Promise<st
   try {
     const res = await fetch(INJURIES_ESPN_URL);
     console.log("[Injuries] Response status:", res.status);
-
     const data: unknown = await res.json();
     console.log(
       "[Injuries] Raw (truncated):",
       JSON.stringify(data ?? null).slice(0, 500)
     );
-
     if (!res.ok) {
       console.log("[Injuries] Request failed (non-OK status)");
       return "No injury data available";
     }
-
     const blocks = (data as { injuries?: EspnTeamInjuryBlock[] })?.injuries ?? [];
     const matching = blocks.filter(
       (b) =>
@@ -255,18 +230,15 @@ async function fetchInjuryReport(awayTeam: string, homeTeam: string): Promise<st
         (teamMatchesUser(b.displayName, awayTeam) ||
           teamMatchesUser(b.displayName, homeTeam))
     );
-
     console.log(
       "[Injuries] Matching team blocks:",
       matching.length,
       matching.map((m) => m.displayName)
     );
-
     if (matching.length === 0) {
       console.log("[Injuries] No ESPN team blocks matched away/home");
       return "No injury entries for these teams on ESPN.";
     }
-
     const parts: string[] = [];
     for (const block of matching) {
       const header = `${(block.displayName ?? "Team").toUpperCase()} INJURIES:`;
@@ -283,7 +255,6 @@ async function fetchInjuryReport(awayTeam: string, homeTeam: string): Promise<st
         rows.length > 0 ? `${header} ${rows.join("; ")}` : `${header} None listed`
       );
     }
-
     const out = parts.join(" | ");
     console.log("[Injuries] Formatted result:", out);
     return out;
@@ -292,7 +263,6 @@ async function fetchInjuryReport(awayTeam: string, homeTeam: string): Promise<st
     return "No injury data available";
   }
 }
-
 /**
  * Fetch probable starting pitchers for an MLB matchup from ESPN's scoreboard.
  * Returns a formatted string like "Away: Gerrit Cole | Home: Shane Bieber" or fallback.
@@ -310,7 +280,6 @@ async function fetchMlbProbablePitchers(
     console.log("[MLB Pitchers] ESPN response status:", res.status);
     if (!res.ok) return "Probable pitchers unavailable";
     const data: unknown = await res.json();
-
     const events = (data as { events?: unknown[] })?.events ?? [];
     console.log("[MLB Pitchers] Total events on scoreboard:", events.length);
     console.log("[MLB Pitchers] All games:", events.map((e: any) => {
@@ -320,7 +289,6 @@ async function fetchMlbProbablePitchers(
       const probables = (c?.probables ?? []).map((p: any) => `${p.homeAway}: ${p.athlete?.displayName ?? "TBD"}`);
       return `${away} @ ${home} | probables: [${probables.join(", ") || "none"}]`;
     }));
-
     for (const event of events as Array<{
       competitions?: Array<{
         competitors?: Array<{ homeAway?: string; team?: { displayName?: string } }>;
@@ -332,12 +300,10 @@ async function fetchMlbProbablePitchers(
     }>) {
       const comp = event.competitions?.[0];
       if (!comp) continue;
-
       const competitors = comp.competitors ?? [];
       const away = competitors.find((c) => c.homeAway === "away");
       const home = competitors.find((c) => c.homeAway === "home");
       if (!away?.team?.displayName || !home?.team?.displayName) continue;
-
       if (
         !teamMatchesUser(away.team.displayName, awayTeam) &&
         !teamMatchesUser(home.team.displayName, awayTeam)
@@ -346,7 +312,6 @@ async function fetchMlbProbablePitchers(
         !teamMatchesUser(away.team.displayName, homeTeam) &&
         !teamMatchesUser(home.team.displayName, homeTeam)
       ) continue;
-
       const probables = comp.probables ?? [];
       console.log("[MLB Pitchers] Matched game:", away.team.displayName, "@", home.team.displayName);
       console.log("[MLB Pitchers] Raw probables array:", JSON.stringify(probables));
@@ -356,7 +321,6 @@ async function fetchMlbProbablePitchers(
       console.log("[MLB Pitchers] Final result:", result);
       return result;
     }
-
     console.log("[MLB Pitchers] No matching game found for", awayTeam, "vs", homeTeam);
     return "Probable pitchers not yet announced";
   } catch (e) {
@@ -364,7 +328,6 @@ async function fetchMlbProbablePitchers(
     return "Probable pitchers unavailable";
   }
 }
-
 /**
  * Fetch MLB team records (overall/home/away, streak, runs/game, run differential)
  * via the same proxy pattern used for NBA records to avoid CORS.
@@ -379,7 +342,6 @@ async function fetchMlbTeamRecords(awayTeam: string, homeTeam: string): Promise<
     const teamsData = await teamsRes.json();
     const teams: Array<{ id: string; displayName: string; shortDisplayName?: string; nickname?: string }> =
       teamsData.sports[0].leagues[0].teams.map((t: { team: unknown }) => t.team);
-
     const findTeam = (name: string) => {
       const lower = name.toLowerCase();
       return teams.find(
@@ -390,19 +352,15 @@ async function fetchMlbTeamRecords(awayTeam: string, homeTeam: string): Promise<
           t.nickname?.toLowerCase().includes(lower)
       );
     };
-
     const homeObj = findTeam(homeTeam);
     const awayObj = findTeam(awayTeam);
     console.log("[MLB Records] Matched teams — home:", homeObj?.displayName, "| away:", awayObj?.displayName);
-
     if (!homeObj || !awayObj) return "Team records unavailable";
-
     const [homeRes, awayRes] = await Promise.all([
       fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/${homeObj.id}`),
       fetch(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/${awayObj.id}`),
     ]);
     const [homeData, awayData] = await Promise.all([homeRes.json(), awayRes.json()]);
-
     const formatRecord = (data: unknown, name: string): string => {
       const items = (data as { team?: { record?: { items?: Array<{ type?: string; summary?: string; stats?: Array<{ name?: string; value?: number }> }> } } })?.team?.record?.items ?? [];
       const overall = items.find((r) => r.type === "total") ?? items[0];
@@ -428,7 +386,6 @@ async function fetchMlbTeamRecords(awayTeam: string, homeTeam: string): Promise<
         `Run differential: ${diffStr}`
       );
     };
-
     const records = formatRecord(homeData, homeObj.displayName) + "\n" + formatRecord(awayData, awayObj.displayName);
     console.log("[MLB Records] Final records:\n", records);
     return records;
@@ -437,12 +394,9 @@ async function fetchMlbTeamRecords(awayTeam: string, homeTeam: string): Promise<
     return "No team record data available";
   }
 }
-
 const ESPN_NBA_TEAMS_URL =
   "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
-
 type EspnTeamListEntry = { id: string; displayName: string };
-
 function parseEspnNbaTeamList(data: unknown): EspnTeamListEntry[] {
   const sports = (data as {
     sports?: Array<{ leagues?: Array<{ teams?: Array<{ team?: { id?: string; displayName?: string } }> }> }>;
@@ -457,7 +411,6 @@ function parseEspnNbaTeamList(data: unknown): EspnTeamListEntry[] {
   }
   return out;
 }
-
 function findEspnTeamByUserFragment(
   teams: EspnTeamListEntry[],
   userFragment: string
@@ -467,7 +420,6 @@ function findEspnTeamByUserFragment(
   }
   return null;
 }
-
 function recordStatValue(
   stats: Array<{ name?: string; value?: number }> | undefined,
   name: string
@@ -475,7 +427,6 @@ function recordStatValue(
   const s = stats?.find((x) => x.name === name);
   return s?.value;
 }
-
 function formatStreakFromStats(
   stats: Array<{ name?: string; value?: number }> | undefined
 ): string {
@@ -486,7 +437,6 @@ function formatStreakFromStats(
   if (v < 0) return `L${n}`;
   return "0";
 }
-
 function formatOneTeamRecordLine(displayName: string, recordJson: unknown): string | null {
   const items = (recordJson as {
     team?: { record?: { items?: Array<{ summary?: string; stats?: Array<{ name?: string; value?: number }> }> } };
@@ -504,7 +454,6 @@ function formatOneTeamRecordLine(displayName: string, recordJson: unknown): stri
   const label = displayName.toUpperCase();
   return `${label}: ${overall} overall | ${home} home | ${away} away | Streak: ${streak} | Avg: ${apfStr} pts for / ${apaStr} pts against`;
 }
-
 async function fetchTeamRecords(awayTeam: string, homeTeam: string): Promise<string> {
   console.log("[NBA Records] Fetching direct from ESPN — away:", awayTeam, "| home:", homeTeam);
   try {
@@ -515,7 +464,6 @@ async function fetchTeamRecords(awayTeam: string, homeTeam: string): Promise<str
     const teamsData = await teamsRes.json();
     const teams: Array<{ id: string; displayName: string }> =
       teamsData.sports[0].leagues[0].teams.map((t: { team: unknown }) => t.team);
-
     const findTeam = (name: string) => {
       const lower = name.toLowerCase();
       return teams.find(
@@ -524,19 +472,15 @@ async function fetchTeamRecords(awayTeam: string, homeTeam: string): Promise<str
           lower.includes(t.displayName.toLowerCase())
       );
     };
-
     const homeObj = findTeam(homeTeam);
     const awayObj = findTeam(awayTeam);
     console.log("[NBA Records] Matched — home:", homeObj?.displayName, "| away:", awayObj?.displayName);
-
     if (!homeObj || !awayObj) return "Team records unavailable";
-
     const [homeRes, awayRes] = await Promise.all([
       fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${homeObj.id}`),
       fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${awayObj.id}`),
     ]);
     const [homeData, awayData] = await Promise.all([homeRes.json(), awayRes.json()]);
-
     const formatRecord = (data: unknown, name: string): string => {
       const items = (data as { team?: { record?: { items?: Array<{ type?: string; summary?: string }> } } })
         ?.team?.record?.items ?? [];
@@ -546,7 +490,6 @@ async function fetchTeamRecords(awayTeam: string, homeTeam: string): Promise<str
       if (!overall) return `${name}: Record unavailable`;
       return `${name}: ${overall.summary ?? "—"} overall | Home: ${home?.summary ?? "—"} | Away: ${away?.summary ?? "—"}`;
     };
-
     const records = formatRecord(homeData, homeObj.displayName) + "\n" + formatRecord(awayData, awayObj.displayName);
     console.log("[NBA Records] Final records:\n", records);
     return records;
@@ -555,8 +498,6 @@ async function fetchTeamRecords(awayTeam: string, homeTeam: string): Promise<str
     return "No team record data available";
   }
 }
-
-
 async function fetchMatchupOddsForWebhook(
   teamsValue: string,
   targetDate: string
@@ -568,20 +509,17 @@ async function fetchMatchupOddsForWebhook(
     injuries: "",
     teamRecords: "",
   });
-
   const apiKey = import.meta.env.VITE_ODDS_API_KEY as string | undefined;
   if (!apiKey?.trim()) {
     console.log("[N8nIntegration] Odds prefetch: missing VITE_ODDS_API_KEY");
     return empty();
   }
-
   const trimmed = teamsValue.trim();
   const pair = parseMatchupTeams(trimmed);
   if (!pair) {
     console.log("[N8nIntegration] Odds prefetch: could not parse teams from:", teamsValue);
     return empty();
   }
-
   const [awayTeam, homeTeam] = pair;
   const oddsUrl =
     "https://api.the-odds-api.com/v4/sports/basketball_nba/odds/?" +
@@ -592,10 +530,8 @@ async function fetchMatchupOddsForWebhook(
       oddsFormat: "american",
       dateFormat: "iso",
     });
-
   const yesterday = yesterdayLocalYmd().replace(/-/g, "");
   const espnUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${yesterday}`;
-
   try {
     console.log("[B2B] Fetching ESPN scoreboard (yesterday)");
     const [oddsRes, espnRes, injuriesStr, teamRecordsStr] = await Promise.all([
@@ -606,14 +542,12 @@ async function fetchMatchupOddsForWebhook(
     ]);
     const oddsData: unknown = await oddsRes.json();
     const espnData: unknown = await espnRes.json();
-
     console.log("[B2B] ESPN response status:", espnRes.status);
     console.log(
       "[B2B] ESPN raw (truncated):",
       JSON.stringify(espnData ?? null).slice(0, 500)
     );
     console.log("[B2B] Yesterday date:", yesterdayLocalYmd());
-
     const espnEvents = (espnData as { events?: unknown[] })?.events ?? [];
     const scoresData: OddsApiGame[] = espnEvents.map((event: {
       date?: string;
@@ -630,14 +564,11 @@ async function fetchMatchupOddsForWebhook(
         home_team: home?.team?.displayName ?? "",
       };
     });
-
     console.log(
       "[B2B] ESPN games:",
       scoresData.map((g) => `${g.away_team} @ ${g.home_team}`)
     );
-
     const scoresGames = scoresData;
-
     console.log("[N8nIntegration] Odds API full response:", oddsData);
     console.log(
       "[N8nIntegration] Back-to-back check: yesterday (local) =",
@@ -645,7 +576,6 @@ async function fetchMatchupOddsForWebhook(
       "| ESPN game rows:",
       scoresGames.length
     );
-
     if (!oddsRes.ok) {
       console.log("[N8nIntegration] Odds API HTTP error:", oddsRes.status, oddsData);
     }
@@ -653,7 +583,6 @@ async function fetchMatchupOddsForWebhook(
     if (!Array.isArray(oddsData)) {
       console.log("[N8nIntegration] Odds API: expected games array, got:", typeof oddsData);
     }
-
     if (!oddsRes.ok || !Array.isArray(oddsData)) {
       const backToBackOnly = computeBackToBack(
         games,
@@ -672,13 +601,11 @@ async function fetchMatchupOddsForWebhook(
         teamRecords: teamRecordsStr,
       };
     }
-
     console.log(
       "Odds API games:",
       games.map((g) => g.away_team + " vs " + g.home_team)
     );
     console.log("Searching for:", awayTeam, "vs", homeTeam);
-
     const matches = games.filter(
       (g) =>
         g?.away_team &&
@@ -686,17 +613,13 @@ async function fetchMatchupOddsForWebhook(
         gameMatchesUserTeams(g, awayTeam, homeTeam)
     );
     console.log("[N8nIntegration] Odds games matching teams:", matches.length);
-
     const matchedGame = pickBestGame(matches, targetDate);
     const oddsPayload = matchedGame ? formatOddsForPayload(matchedGame) : "";
-
     const backToBack = computeBackToBack(games, scoresGames, awayTeam, homeTeam, matchedGame);
-
     console.log("[B2B] Back to back result:", backToBack);
     console.log("Matched game:", matchedGame);
     console.log("Odds payload being sent:", oddsPayload);
     console.log("[N8nIntegration] backToBack:", backToBack || "(empty)");
-
     return {
       matchedGame,
       oddsPayload,
@@ -709,7 +632,6 @@ async function fetchMatchupOddsForWebhook(
     return empty();
   }
 }
-
 const isProcessingResponse = (rawText: string): boolean => {
   try {
     const data = JSON.parse(rawText);
@@ -718,7 +640,6 @@ const isProcessingResponse = (rawText: string): boolean => {
     return false;
   }
 };
-
 // True when the response contains a real analysis (stop polling)
 const isReadyResponse = (rawText: string): boolean => {
   if (!rawText || !rawText.trim()) return false;
@@ -737,22 +658,59 @@ const isReadyResponse = (rawText: string): boolean => {
   }
 };
 
+// ── FIXED: parseWebhookDisplayContent ─────────────────────────────────
+// Now handles all N8N response shapes across NBA/MLB/NHL/NFL/WNBA/NCAAFB
 const parseWebhookDisplayContent = (rawText: string): string => {
   try {
     const parsed = JSON.parse(rawText);
     const data = Array.isArray(parsed) ? parsed[0] : parsed;
+
+    // Unwrap N8N message object — handles both object and plain string forms
     const messageContent =
       typeof data?.message === "object" && data?.message !== null
-        ? data.message?.content ?? null
+        ? data.message?.content ?? data.message?.text ?? null
+        : typeof data?.message === "string"
+        ? data.message
         : null;
+
+    // Walk all common field names — N8N webhooks vary by workflow
     const textContent =
-      data?.analysis ?? data?.output ?? data?.text ??
-      messageContent ?? data?.content ?? data?.recommendation ??
-      data?.result ?? null;
-    if (typeof textContent === "string") return textContent;
-    if (typeof textContent === "object" && textContent !== null)
-      return JSON.stringify(textContent, null, 2);
-    return JSON.stringify(parsed, null, 2);
+      data?.analysis ??
+      data?.output ??
+      data?.text ??
+      data?.response ??
+      messageContent ??
+      data?.content ??
+      data?.recommendation ??
+      data?.result ??
+      data?.pick ??
+      data?.reply ??
+      null;
+
+    if (typeof textContent === "string" && textContent.trim().length > 0) {
+      return textContent;
+    }
+
+    // Deep search: if top-level keys failed, scan all values for any
+    // string that looks like real analysis content (> 50 chars)
+    if (typeof data === "object" && data !== null) {
+      for (const val of Object.values(data)) {
+        if (typeof val === "string" && val.trim().length > 50) {
+          return val;
+        }
+        // One level deeper — e.g. data.body.text or data.data.output
+        if (typeof val === "object" && val !== null) {
+          for (const inner of Object.values(val as object)) {
+            if (typeof inner === "string" && inner.trim().length > 50) {
+              return inner;
+            }
+          }
+        }
+      }
+    }
+
+    // Nothing matched — return raw text so something is always shown
+    return rawText;
   } catch {
     return rawText;
   }
@@ -765,7 +723,6 @@ const formatGameOddsProp = (o: GameOdds): string => {
   }
   return s;
 };
-
 // Extract a labelled field from analysis text, e.g. "CONFIDENCE: High"
 const extractField = (text: string, ...keys: string[]): string | null => {
   for (const key of keys) {
@@ -775,7 +732,6 @@ const extractField = (text: string, ...keys: string[]): string | null => {
   }
   return null;
 };
-
 // ── Plain text renderer (replaces ReactMarkdown for Safari compat) ──
 const renderInline = (raw: string) => {
   const parts = raw.split("**");
@@ -785,7 +741,6 @@ const renderInline = (raw: string) => {
       : <span key={i}>{part}</span>
   );
 };
-
 const renderAnalysis = (text: string) => {
   if (!text) return null;
   return (
@@ -815,9 +770,7 @@ const renderAnalysis = (text: string) => {
     </div>
   );
 };
-
-type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB";
-
+type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB" | "Soccer";
 const SPORT_CONFIG: Record<Sport, { webhookUrl: string }> = {
   NBA:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nba-picks"    },
   MLB:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks"    },
@@ -825,14 +778,13 @@ const SPORT_CONFIG: Record<Sport, { webhookUrl: string }> = {
   NHL:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nhl-picks"    },
   NFL:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nfl-picks"    },
   NCAAFB: { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/ncaafb-picks" },
+  Soccer: { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/soccer-picks" },
 };
-
 interface N8nIntegrationProps {
   sport?: Sport;
   pendingPick?: { teams: string; date: string; odds?: GameOdds; sport?: Sport } | null;
   onPendingPickConsumed?: () => void;
 }
-
 const NCAAFB_PROMPT = (teams: string, dateValue: string, oddsPayload: string): string => [
   `COLLEGE FOOTBALL BETTING ANALYSIS REQUEST — ${teams} — ${dateValue}`,
   ``,
@@ -851,16 +803,13 @@ const NCAAFB_PROMPT = (teams: string, dateValue: string, oddsPayload: string): s
   ``,
   `Conclude with a clear BOBBY'S PICK, BET TYPE (moneyline / spread / total), CONFIDENCE (High/Medium/Low), and UNITS (1-3).`,
 ].join("\n");
-
 export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsumed }: N8nIntegrationProps = {}) => {
   // Ref always holds the latest sport so async closures never read a stale value
   const sportRef = useRef<Sport>(sport);
   sportRef.current = sport;
-
   const { user } = useAuth();
   const { savePick } = usePicks();
   const { toast } = useToast();
-
   const [isLoading, setIsLoading] = useState(false);
   const [lastTriggered, setLastTriggered] = useState<Date | null>(null);
   const [briefContent, setBriefContent] = useState("");
@@ -869,14 +818,12 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
   const [pickSaved, setPickSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
-
   const LOADING_MESSAGES = [
     "Bobby is analyzing the odds...",
     "Checking the injury reports...",
     "Consulting the crystal ball...",
     "Running the numbers...",
   ];
-
   // Cycle loading messages every 2 seconds while waiting
   useEffect(() => {
     if (!isLoading) return;
@@ -886,10 +833,8 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
     }, 2000);
     return () => clearInterval(interval);
   }, [isLoading]);
-
   // Reset saved state whenever new content arrives
   useEffect(() => { setPickSaved(false); }, [briefContent]);
-
   // Core fetch logic — called from both form submit and auto-trigger
   const triggerFetch = async (teamsValue: string, dateValue: string, odds?: GameOdds, sportOverride?: Sport) => {
     console.log("[DEBUG] sportRef.current at fetch time:", sportRef.current);
@@ -897,21 +842,16 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
     const currentSport = sportOverride ?? sportRef.current;
     const { webhookUrl: url } = SPORT_CONFIG[currentSport];
     console.log("[DEBUG] derived url:", url);
-
     console.group("[N8nIntegration] triggerFetch called");
     console.log("sport (ref):", currentSport);
     console.log("url (derived):", url);
     console.log("teams:", teamsValue, "| date:", dateValue);
     console.groupEnd();
-
     setIsLoading(true);
-
     try {
       const teams = teamsValue.trim() || "general recommendations";
-
       let oddsPayload = "";
       let sportPayload: Record<string, unknown> = {};
-
       if (currentSport === "NBA") {
         const result = await fetchMatchupOddsForWebhook(teamsValue, dateValue);
         oddsPayload = result.oddsPayload;
@@ -931,7 +871,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         console.log("[NCAAFB] oddsPayload:", oddsPayload || "(none — no Live Odds card data)");
         const ncaafbPromptText = NCAAFB_PROMPT(teams, dateValue, oddsPayload);
         sportPayload = {
-          odds: oddsPayload,   // always present — matches NBA pattern
+          odds: oddsPayload,
           text: ncaafbPromptText,
           prompt: ncaafbPromptText,
         };
@@ -939,17 +879,12 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         const pair = parseMatchupTeams(teamsValue.trim());
         const [awayTeam, homeTeam] = pair ?? [teamsValue.trim(), ""];
         if (odds) oddsPayload = formatGameOddsProp(odds);
-
         const [pitchers, mlbTeamRecords] = await Promise.all([
           fetchMlbProbablePitchers(awayTeam, homeTeam, dateValue),
           fetchMlbTeamRecords(awayTeam, homeTeam),
         ]);
-
         console.log("[MLB] Probable pitchers:", pitchers);
         console.log("[MLB] Team records:", mlbTeamRecords);
-
-        // Build a fully-interpolated prompt so n8n workflows that inject
-        // {{ $json.text }} pick up every data point without extra field mappings.
         const mlbPromptText = [
           `MLB BETTING ANALYSIS REQUEST — ${teams} — ${dateValue}`,
           ``,
@@ -974,7 +909,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           ``,
           `Conclude with a clear BOBBY'S PICK, BET TYPE (moneyline / run line / total), CONFIDENCE (High/Medium/Low), and UNITS (1-5).`,
         ].join("\n");
-
         sportPayload = {
           ...(oddsPayload && { odds: oddsPayload }),
           probablePitchers: pitchers,
@@ -983,64 +917,52 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           prompt: mlbPromptText,
         };
       }
-
       const payload: Record<string, unknown> = {
         sport: currentSport,
         sports: [currentSport],
         teams,
-        text: teams,          // overridden by sportPayload.text for MLB
+        text: teams,
         persona: "bobby_vegas",
         targetDate: dateValue,
         test: true,
-        ...sportPayload,      // MLB sets text + prompt to the full interpolated prompt
+        ...sportPayload,
       };
-
       const headers = { "Content-Type": "application/json", "Accept": "application/json" };
       const body = JSON.stringify(payload);
-
       console.group(`[N8nIntegration] ▶ ${currentSport} request`);
       console.log("URL:", url);
       console.log("Payload:", payload);
       console.groupEnd();
-
       // NBA responds in seconds; all other sports use a 180s timeout
       const controller = new AbortController();
       const timeoutId = currentSport !== "NBA"
         ? setTimeout(() => controller.abort(), 180_000)
         : null;
-
       let response: Response;
       try {
         response = await fetch(url, { method: "POST", headers, body, signal: controller.signal });
       } finally {
         if (timeoutId !== null) clearTimeout(timeoutId);
       }
-
       if (response.status === 403) throw new Error("403");
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
       const rawText = await response.text();
       console.group(`[N8nIntegration] ◀ Response`);
       console.log("Status:", response.status);
       console.log("Body:", rawText);
       console.groupEnd();
-
       setLastTriggered(new Date());
       toast({ title: "Bobby's pick is ready 🎲" });
-
       if (!rawText || !rawText.trim()) {
         setBriefContent(
           'Bobby returned an empty response. Make sure your n8n workflow has a "Respond to Webhook" node at the end.'
         );
         return;
       }
-
       const displayContent = parseWebhookDisplayContent(rawText);
       console.log("[N8nIntegration] Display content:", displayContent.slice(0, 200));
-
       const cleanContent = cleanHtmlContent(displayContent);
       setBriefContent(cleanContent);
-
       // Only save real Bobby Vegas analysis — never raw JSON or processing stubs.
       const isRealAnalysis = (text: string): boolean => {
         if (!text || text.trim().length < 50) return false;
@@ -1048,7 +970,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         if (lower.includes('"status"') || lower.includes('"jobid"') || lower.includes('"processing"')) return false;
         return /GAME:|PICK:|CONFIDENCE:|MONEYLINE|BOBBY'S PICK|BET TYPE/i.test(text);
       };
-
       // Push this pick to the Home screen's Bobby's Picks section
       if (isRealAnalysis(cleanContent)) {
         const pickText  = extractField(cleanContent, "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation", "BET", "My Pick");
@@ -1100,7 +1021,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       setIsLoading(false);
     }
   };
-
   // Auto-trigger when a game card is tapped from Live Odds
   const pendingPickRef = useRef<string | null>(null);
   useEffect(() => {
@@ -1113,18 +1033,15 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
     onPendingPickConsumed?.();
     triggerFetch(pendingPick.teams, pendingPick.date, pendingPick.odds, pendingPick.sport);
   }, [pendingPick]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await triggerFetch(specificTeams, targetDate);
   };
-
   const handleSavePick = async () => {
     if (!user) {
       sonnerToast("Sign in to save picks");
       return;
     }
-
     setIsSaving(true);
     try {
       const teams = specificTeams.trim() || `${sportRef.current} Analysis`;
@@ -1136,7 +1053,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         briefContent,
         "CONFIDENCE", "Confidence Level", "Confidence"
       );
-
       await savePick({
         teams,
         sport: sportRef.current,
@@ -1146,7 +1062,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         odds: extractField(briefContent, "ODDS", "Current Odds", "Line") ?? null,
         bet_type: extractField(briefContent, "BET TYPE", "Bet Type", "TYPE") ?? null,
       });
-
       setPickSaved(true);
       sonnerToast("Saved to Tracker! 🎲✅");
     } catch {
@@ -1155,7 +1070,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       setIsSaving(false);
     }
   };
-
   return (
     <div className="space-y-4">
       {/* Form card */}
@@ -1168,11 +1082,12 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
             <Input
               id="teams"
               placeholder={
-                sport === "MLB"    ? "e.g., Red Sox vs Yankees"  :
-                sport === "WNBA"   ? "e.g., Liberty vs Aces"     :
-                sport === "NHL"    ? "e.g., Panthers vs Oilers"  :
-                sport === "NFL"    ? "e.g., Chiefs vs Bills"      :
-                sport === "NCAAFB" ? "e.g., Alabama vs Georgia"  :
+                sport === "MLB"    ? "e.g., Red Sox vs Yankees"    :
+                sport === "WNBA"   ? "e.g., Liberty vs Aces"       :
+                sport === "NHL"    ? "e.g., Panthers vs Oilers"    :
+                sport === "NFL"    ? "e.g., Chiefs vs Bills"        :
+                sport === "NCAAFB" ? "e.g., Alabama vs Georgia"    :
+                sport === "Soccer" ? "e.g., Brazil vs Argentina"   :
                                      "e.g., Lakers vs Warriors"
               }
               value={specificTeams}
@@ -1180,7 +1095,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
               className="h-11 text-sm bg-background/50"
             />
           </div>
-
           <div className="space-y-1.5">
             <Label htmlFor="target-date" className="text-sm font-medium">
               Target Date
@@ -1193,7 +1107,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
               className="h-11 text-sm bg-background/50"
             />
           </div>
-
           <Button
             type="submit"
             disabled={isLoading}
@@ -1204,7 +1117,6 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
             {isLoading ? "Bobby's on it…" : "Get Bobby's Pick"}
           </Button>
         </form>
-
         {lastTriggered && (
           <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
             <CheckCircle className="w-3.5 h-3.5 text-win shrink-0" />
@@ -1212,13 +1124,12 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           </div>
         )}
       </Card>
-
       {/* Loading state */}
       {isLoading && (
         <Card className="p-8 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
           <div className="flex flex-col items-center justify-center gap-4 py-4">
             <span className="text-6xl animate-bounce">
-              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈" } as Record<string, string>)[sport] ?? "🎲"}
+              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽" } as Record<string, string>)[sport] ?? "🎲"}
             </span>
             <p className="text-sm font-medium text-foreground/80 text-center transition-all duration-500">
               {LOADING_MESSAGES[loadingMsgIdx]}
@@ -1226,25 +1137,22 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           </div>
         </Card>
       )}
-
       {/* Result card */}
       {briefContent && !isLoading && (
         <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-x-hidden">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-base leading-none">
-              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈" } as Record<string, string>)[sport] ?? "🎲"}
+              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽" } as Record<string, string>)[sport] ?? "🎲"}
             </span>
             <h3 className="text-sm font-semibold">Bobby's Pick</h3>
             <span className="ml-auto text-xs text-muted-foreground">
               {new Date().toLocaleTimeString()}
             </span>
           </div>
-
           {/* Analysis text */}
           <div className="bg-background/50 rounded-lg p-3 mb-4 w-full">
             {renderAnalysis(briefContent)}
           </div>
-
           {/* Save Pick button */}
           {user ? (
             <Button
