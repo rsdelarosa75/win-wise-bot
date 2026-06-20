@@ -54,7 +54,7 @@ const ChartTooltip = ({
   return (
     <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-xl">
       <p className="mb-0.5 text-muted-foreground">{label}</p>
-      <p className="font-bold tabular-nums" style={{ color: "#F5A100" }}>
+      <p className="font-bold tabular-nums" style={{ color: "hsl(var(--bv-accent-text))" }}>
         {fmtUnits(val)}
       </p>
     </div>
@@ -323,7 +323,7 @@ const Tracker = ({ onBack }: TrackerProps = {}) => {
                 {pick.pick && (
                   <p
                     className="text-xs leading-snug line-clamp-2"
-                    style={{ color: "#F5A100" }}
+                    style={{ color: "hsl(var(--bv-accent-text))" }}
                   >
                     {pick.pick}
                   </p>

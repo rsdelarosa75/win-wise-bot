@@ -146,7 +146,7 @@ export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) =>
         </div>
         {onGameSelect && (
           <div className="flex justify-end pt-0.5">
-            <span className="text-[11px] font-bold" style={{ color: '#F5A100' }}>Get Pick →</span>
+            <span className="text-[11px] font-bold" style={{ color: 'hsl(var(--bv-accent-text))' }}>Get Pick →</span>
           </div>
         )}
       </div>

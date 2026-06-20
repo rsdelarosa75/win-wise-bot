@@ -29,6 +29,13 @@
 
   <body>
     <div id="root"></div>
+    <!-- Apply saved theme before React mounts to prevent flash -->
+    <script>
+      (function(){
+        var t = localStorage.getItem('bv-theme');
+        if (t !== 'light') document.documentElement.classList.add('dark');
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

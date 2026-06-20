@@ -1,8 +1,10 @@
 import React, { useState } from "react";
+import { Sun, Moon } from "lucide-react";
 import { TelegramAnalyses } from "@/components/ui/telegram-analyses";
 import { LiveOdds } from "@/components/ui/live-odds";
 import { Card } from "@/components/ui/card";
 import type { GameOdds } from "@/components/ui/live-odds";
+import { useTheme } from "@/hooks/use-theme";
 
 type Sport = "Soccer" | "NHL" | "WNBA" | "MLB" | "NFL" | "NCAAFB" | "NBA";
 
@@ -31,6 +33,7 @@ const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] = [
 const Dashboard = ({ onPicksTabClick, onGameSelect }: DashboardProps) => {
   const [oddsSport, setOddsSport] = useState<Sport>("Soccer");
   const [picksLabel, setPicksLabel] = useState("Today's Picks");
+  const { theme, toggleTheme } = useTheme();
 
   const handleSportsChange = (sports: string[]) => {
     if (sports.length === 1) {
@@ -51,11 +54,25 @@ const Dashboard = ({ onPicksTabClick, onGameSelect }: DashboardProps) => {
     <div className="space-y-5 px-4 pt-6 pb-24">
       {/* Greeting */}
       <div>
-        <h1 className="text-2xl font-bold">{getGreeting()}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{today}</p>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] mt-1" style={{ color: '#F5A100' }}>
-          Where AI Meets the Action
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">{getGreeting()}</h1>
+            <p className="text-sm text-muted-foreground mt-1">{today}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] mt-1" style={{ color: 'hsl(var(--bv-accent-text))' }}>
+              Where AI Meets the Action
+            </p>
+          </div>
+          <button
+            onClick={toggleTheme}
+            className="flex items-center justify-center w-10 h-10 rounded-full border border-border/60 bg-card hover:bg-secondary transition-colors mt-1 shrink-0"
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark"
+              ? <Sun className="w-4 h-4 text-muted-foreground" />
+              : <Moon className="w-4 h-4 text-muted-foreground" />
+            }
+          </button>
+        </div>
         {/* Sports icons */}
         <div className="flex items-center gap-3 text-xl mt-2">
           {['🏈', '⚾', '🏀', '🏒', '⚽'].map((emoji, i) => (

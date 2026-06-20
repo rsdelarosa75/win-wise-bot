@@ -15,7 +15,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { LogOut, ChevronLeft } from "lucide-react";
+import { LogOut, ChevronLeft, Sun, Moon } from "lucide-react";
+import { useTheme } from "@/hooks/use-theme";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -45,6 +46,7 @@ const Profile = ({ onSignOut, onBack }: ProfileProps) => {
   const [notifications, setNotifications] = useState<Record<string, boolean>>(
     Object.fromEntries(NOTIFICATIONS.map((n) => [n.id, n.defaultOn]))
   );
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div style={{ height: '100dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
@@ -59,6 +61,41 @@ const Profile = ({ onSignOut, onBack }: ProfileProps) => {
         </button>
         <h1 className="text-2xl font-bold">Profile ⚙️</h1>
       </div>
+
+      {/* Appearance */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Appearance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              {theme === "dark"
+                ? <Moon className="w-4 h-4 text-muted-foreground" />
+                : <Sun className="w-4 h-4 text-muted-foreground" />
+              }
+              <Label className="cursor-pointer">
+                {theme === "dark" ? "Dark Mode" : "Light Mode"}
+              </Label>
+            </div>
+            <button
+              onClick={toggleTheme}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                theme === "dark" ? "bg-primary" : "bg-border"
+              }`}
+              role="switch"
+              aria-checked={theme === "dark"}
+              aria-label="Toggle dark/light mode"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  theme === "dark" ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Sport Preferences */}
       <Card>
@@ -170,7 +207,7 @@ const Profile = ({ onSignOut, onBack }: ProfileProps) => {
       <Card>
         <CardContent className="pt-4 pb-4 space-y-3">
           <p className="text-xs text-muted-foreground text-center">
-            BobbyVegas v1.0 — Built with 🎲
+            BobbyVegas v1.3 — Built with 🎲
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
             <Link

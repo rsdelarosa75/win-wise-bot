@@ -83,6 +83,8 @@ function formatRelativeTime(iso: string): string {
 }
 
 function getEdgeStyle(score: number) {
+  // color = button bg / bar fill / border accent (always colored in both modes)
+  // textColor = badge label text (gold in dark, near-black in light via CSS var)
   if (score >= 10) return { icon: "🔥", label: "Strong Edge",   color: "#F5A100", border: "rgba(245,161,0,0.35)",  bg: "rgba(245,161,0,0.07)"  };
   if (score >= 5)  return { icon: "⚡", label: "Moderate Edge", color: "#EAB308", border: "rgba(234,179,8,0.30)",  bg: "rgba(234,179,8,0.06)"  };
   return              { icon: "✅", label: "Markets Agree",  color: "#22c55e", border: "rgba(34,197,94,0.25)", bg: "rgba(34,197,94,0.05)" };
@@ -251,7 +253,8 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
                           {edge.sport}
                         </span>
                       </div>
-                      <span className="text-xs font-bold tabular-nums" style={{ color: style.color }}>
+                      {/* Badge text uses --bv-accent-text: gold in dark, near-black in light */}
+                      <span className="text-xs font-bold tabular-nums" style={{ color: "hsl(var(--bv-accent-text))" }}>
                         {style.icon} {edge.edgeScore.toFixed(1)}% edge
                       </span>
                     </div>
@@ -260,7 +263,7 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
                     <div className="mb-2.5 space-y-0.5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-semibold leading-snug min-w-0 truncate">{favTeam}</span>
-                        <span className="text-sm font-black tabular-nums shrink-0" style={{ color: style.color }}>
+                        <span className="text-sm font-black tabular-nums shrink-0" style={{ color: "hsl(var(--bv-accent-text))" }}>
                           {favProb}%
                         </span>
                       </div>

@@ -2,87 +2,90 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* Design system — all colors must be HSL.
+   :root  = LIGHT mode (default)
+   .dark  = DARK mode (applied via JS from use-theme.tsx)
+   Tailwind darkMode: ["class"] is already configured.
 */
 
 @layer base {
-  /* BobbyVegas brand: pure black + neon gold — always dark, no light mode */
+  /* ── LIGHT MODE ─────────────────────────────────────────────── */
   :root {
-    --background: 0 0% 4%;         /* #0A0A0A */
-    --foreground: 0 0% 96%;
+    --background: 0 0% 98%;          /* #FAFAFA */
+    --foreground: 0 0% 4%;           /* #0A0A0A */
 
-    --card: 0 0% 7%;               /* #111111 */
-    --card-foreground: 0 0% 96%;
+    --card: 0 0% 100%;               /* #FFFFFF */
+    --card-foreground: 0 0% 10%;     /* #1A1A1A */
 
-    --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 96%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 4%;
 
-    --primary: 39 100% 48%;        /* #F5A100 neon gold */
-    --primary-foreground: 0 0% 0%; /* #000000 black text on gold */
+    --primary: 39 100% 48%;          /* #F5A100 gold — unchanged */
+    --primary-foreground: 0 0% 0%;   /* black text on gold buttons */
 
-    --secondary: 0 0% 11%;         /* #1C1C1C — slightly lighter than card */
-    --secondary-foreground: 0 0% 96%;
+    --secondary: 0 0% 96%;           /* #F5F5F5 */
+    --secondary-foreground: 0 0% 10%;
 
-    --muted: 0 0% 11%;
-    --muted-foreground: 0 0% 53%;  /* #888888 */
+    --muted: 0 0% 96%;
+    --muted-foreground: 217 19% 35%; /* #4B5563 — accessible dark gray */
 
-    --accent: 142 71% 45%;
-    --accent-foreground: 0 0% 0%;
+    --accent: 142 71% 30%;           /* darker green for contrast on white */
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 84% 45%;        /* darker red for white bg contrast */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 16%;            /* #2A2A2A */
-    --input: 0 0% 16%;
+    --border: 0 0% 90%;              /* #E5E5E5 */
+    --input: 0 0% 90%;
     --ring: 39 100% 48%;
 
     --radius: 0.5rem;
 
-    --win: 142 71% 45%;
-    --loss: 0 84% 60%;
-    --neutral: 39 100% 48%;        /* gold for medium confidence */
+    --win: 142 71% 30%;
+    --loss: 0 84% 45%;
+    --neutral: 39 100% 48%;
 
-    /* Gold gradients */
+    /* Gold accent text: dark in light mode for WCAG 4.5:1 contrast on white */
+    --bv-accent-text: 0 0% 10%;      /* #1A1A1A */
+    --bv-surround-bg: #EBEBEB;
+
     --gradient-primary: linear-gradient(135deg, hsl(39 100% 48%), hsl(39 100% 40%));
-    --gradient-accent: linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 40%));
-    --gradient-hero: linear-gradient(135deg, hsl(0 0% 7%) 0%, hsl(0 0% 4%) 50%, hsl(39 100% 48% / 0.06) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(142 71% 30%), hsl(142 71% 25%));
+    --gradient-hero: linear-gradient(135deg, hsl(0 0% 98%) 0%, hsl(0 0% 100%) 50%, hsl(39 100% 48% / 0.06) 100%);
 
-    /* Gold glow shadows */
-    --shadow-primary: 0 4px 24px -4px hsl(39 100% 48% / 0.45);
-    --shadow-card: 0 2px 12px -2px hsl(0 0% 0% / 0.4);
-
+    --shadow-primary: 0 4px 24px -4px hsl(39 100% 48% / 0.30);
+    --shadow-card: 0 2px 12px -2px hsl(0 0% 0% / 0.08);
     --transition-smooth: all 0.2s ease-in-out;
 
-    --sidebar-background: 0 0% 7%;
-    --sidebar-foreground: 0 0% 96%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 4%;
     --sidebar-primary: 39 100% 48%;
     --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 0 0% 11%;
-    --sidebar-accent-foreground: 0 0% 96%;
-    --sidebar-border: 0 0% 16%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 90%;
     --sidebar-ring: 39 100% 48%;
   }
 
-  /* Mirror root — app is always dark */
+  /* ── DARK MODE ──────────────────────────────────────────────── */
   .dark {
-    --background: 0 0% 4%;
-    --foreground: 0 0% 96%;
+    --background: 0 0% 4%;           /* #0A0A0A */
+    --foreground: 0 0% 96%;          /* #F5F5F5 */
 
-    --card: 0 0% 7%;
+    --card: 0 0% 7%;                 /* #111111 */
     --card-foreground: 0 0% 96%;
 
     --popover: 0 0% 7%;
     --popover-foreground: 0 0% 96%;
 
-    --primary: 39 100% 48%;
+    --primary: 39 100% 48%;          /* #F5A100 neon gold */
     --primary-foreground: 0 0% 0%;
 
-    --secondary: 0 0% 11%;
+    --secondary: 0 0% 11%;           /* #1C1C1C */
     --secondary-foreground: 0 0% 96%;
 
     --muted: 0 0% 11%;
-    --muted-foreground: 0 0% 53%;
+    --muted-foreground: 0 0% 53%;    /* #888888 */
 
     --accent: 142 71% 45%;
     --accent-foreground: 0 0% 0%;
@@ -90,9 +93,25 @@ All colors MUST be HSL.
     --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 16%;
+    --border: 0 0% 16%;              /* #2A2A2A */
     --input: 0 0% 16%;
     --ring: 39 100% 48%;
+
+    --win: 142 71% 45%;
+    --loss: 0 84% 60%;
+    --neutral: 39 100% 48%;
+
+    /* Gold accent text: full gold in dark mode (good contrast on dark bg) */
+    --bv-accent-text: 39 100% 48%;   /* #F5A100 */
+    --bv-surround-bg: #050505;
+
+    --gradient-primary: linear-gradient(135deg, hsl(39 100% 48%), hsl(39 100% 40%));
+    --gradient-accent: linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 40%));
+    --gradient-hero: linear-gradient(135deg, hsl(0 0% 7%) 0%, hsl(0 0% 4%) 50%, hsl(39 100% 48% / 0.06) 100%);
+
+    --shadow-primary: 0 4px 24px -4px hsl(39 100% 48% / 0.45);
+    --shadow-card: 0 2px 12px -2px hsl(0 0% 0% / 0.4);
+    --transition-smooth: all 0.2s ease-in-out;
 
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 96%;
@@ -108,11 +127,13 @@ All colors MUST be HSL.
 @layer base {
   * {
     @apply border-border;
+    /* Smooth theme transitions on all elements */
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   }
 
   body {
     @apply text-foreground;
-    background-color: #050505; /* pure black desktop surround */
+    background-color: var(--bv-surround-bg);
   }
 }
 
@@ -164,7 +185,7 @@ body {
     margin-right: auto;
     min-height: 100dvh;
     background-color: hsl(var(--background));
-    box-shadow: 0 0 80px rgba(245, 161, 0, 0.08), 0 0 40px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 80px rgba(245, 161, 0, 0.08), 0 0 40px rgba(0, 0, 0, 0.2);
     position: relative;
   }
 }
