@@ -26,11 +26,7 @@ interface TelegramAnalysis {
   key_factors?: string[];
 }
 
-interface DashboardPreviewProps {
-  onUpgradeClick: () => void;
-}
-
-export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
+export const DashboardPreview = () => {
   const { games } = useOddsApi();
   const [activePersona, setActivePersona] = useState("Bobby Vegas");
   const [analyses, setAnalyses] = useState<TelegramAnalysis[]>([]);
@@ -150,7 +146,7 @@ export const DashboardPreview = ({ onUpgradeClick }: DashboardPreviewProps) => {
           {/* News & Insights */}
           <div className="space-y-4">
             {/* Telegram Analyses */}
-            <TelegramAnalyses onUpgradeClick={onUpgradeClick} />
+            <TelegramAnalyses />
             
             {/* Game Weather */}
             <GameWeather games={games} />

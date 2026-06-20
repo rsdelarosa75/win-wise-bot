@@ -146,7 +146,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://mocdiziwqxbvjibylqxoz.supabase.co/rest/v1/ncaafb_picks",
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/ncaafb_picks",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

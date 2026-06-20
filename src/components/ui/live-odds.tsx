@@ -12,7 +12,7 @@ export interface GameOdds {
   spread2?: string;
 }
 
-type LiveOddsSport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB" | "Soccer";
+type LiveOddsSport = "Soccer" | "NHL" | "WNBA" | "MLB" | "NFL" | "NCAAFB" | "NBA";
 
 interface LiveOddsProps {
   sport?: LiveOddsSport;

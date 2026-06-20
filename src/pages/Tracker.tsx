@@ -264,7 +264,7 @@ const Tracker = ({ onBack }: TrackerProps = {}) => {
             <p className="text-3xl">📊</p>
             <p className="text-sm font-semibold">No picks saved yet</p>
             <p className="text-xs text-muted-foreground">
-              Save picks from the Picks tab to build your season tracker
+              Save picks from the Edge Finder to build your season tracker
             </p>
           </CardContent>
         </Card>
@@ -279,140 +279,103 @@ const Tracker = ({ onBack }: TrackerProps = {}) => {
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-border/60 bg-card/30">
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-border bg-background/80">
-                  <th className="whitespace-nowrap px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Date
-                  </th>
-                  <th className="whitespace-nowrap px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Matchup
-                  </th>
-                  <th className="min-w-[120px] px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Pick
-                  </th>
-                  <th className="whitespace-nowrap px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Confidence
-                  </th>
-                  <th className="whitespace-nowrap px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Result
-                  </th>
-                  <th className="whitespace-nowrap px-3 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Units
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {picks.map((pick) => {
-                  const u = getUnits(pick.confidence);
-                  const unitDisplay =
-                    pick.result === "win"
-                      ? `+${u}u`
-                      : pick.result === "loss"
-                        ? `-${u}u`
-                        : pick.result === "push"
-                          ? "0u"
-                          : "—";
-                  const unitColor =
-                    pick.result === "win"
-                      ? "#22c55e"
-                      : pick.result === "loss"
-                        ? "#ef4444"
-                        : pick.result === "push"
-                          ? "#a3a3a3"
-                          : "#737373";
+          {picks.map((pick) => {
+            const u = getUnits(pick.confidence);
+            const unitDisplay =
+              pick.result === "win"  ? `+${u}u` :
+              pick.result === "loss" ? `-${u}u` :
+              pick.result === "push" ? "0u"     : "—";
+            const unitColor =
+              pick.result === "win"  ? "#22c55e" :
+              pick.result === "loss" ? "#ef4444" :
+              pick.result === "push" ? "#a3a3a3" : "#737373";
+            const date = new Date(pick.created_at).toLocaleDateString("en-US", {
+              month: "short", day: "numeric", year: "numeric",
+            });
 
-                  return (
-                    <tr
-                      key={pick.id}
-                      className="border-b border-border/40 last:border-0"
+            return (
+              <div
+                key={pick.id}
+                className="rounded-xl border border-border/50 bg-card/60 p-3 space-y-2.5"
+              >
+                {/* Top row: date · sport badge · units */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[10px] text-muted-foreground shrink-0">{date}</span>
+                    {pick.sport && (
+                      <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-primary/10 text-primary shrink-0">
+                        {pick.sport}
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className="text-sm font-black tabular-nums shrink-0"
+                    style={{ color: unitColor }}
+                  >
+                    {unitDisplay}
+                  </span>
+                </div>
+
+                {/* Matchup */}
+                <p className="text-xs font-semibold text-foreground leading-snug">{pick.teams}</p>
+
+                {/* Pick */}
+                {pick.pick && (
+                  <p
+                    className="text-xs leading-snug line-clamp-2"
+                    style={{ color: "#F5A100" }}
+                  >
+                    {pick.pick}
+                  </p>
+                )}
+
+                {/* Confidence + result buttons */}
+                <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {pick.confidence ?? "—"} · {u}u
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => updateResult(pick.id, "win")}
+                      className={`min-h-[36px] min-w-[48px] rounded-md border px-2 text-[10px] font-bold uppercase transition-colors ${
+                        pick.result === "win"
+                          ? "border-green-500/60 bg-green-500/20 text-green-400"
+                          : "border-border/60 text-muted-foreground hover:border-green-500/40"
+                      }`}
                     >
-                      <td className="whitespace-nowrap px-3 py-3 align-middle text-xs text-muted-foreground">
-                        {new Date(pick.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </td>
-                      <td className="max-w-[140px] px-3 py-3 align-middle">
-                        <span
-                          className="line-clamp-2 text-xs font-medium leading-snug"
-                          title={pick.teams}
-                        >
-                          {pick.teams}
-                        </span>
-                      </td>
-                      <td className="max-w-[200px] px-3 py-3 align-middle">
-                        <span
-                          className="line-clamp-2 text-xs text-foreground/90"
-                          style={{ color: "#F5A100" }}
-                          title={pick.pick ?? ""}
-                        >
-                          {pick.pick ?? "—"}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-3 align-middle text-xs">
-                        {pick.confidence ?? "—"}
-                      </td>
-                      <td className="px-3 py-3 align-middle">
-                        <div className="flex flex-wrap items-center gap-1">
-                          {pick.result === "push" && (
-                            <span className="mr-1 text-[10px] font-semibold uppercase text-slate-400">
-                              Push
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => updateResult(pick.id, "win")}
-                            className={`min-h-[44px] min-w-[56px] rounded-md border px-2 text-[10px] font-bold uppercase transition-colors ${
-                              pick.result === "win"
-                                ? "border-green-500/60 bg-green-500/20 text-green-400"
-                                : "border-border/60 text-muted-foreground hover:border-green-500/40"
-                            }`}
-                          >
-                            Win
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateResult(pick.id, "loss")}
-                            className={`min-h-[44px] min-w-[56px] rounded-md border px-2 text-[10px] font-bold uppercase transition-colors ${
-                              pick.result === "loss"
-                                ? "border-red-500/60 bg-red-500/20 text-red-400"
-                                : "border-border/60 text-muted-foreground hover:border-red-500/40"
-                            }`}
-                          >
-                            Loss
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateResult(pick.id, null)}
-                            className={`min-h-[44px] min-w-[76px] rounded-md border px-2 text-[10px] font-bold uppercase transition-colors ${
-                              pick.result == null
-                                ? "border-slate-500/60 bg-slate-500/15 text-slate-300"
-                                : "border-border/60 text-muted-foreground hover:border-slate-500/40"
-                            }`}
-                          >
-                            Pending
-                          </button>
-                        </div>
-                      </td>
-                      <td
-                        className="whitespace-nowrap px-3 py-3 text-right align-middle text-xs font-bold tabular-nums"
-                        style={{ color: unitColor }}
-                      >
-                        {unitDisplay}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      Win
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateResult(pick.id, "loss")}
+                      className={`min-h-[36px] min-w-[48px] rounded-md border px-2 text-[10px] font-bold uppercase transition-colors ${
+                        pick.result === "loss"
+                          ? "border-red-500/60 bg-red-500/20 text-red-400"
+                          : "border-border/60 text-muted-foreground hover:border-red-500/40"
+                      }`}
+                    >
+                      Loss
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateResult(pick.id, null)}
+                      className={`min-h-[36px] min-w-[56px] rounded-md border px-2 text-[10px] font-bold uppercase transition-colors ${
+                        pick.result == null
+                          ? "border-slate-500/60 bg-slate-500/15 text-slate-300"
+                          : "border-border/60 text-muted-foreground hover:border-slate-500/40"
+                      }`}
+                    >
+                      Pend
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
 
           <p className="text-[10px] leading-relaxed text-muted-foreground">
-            Units: High = 3u, Medium = 2u, Low = 1u. Win credits +units, loss
-            debits −units. Mark results to update stats and chart.
+            High = 3u · Medium = 2u · Low = 1u. Tap Win/Loss to update stats and chart.
           </p>
         </div>
       )}

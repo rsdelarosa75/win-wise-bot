@@ -72,20 +72,6 @@ const TermsOfService = () => {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-base font-bold text-primary">VIP subscription</h2>
-            <p className="text-muted-foreground">
-              VIP features may be offered at <strong className="text-foreground">$19.99 per month</strong>. You may <strong className="text-foreground">cancel anytime</strong> through the billing method made available in the app or platform. Specific billing terms may be updated when payment processing is integrated.
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-base font-bold text-primary">Refunds</h2>
-            <p className="text-muted-foreground">
-              <strong className="text-foreground">No refunds</strong> are provided for subscription periods that have already been used or elapsed, except where required by law.
-            </p>
-          </section>
-
-          <section className="space-y-3">
             <h2 className="text-base font-bold text-primary">Prohibited use</h2>
             <p className="text-muted-foreground">
               You may not use Bobby Vegas in <strong className="text-foreground">jurisdictions where sports betting or related activities are illegal</strong>, or in any way that violates applicable law. You are responsible for knowing and following the rules where you live and where you use the app.

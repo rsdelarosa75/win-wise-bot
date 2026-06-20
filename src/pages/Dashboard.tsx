@@ -4,7 +4,7 @@ import { LiveOdds } from "@/components/ui/live-odds";
 import { Card } from "@/components/ui/card";
 import type { GameOdds } from "@/components/ui/live-odds";
 
-type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB" | "Soccer";
+type Sport = "Soccer" | "NHL" | "WNBA" | "MLB" | "NFL" | "NCAAFB" | "NBA";
 
 interface DashboardProps {
   onPicksTabClick: () => void;
@@ -19,17 +19,17 @@ const getGreeting = () => {
 };
 
 const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] = [
-  { sport: "NBA",    emoji: "🏀", label: "NBA" },
-  { sport: "MLB",    emoji: "⚾", label: "MLB" },
-  { sport: "WNBA",   emoji: "🏀", label: "WNBA" },
+  { sport: "Soccer", emoji: "⚽", label: "Soccer" },
   { sport: "NHL",    emoji: "🏒", label: "NHL" },
+  { sport: "WNBA",   emoji: "🏀", label: "WNBA" },
+  { sport: "MLB",    emoji: "⚾", label: "MLB" },
   { sport: "NFL",    emoji: "🏈", label: "NFL" },
   { sport: "NCAAFB", emoji: "🏈", label: "NCAAFB" },
-  { sport: "Soccer", emoji: "⚽", label: "Soccer" },
+  { sport: "NBA",    emoji: "🏀", label: "NBA" },
 ];
 
 const Dashboard = ({ onPicksTabClick, onGameSelect }: DashboardProps) => {
-  const [oddsSport, setOddsSport] = useState<Sport>("NBA");
+  const [oddsSport, setOddsSport] = useState<Sport>("Soccer");
   const [picksLabel, setPicksLabel] = useState("Today's Picks");
 
   const handleSportsChange = (sports: string[]) => {
@@ -69,12 +69,6 @@ const Dashboard = ({ onPicksTabClick, onGameSelect }: DashboardProps) => {
         </div>
       </div>
 
-      {/* Today's Picks */}
-      <div>
-        <h2 className="text-base font-semibold mb-3">{picksLabel}</h2>
-        <TelegramAnalyses onPicksTabClick={onPicksTabClick} onSportsChange={handleSportsChange} />
-      </div>
-
       {/* Live Odds */}
       <div>
         <h2 className="text-base font-semibold mb-2">Live Odds</h2>
@@ -99,6 +93,12 @@ const Dashboard = ({ onPicksTabClick, onGameSelect }: DashboardProps) => {
         <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-x-hidden">
           <LiveOdds sport={oddsSport} onGameSelect={onGameSelect} />
         </Card>
+      </div>
+
+      {/* Today's Picks */}
+      <div>
+        <h2 className="text-base font-semibold mb-3">{picksLabel}</h2>
+        <TelegramAnalyses onPicksTabClick={onPicksTabClick} onSportsChange={handleSportsChange} />
       </div>
     </div>
     </div>

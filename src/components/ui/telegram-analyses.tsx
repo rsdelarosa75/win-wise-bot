@@ -27,8 +27,8 @@ interface TelegramAnalysis {
 }
 
 interface TelegramAnalysesProps {
-  onUpgradeClick?: () => void;
   onPicksTabClick?: () => void;
+  onSportsChange?: (sports: string[]) => void;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ const PickCard = ({ analysis, isSaved, onSave, showSaveButton }: PickCardProps) 
 };
 
 // ── Main component ─────────────────────────────────────────────
-export const TelegramAnalyses = ({ onPicksTabClick }: TelegramAnalysesProps) => {
+export const TelegramAnalyses = ({ onPicksTabClick, onSportsChange }: TelegramAnalysesProps) => {
   const { user } = useAuth();
   const { savePick } = usePicks();
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -264,6 +264,12 @@ export const TelegramAnalyses = ({ onPicksTabClick }: TelegramAnalysesProps) => 
       return true;
     });
   }, [analyses]);
+
+  useEffect(() => {
+    if (!onSportsChange) return;
+    const sports = [...new Set(uniqueAnalyses.map(a => a.sport).filter(Boolean) as string[])];
+    onSportsChange(sports);
+  }, [uniqueAnalyses, onSportsChange]);
 
   useEffect(() => {
     const handleNew = (e: CustomEvent) => {

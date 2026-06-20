@@ -658,6 +658,38 @@ const isReadyResponse = (rawText: string): boolean => {
   }
 };
 
+const SUPABASE_URL = "https://mocdziwqxbvjibylqxoz.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI";
+
+async function pollSupabasePick(
+  table: string,
+  jobId: string,
+  signal: AbortSignal,
+  intervalMs = 4000,
+  timeoutMs = 120000
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  const headers = {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    Accept: "application/json",
+  };
+  while (Date.now() < deadline) {
+    if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+    await new Promise((r) => setTimeout(r, intervalMs));
+    if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(jobId)}&select=status,analysis`,
+      { headers, signal }
+    );
+    if (!res.ok) continue;
+    const rows = await res.json();
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    if (row?.status === "complete" && row?.analysis) return row.analysis as string;
+  }
+  throw new Error("F1 analysis timed out after 2 minutes");
+}
+
 // ── FIXED: parseWebhookDisplayContent ─────────────────────────────────
 // Now handles all N8N response shapes across NBA/MLB/NHL/NFL/WNBA/NCAAFB
 const parseWebhookDisplayContent = (rawText: string): string => {
@@ -770,7 +802,7 @@ const renderAnalysis = (text: string) => {
     </div>
   );
 };
-type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB" | "Soccer";
+type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB" | "Soccer" | "F1";
 const SPORT_CONFIG: Record<Sport, { webhookUrl: string }> = {
   NBA:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nba-picks"    },
   MLB:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks"    },
@@ -779,6 +811,7 @@ const SPORT_CONFIG: Record<Sport, { webhookUrl: string }> = {
   NFL:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nfl-picks"    },
   NCAAFB: { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/ncaafb-picks" },
   Soccer: { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/soccer-picks" },
+  F1:     { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/f1-picks"     },
 };
 interface N8nIntegrationProps {
   sport?: Sport;
@@ -917,6 +950,78 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           prompt: mlbPromptText,
         };
       }
+      // ── F1: async Supabase polling pattern ──────────────────────────
+      if (currentSport === "F1") {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 180_000);
+        try {
+          const f1Payload = {
+            sport: "F1",
+            teams,
+            text: teams,
+            persona: "bobby_vegas",
+            targetDate: dateValue,
+          };
+          console.log("[F1] Triggering webhook:", url, f1Payload);
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify(f1Payload),
+            signal: controller.signal,
+          });
+          if (res.status === 403) throw new Error("403");
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const initJson = await res.json();
+          const jobId = (Array.isArray(initJson) ? initJson[0] : initJson)?.jobId as string | undefined;
+          console.log("[F1] Got jobId:", jobId);
+          if (!jobId) throw new Error("No jobId returned from F1 webhook");
+          const analysis = await pollSupabasePick("f1_picks", jobId, controller.signal);
+          clearTimeout(timeoutId);
+          setLastTriggered(new Date());
+          toast({ title: "Bobby's F1 pick is ready 🏎️" });
+          const cleanContent = cleanHtmlContent(analysis);
+          setBriefContent(cleanContent);
+          const isRealAnalysis = (text: string) => {
+            if (!text || text.trim().length < 50) return false;
+            const lower = text.toLowerCase();
+            if (lower.includes('"status"') || lower.includes('"jobid"') || lower.includes('"processing"')) return false;
+            return /RACE:|PICK:|CONFIDENCE:|BOBBY'S PICK|BET TYPE/i.test(text);
+          };
+          if (isRealAnalysis(cleanContent)) {
+            const pickText  = extractField(cleanContent, "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation");
+            const oddsText  = extractField(cleanContent, "ODDS", "Current Odds");
+            const confMatch = cleanContent.match(/CONFIDENCE[^:\n]*:\s*\*{0,2}(High|Medium|Low)\*{0,2}/i);
+            const confNorm  = (confMatch ? confMatch[1] : "Medium") as "High" | "Medium" | "Low";
+            const newAnalysis = {
+              id: Date.now().toString(),
+              timestamp: new Date().toISOString(),
+              command: "/webhook",
+              teams: teamsValue.trim() || "F1 Analysis",
+              persona: "bobby_vegas",
+              analysis: cleanContent,
+              confidence: confNorm,
+              status: "win" as const,
+              odds: oddsText ?? null,
+              sport: "F1" as Sport,
+              recommendation: pickText ?? null,
+            };
+            const existing: unknown[] = JSON.parse(localStorage.getItem("webhook_analyses") ?? "[]");
+            const updated = [newAnalysis, ...existing]
+              .filter((a) => isRealAnalysis((a as { analysis?: string }).analysis ?? ""))
+              .filter((a, i, arr) =>
+                arr.findIndex((x) => (x as { id: string }).id === (a as { id: string }).id) === i
+              )
+              .slice(0, 10);
+            localStorage.setItem("webhook_analyses", JSON.stringify(updated));
+            window.dispatchEvent(new CustomEvent("webhookAnalysisAdded", { detail: newAnalysis }));
+          }
+        } finally {
+          clearTimeout(timeoutId);
+          setIsLoading(false);
+        }
+        return;
+      }
+      // ── All other sports: synchronous webhook response ───────────────
       const payload: Record<string, unknown> = {
         sport: currentSport,
         sports: [currentSport],
@@ -1088,6 +1193,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
                 sport === "NFL"    ? "e.g., Chiefs vs Bills"        :
                 sport === "NCAAFB" ? "e.g., Alabama vs Georgia"    :
                 sport === "Soccer" ? "e.g., Brazil vs Argentina"   :
+                sport === "F1"     ? "e.g., Verstappen vs Norris"  :
                                      "e.g., Lakers vs Warriors"
               }
               value={specificTeams}
@@ -1129,7 +1235,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         <Card className="p-8 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
           <div className="flex flex-col items-center justify-center gap-4 py-4">
             <span className="text-6xl animate-bounce">
-              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽" } as Record<string, string>)[sport] ?? "🎲"}
+              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽", F1: "🏎️" } as Record<string, string>)[sport] ?? "🎲"}
             </span>
             <p className="text-sm font-medium text-foreground/80 text-center transition-all duration-500">
               {LOADING_MESSAGES[loadingMsgIdx]}
@@ -1137,55 +1243,63 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           </div>
         </Card>
       )}
-      {/* Result card */}
+      {/* Result card — flex column so Save Pick is always pinned to bottom */}
       {briefContent && !isLoading && (
-        <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-x-hidden">
-          <div className="flex items-center gap-2 mb-3">
+        <Card className="bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden flex flex-col">
+          {/* Card header */}
+          <div className="flex items-center gap-2 px-4 pt-4 pb-0 shrink-0">
             <span className="text-base leading-none">
-              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽" } as Record<string, string>)[sport] ?? "🎲"}
+              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽", F1: "🏎️" } as Record<string, string>)[sport] ?? "🎲"}
             </span>
             <h3 className="text-sm font-semibold">Bobby's Pick</h3>
             <span className="ml-auto text-xs text-muted-foreground">
               {new Date().toLocaleTimeString()}
             </span>
           </div>
-          {/* Analysis text */}
-          <div className="bg-background/50 rounded-lg p-3 mb-4 w-full">
-            {renderAnalysis(briefContent)}
-          </div>
-          {/* Save Pick button */}
-          {user ? (
-            <Button
-              onClick={handleSavePick}
-              disabled={pickSaved || isSaving}
-              className="w-full min-h-[48px] font-bold text-black"
-              style={{ backgroundColor: pickSaved ? undefined : '#F5A100' }}
-              variant={pickSaved ? "outline" : "default"}
-            >
-              {pickSaved ? (
-                <>
-                  <Check className="mr-2 w-4 h-4 text-win" />
-                  <span className="text-win">Saved to Tracker!</span>
-                </>
-              ) : isSaving ? (
-                <>
-                  <Clock className="mr-2 w-4 h-4 animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                <>
-                  <Bookmark className="mr-2 w-4 h-4" />
-                  Save Pick 🎲
-                </>
-              )}
-            </Button>
-          ) : (
-            <div className="w-full min-h-[44px] flex items-center justify-center rounded-lg border border-border/50 bg-secondary/30">
-              <p className="text-xs text-center text-muted-foreground">
-                <span className="text-primary font-semibold">Sign in</span> to save picks to your Tracker
-              </p>
+          {/* Scrollable analysis — capped height so Save Pick never disappears */}
+          <div
+            className="px-4 pt-3 pb-0"
+            style={{ maxHeight: "52vh", overflowY: "auto", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+          >
+            <div className="bg-background/50 rounded-lg p-3">
+              {renderAnalysis(briefContent)}
             </div>
-          )}
+          </div>
+          {/* Save Pick — always visible, pinned to bottom of card */}
+          <div className="px-4 pt-3 pb-4 shrink-0">
+            {user ? (
+              <Button
+                onClick={handleSavePick}
+                disabled={pickSaved || isSaving}
+                className="w-full min-h-[48px] font-bold text-black"
+                style={{ backgroundColor: pickSaved ? undefined : '#F5A100' }}
+                variant={pickSaved ? "outline" : "default"}
+              >
+                {pickSaved ? (
+                  <>
+                    <Check className="mr-2 w-4 h-4 text-win" />
+                    <span className="text-win">Saved to Tracker!</span>
+                  </>
+                ) : isSaving ? (
+                  <>
+                    <Clock className="mr-2 w-4 h-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  <>
+                    <Bookmark className="mr-2 w-4 h-4" />
+                    Save Pick 🎲
+                  </>
+                )}
+              </Button>
+            ) : (
+              <div className="w-full min-h-[44px] flex items-center justify-center rounded-lg border border-border/50 bg-secondary/30">
+                <p className="text-xs text-center text-muted-foreground">
+                  <span className="text-primary font-semibold">Sign in</span> to save picks to your Tracker
+                </p>
+              </div>
+            )}
+          </div>
         </Card>
       )}
     </div>
