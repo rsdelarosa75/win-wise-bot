@@ -39,6 +39,110 @@ interface EdgeItem {
   noProb: number;
   edgeScore: number;
   volume: number;
+  drawProb?: number;
+}
+
+const WNBA_TEAMS: Record<string, string> = {
+  'Atlanta': 'Atlanta Dream',
+  'Chicago': 'Chicago Sky',
+  'Connecticut': 'Connecticut Sun',
+  'Dallas': 'Dallas Wings',
+  'Golden State': 'Golden State Valkyries',
+  'Indiana': 'Indiana Fever',
+  'Las Vegas': 'Las Vegas Aces',
+  'Los Angeles': 'Los Angeles Sparks',
+  'Minnesota': 'Minnesota Lynx',
+  'New York': 'New York Liberty',
+  'Phoenix': 'Phoenix Mercury',
+  'Portland': 'Portland Fire',
+  'Seattle': 'Seattle Storm',
+  'Toronto': 'Toronto Tempo',
+  'Washington': 'Washington Mystics',
+};
+
+const NBA_TEAMS: Record<string, string> = {
+  'Atlanta': 'Atlanta Hawks', 'Boston': 'Boston Celtics', 'Brooklyn': 'Brooklyn Nets',
+  'Charlotte': 'Charlotte Hornets', 'Chicago': 'Chicago Bulls', 'Cleveland': 'Cleveland Cavaliers',
+  'Dallas': 'Dallas Mavericks', 'Denver': 'Denver Nuggets', 'Detroit': 'Detroit Pistons',
+  'Golden State': 'Golden State Warriors', 'Houston': 'Houston Rockets', 'Indiana': 'Indiana Pacers',
+  'LA Clippers': 'LA Clippers', 'Los Angeles': 'Los Angeles Lakers', 'Memphis': 'Memphis Grizzlies',
+  'Miami': 'Miami Heat', 'Milwaukee': 'Milwaukee Bucks', 'Minnesota': 'Minnesota Timberwolves',
+  'New Orleans': 'New Orleans Pelicans', 'New York': 'New York Knicks', 'Oklahoma City': 'Oklahoma City Thunder',
+  'Orlando': 'Orlando Magic', 'Philadelphia': 'Philadelphia 76ers', 'Phoenix': 'Phoenix Suns',
+  'Portland': 'Portland Trail Blazers', 'Sacramento': 'Sacramento Kings', 'San Antonio': 'San Antonio Spurs',
+  'Toronto': 'Toronto Raptors', 'Utah': 'Utah Jazz', 'Washington': 'Washington Wizards',
+};
+
+const NHL_TEAMS: Record<string, string> = {
+  'Anaheim': 'Anaheim Ducks', 'Boston': 'Boston Bruins', 'Buffalo': 'Buffalo Sabres',
+  'Calgary': 'Calgary Flames', 'Carolina': 'Carolina Hurricanes', 'Chicago': 'Chicago Blackhawks',
+  'Colorado': 'Colorado Avalanche', 'Columbus': 'Columbus Blue Jackets', 'Dallas': 'Dallas Stars',
+  'Detroit': 'Detroit Red Wings', 'Edmonton': 'Edmonton Oilers', 'Florida': 'Florida Panthers',
+  'Los Angeles': 'Los Angeles Kings', 'Minnesota': 'Minnesota Wild', 'Montreal': 'Montreal Canadiens',
+  'Nashville': 'Nashville Predators', 'New Jersey': 'New Jersey Devils', 'NY Islanders': 'New York Islanders',
+  'NY Rangers': 'New York Rangers', 'New York': 'New York Rangers', 'Ottawa': 'Ottawa Senators',
+  'Philadelphia': 'Philadelphia Flyers', 'Pittsburgh': 'Pittsburgh Penguins', 'San Jose': 'San Jose Sharks',
+  'Seattle': 'Seattle Kraken', 'St. Louis': 'St. Louis Blues', 'Tampa Bay': 'Tampa Bay Lightning',
+  'Toronto': 'Toronto Maple Leafs', 'Utah': 'Utah Hockey Club', 'Vancouver': 'Vancouver Canucks',
+  'Vegas': 'Vegas Golden Knights', 'Washington': 'Washington Capitals', 'Winnipeg': 'Winnipeg Jets',
+};
+
+const MLB_TEAMS: Record<string, string> = {
+  'Arizona': 'Arizona Diamondbacks', 'Atlanta': 'Atlanta Braves', 'Baltimore': 'Baltimore Orioles',
+  'Boston': 'Boston Red Sox', 'Chicago Cubs': 'Chicago Cubs', 'Chicago': 'Chicago White Sox',
+  'Cincinnati': 'Cincinnati Reds', 'Cleveland': 'Cleveland Guardians', 'Colorado': 'Colorado Rockies',
+  'Detroit': 'Detroit Tigers', 'Houston': 'Houston Astros', 'Kansas City': 'Kansas City Royals',
+  'Los Angeles Dodgers': 'Los Angeles Dodgers', 'Los Angeles': 'Los Angeles Angels',
+  'Miami': 'Miami Marlins', 'Milwaukee': 'Milwaukee Brewers', 'Minnesota': 'Minnesota Twins',
+  'New York Mets': 'New York Mets', 'New York': 'New York Yankees', 'Oakland': 'Oakland Athletics',
+  'Philadelphia': 'Philadelphia Phillies', 'Pittsburgh': 'Pittsburgh Pirates', 'San Diego': 'San Diego Padres',
+  'San Francisco': 'San Francisco Giants', 'Seattle': 'Seattle Mariners', 'St. Louis': 'St. Louis Cardinals',
+  'Tampa Bay': 'Tampa Bay Rays', 'Texas': 'Texas Rangers', 'Toronto': 'Toronto Blue Jays',
+  'Washington': 'Washington Nationals',
+};
+
+const NFL_TEAMS: Record<string, string> = {
+  'Arizona': 'Arizona Cardinals', 'Atlanta': 'Atlanta Falcons', 'Baltimore': 'Baltimore Ravens',
+  'Buffalo': 'Buffalo Bills', 'Carolina': 'Carolina Panthers', 'Chicago': 'Chicago Bears',
+  'Cincinnati': 'Cincinnati Bengals', 'Cleveland': 'Cleveland Browns', 'Dallas': 'Dallas Cowboys',
+  'Denver': 'Denver Broncos', 'Detroit': 'Detroit Lions', 'Green Bay': 'Green Bay Packers',
+  'Houston': 'Houston Texans', 'Indianapolis': 'Indianapolis Colts', 'Jacksonville': 'Jacksonville Jaguars',
+  'Kansas City': 'Kansas City Chiefs', 'Las Vegas': 'Las Vegas Raiders',
+  'Los Angeles Chargers': 'Los Angeles Chargers', 'Los Angeles Rams': 'Los Angeles Rams', 'Los Angeles': 'Los Angeles Rams',
+  'Miami': 'Miami Dolphins', 'Minnesota': 'Minnesota Vikings', 'New England': 'New England Patriots',
+  'New Orleans': 'New Orleans Saints', 'New York Giants': 'New York Giants', 'New York Jets': 'New York Jets', 'New York': 'New York Jets',
+  'Philadelphia': 'Philadelphia Eagles', 'Pittsburgh': 'Pittsburgh Steelers',
+  'San Francisco': 'San Francisco 49ers', 'Seattle': 'Seattle Seahawks',
+  'Tampa Bay': 'Tampa Bay Buccaneers', 'Tennessee': 'Tennessee Titans', 'Washington': 'Washington Commanders',
+};
+
+const SPORT_TEAM_MAP: Record<string, Record<string, string>> = {
+  WNBA: WNBA_TEAMS, NBA: NBA_TEAMS, NHL: NHL_TEAMS, MLB: MLB_TEAMS, NFL: NFL_TEAMS,
+};
+
+function cleanTeamName(name: string): string {
+  return name
+    .replace(/\s+pro football game\??/gi, '')
+    .replace(/\s+winner\??/gi, '')
+    .replace(/\s+wins\??/gi, '')
+    .replace(/[?!.,]+$/, '')
+    .trim();
+}
+
+function expandTeamName(city: string, sport: string): string {
+  const map = SPORT_TEAM_MAP[sport];
+  return map?.[city] ?? city;
+}
+
+// Kalshi-implied odds, used only as a fallback when the real Odds API has no
+// matching game — N8nIntegration prefers genuine sportsbook lines when available.
+function kalshiProbToAmericanOdds(probPercent: number): string {
+  const p = probPercent / 100;
+  if (p <= 0 || p >= 1) return 'N/A';
+  const odds = p > 0.5
+    ? Math.round(-(p / (1 - p)) * 100)
+    : Math.round(((1 - p) / p) * 100);
+  return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
 function parseNoTeamFromTitle(title: string, yesTeam: string): string {
@@ -48,31 +152,79 @@ function parseNoTeamFromTitle(title: string, yesTeam: string): string {
   const t2 = match[2].trim();
   const yL = yesTeam.toLowerCase();
   const firstWord = yL.split(" ").find((w) => w.length > 3) ?? yL;
-  return t1.toLowerCase().includes(firstWord) ? t2 : t1;
+  return cleanTeamName(t1.toLowerCase().includes(firstWord) ? t2 : t1);
+}
+
+function buildEdgeItem(sport: string, m: KalshiMarket, yes: number): EdgeItem | null {
+  const no = parseFloat(m.no_bid_dollars ?? "0");
+  const yesTeam = cleanTeamName(m.yes_sub_title!.trim());
+  let noTeam    = cleanTeamName((m.no_sub_title ?? "").trim());
+  if (!noTeam || noTeam === yesTeam) noTeam = parseNoTeamFromTitle(m.title, yesTeam);
+  if (!noTeam || noTeam === yesTeam) return null;
+
+  const yesProb   = Math.round(yes * 1000) / 10;
+  const noProb    = no > 0 ? Math.round(no * 1000) / 10 : Math.round((1 - yes) * 1000) / 10;
+  const edgeScore = Math.round(Math.abs(yes - 0.5) * 1000) / 10;
+  const volume    = parseFloat(String(m.volume_fp ?? "0")) || 0;
+
+  return { sport, ticker: m.ticker, yesTeam, noTeam, yesProb, noProb, edgeScore, volume };
 }
 
 function parseEdges(rows: CacheRow[]): EdgeItem[] {
   const edges: EdgeItem[] = [];
+  // Soccer markets carry 3 outcomes (team1 win / team2 win / draw) under one
+  // shared title, so they need to be grouped per-title rather than per-row.
+  const soccerByTitle = new Map<string, { market: KalshiMarket; yes: number }[]>();
+
   for (const row of rows) {
     for (const m of row.data?.markets ?? []) {
       if (!m.yes_bid_dollars || !m.yes_sub_title) continue;
       const yes = parseFloat(m.yes_bid_dollars);
-      const no  = parseFloat(m.no_bid_dollars ?? "0");
       if (isNaN(yes) || yes <= 0 || yes >= 1) continue;
 
-      const yesTeam = m.yes_sub_title.trim();
-      const noTeam  = (m.no_sub_title ?? "").trim() || parseNoTeamFromTitle(m.title, yesTeam);
-      if (!noTeam) continue;
+      if (row.sport === "Soccer") {
+        const list = soccerByTitle.get(m.title) ?? [];
+        list.push({ market: m, yes });
+        soccerByTitle.set(m.title, list);
+        continue;
+      }
 
-      const yesProb   = Math.round(yes * 1000) / 10;
-      const noProb    = no > 0 ? Math.round(no * 1000) / 10 : Math.round((1 - yes) * 1000) / 10;
-      const edgeScore = Math.round(Math.abs(yes - 0.5) * 1000) / 10;
-      const volume    = parseFloat(String(m.volume_fp ?? "0")) || 0;
-
-      edges.push({ sport: row.sport, ticker: m.ticker, yesTeam, noTeam, yesProb, noProb, edgeScore, volume });
+      const edge = buildEdgeItem(row.sport, m, yes);
+      if (edge) edges.push(edge);
     }
   }
-  return edges.sort((a, b) => b.edgeScore - a.edgeScore || b.volume - a.volume);
+
+  // Soccer: pick the home-team market — the highest yes_bid above 40% — as
+  // the game's representative, ignoring the draw outcome and the other team.
+  for (const list of soccerByTitle.values()) {
+    const candidates = list.filter(
+      (e) => cleanTeamName(e.market.yes_sub_title!.trim()).toLowerCase() !== "draw"
+    );
+    if (candidates.length === 0) continue;
+    const home = candidates.reduce((best, cur) => (cur.yes > best.yes ? cur : best));
+    if (home.yes <= 0.4) continue;
+
+    const edge = buildEdgeItem("Soccer", home.market, home.yes);
+    if (!edge) continue;
+
+    const drawEntry = list.find(
+      (e) => cleanTeamName(e.market.yes_sub_title!.trim()).toLowerCase() === "draw"
+    );
+    if (drawEntry) edge.drawProb = Math.round(drawEntry.yes * 1000) / 10;
+    edge.volume = list.reduce((sum, e) => sum + (parseFloat(String(e.market.volume_fp ?? "0")) || 0), 0);
+
+    edges.push(edge);
+  }
+
+  // Deduplicate: keep highest-volume market per unique team pair
+  const seen = new Map<string, EdgeItem>();
+  for (const edge of edges) {
+    const key = [edge.yesTeam, edge.noTeam].sort().join('_vs_');
+    const existing = seen.get(key);
+    if (!existing || edge.volume > existing.volume) seen.set(key, edge);
+  }
+
+  return [...seen.values()].sort((a, b) => b.edgeScore - a.edgeScore || b.volume - a.volume);
 }
 
 function formatRelativeTime(iso: string): string {
@@ -100,7 +252,7 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
   const [edges, setEdges]       = useState<EdgeItem[]>([]);
   const [loading, setLoading]   = useState(true);
   const [lastFetch, setLastFetch] = useState<string | null>(null);
-  const [selected, setSelected] = useState<{ teams: string; sport: Sport; date: string } | null>(null);
+  const [selected, setSelected] = useState<{ teams: string; sport: Sport; date: string; odds?: GameOdds } | null>(null);
 
   const fetchEdges = useCallback(async () => {
     setLoading(true);
@@ -133,6 +285,7 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
       teams: pendingPick.teams,
       sport: (pendingPick.sport ?? "NBA") as Sport,
       date:  pendingPick.date,
+      odds:  pendingPick.odds,
     });
     onPendingPickConsumed?.();
   }, [pendingPick]);
@@ -159,7 +312,7 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
           </div>
           <N8nIntegration
             sport={selected.sport}
-            pendingPick={{ teams: selected.teams, date: selected.date }}
+            pendingPick={{ teams: selected.teams, date: selected.date, odds: selected.odds, sport: selected.sport }}
             onPendingPickConsumed={() => {}}
           />
         </div>
@@ -287,13 +440,26 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
                         Vol: ${Math.round(edge.volume).toLocaleString()}
                       </span>
                       <button
-                        onClick={() =>
+                        onClick={() => {
+                          const team1 = expandTeamName(edge.yesTeam, edge.sport);
+                          const team2 = expandTeamName(edge.noTeam, edge.sport);
+                          if (!team1 || !team2 || team1 === team2) {
+                            console.error('[EdgeFinder] Invalid teams:', team1, team2);
+                            return;
+                          }
+                          const ml1 = kalshiProbToAmericanOdds(edge.yesProb);
+                          const ml2 = kalshiProbToAmericanOdds(edge.noProb);
+                          const edgeOdds: GameOdds = { team1, team2, ml1, ml2 };
+                          if (edge.sport === "Soccer" && edge.drawProb !== undefined) {
+                            edgeOdds.draw = kalshiProbToAmericanOdds(edge.drawProb);
+                          }
                           setSelected({
-                            teams: `${edge.yesTeam} vs ${edge.noTeam}`,
+                            teams: `${team1} vs ${team2}`,
                             sport: edge.sport as Sport,
                             date: todayYmd,
-                          })
-                        }
+                            odds: edgeOdds,
+                          });
+                        }}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-black transition-all active:scale-95"
                         style={{ backgroundColor: style.color }}
                       >

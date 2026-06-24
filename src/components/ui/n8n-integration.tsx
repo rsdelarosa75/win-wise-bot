@@ -665,7 +665,7 @@ async function pollSupabasePick(
   table: string,
   jobId: string,
   signal: AbortSignal,
-  intervalMs = 4000,
+  intervalMs = 6000,
   timeoutMs = 120000
 ): Promise<string> {
   const deadline = Date.now() + timeoutMs;
@@ -750,11 +750,82 @@ const parseWebhookDisplayContent = (rawText: string): string => {
 
 const formatGameOddsProp = (o: GameOdds): string => {
   let s = `Moneyline: ${o.team1} ${o.ml1} / ${o.team2} ${o.ml2}`;
+  if (o.draw && o.draw !== "N/A") s += ` / Draw ${o.draw}`;
   if (o.spread1 && o.spread2 && o.spread1 !== "N/A" && o.spread2 !== "N/A") {
     s += ` | Spread: ${o.team1} ${o.spread1} / ${o.team2} ${o.spread2}`;
   }
   return s;
 };
+// ── Soccer: fetch real sportsbook h2h (incl. draw) from The Odds API ───
+const extractSoccerMl = (game: OddsApiGame) => {
+  let awayMl = "N/A";
+  let homeMl = "N/A";
+  let drawMl = "N/A";
+  for (const bm of game.bookmakers ?? []) {
+    const h2h = bm.markets?.find((m) => m.key === "h2h");
+    if (h2h?.outcomes) {
+      const h = h2h.outcomes.find((o) => o.name === game.home_team);
+      const a = h2h.outcomes.find((o) => o.name === game.away_team);
+      const d = h2h.outcomes.find((o) => o.name.toLowerCase() === "draw");
+      if (h && a) {
+        homeMl = h.price > 0 ? `+${h.price}` : `${h.price}`;
+        awayMl = a.price > 0 ? `+${a.price}` : `${a.price}`;
+        drawMl = d ? (d.price > 0 ? `+${d.price}` : `${d.price}`) : "N/A";
+        break;
+      }
+    }
+  }
+  return { awayMl, homeMl, drawMl };
+};
+const formatSoccerOddsForPayload = (game: OddsApiGame): string => {
+  const { awayMl, homeMl, drawMl } = extractSoccerMl(game);
+  let s = `Moneyline: ${game.away_team} ${awayMl} / ${game.home_team} ${homeMl}`;
+  if (drawMl !== "N/A") s += ` / Draw ${drawMl}`;
+  return s;
+};
+const SOCCER_ODDS_API_SPORT_KEY = "soccer_fifa_world_cup";
+async function fetchSoccerOddsForWebhook(
+  teamsValue: string,
+  targetDate: string
+): Promise<string> {
+  const apiKey = import.meta.env.VITE_ODDS_API_KEY as string | undefined;
+  if (!apiKey?.trim()) {
+    console.log("[Soccer] Odds prefetch: missing VITE_ODDS_API_KEY");
+    return "";
+  }
+  const pair = parseMatchupTeams(teamsValue.trim());
+  if (!pair) {
+    console.log("[Soccer] Odds prefetch: could not parse teams from:", teamsValue);
+    return "";
+  }
+  const [team1, team2] = pair;
+  try {
+    const res = await fetch(
+      `https://api.the-odds-api.com/v4/sports/${SOCCER_ODDS_API_SPORT_KEY}/odds/?` +
+        new URLSearchParams({
+          apiKey: apiKey.trim(),
+          regions: "us",
+          markets: "h2h",
+          oddsFormat: "american",
+          dateFormat: "iso",
+        })
+    );
+    if (!res.ok) {
+      console.log("[Soccer] Odds API HTTP error:", res.status);
+      return "";
+    }
+    const data: unknown = await res.json();
+    const games = Array.isArray(data) ? (data as OddsApiGame[]) : [];
+    const matches = games.filter(
+      (g) => g?.away_team && g?.home_team && gameMatchesUserTeams(g, team1, team2)
+    );
+    const matchedGame = pickBestGame(matches, targetDate);
+    return matchedGame ? formatSoccerOddsForPayload(matchedGame) : "";
+  } catch (e) {
+    console.log("[Soccer] Odds prefetch fetch error:", e);
+    return "";
+  }
+}
 // Extract a labelled field from analysis text, e.g. "CONFIDENCE: High"
 const extractField = (text: string, ...keys: string[]): string | null => {
   for (const key of keys) {
@@ -908,6 +979,11 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           text: ncaafbPromptText,
           prompt: ncaafbPromptText,
         };
+      } else if (currentSport === "WNBA") {
+        console.log('[DEBUG] odds prop received:', odds);
+        if (odds) oddsPayload = formatGameOddsProp(odds);
+        console.log('[DEBUG] WNBA oddsPayload:', oddsPayload || '(empty)');
+        if (oddsPayload) sportPayload = { odds: oddsPayload };
       } else if (currentSport === "MLB") {
         const pair = parseMatchupTeams(teamsValue.trim());
         const [awayTeam, homeTeam] = pair ?? [teamsValue.trim(), ""];
@@ -949,6 +1025,16 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           text: mlbPromptText,
           prompt: mlbPromptText,
         };
+      } else if (currentSport === "Soccer") {
+        // Real sportsbook h2h (incl. draw) from the Odds API beats the
+        // Kalshi-implied fallback ml1/ml2/draw passed in via `odds`.
+        oddsPayload = await fetchSoccerOddsForWebhook(teamsValue, dateValue);
+        if (!oddsPayload && odds) {
+          oddsPayload = formatGameOddsProp(odds);
+          console.log("[Soccer] Using Kalshi-implied fallback for odds:", oddsPayload);
+        }
+        console.log("[Soccer] oddsPayload:", oddsPayload || "(none)");
+        if (oddsPayload) sportPayload = { odds: oddsPayload };
       }
       // ── F1: async Supabase polling pattern ──────────────────────────
       if (currentSport === "F1") {
@@ -1037,6 +1123,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       console.group(`[N8nIntegration] ▶ ${currentSport} request`);
       console.log("URL:", url);
       console.log("Payload:", payload);
+      if (currentSport === "WNBA") console.log('[DEBUG] WNBA payload:', JSON.stringify(payload));
       console.groupEnd();
       // NBA responds in seconds; all other sports use a 180s timeout
       const controller = new AbortController();
@@ -1059,14 +1146,32 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       setLastTriggered(new Date());
       toast({ title: "Bobby's pick is ready 🎲" });
       if (!rawText || !rawText.trim()) {
-        setBriefContent(
-          'Bobby returned an empty response. Make sure your n8n workflow has a "Respond to Webhook" node at the end.'
-        );
+        setBriefContent('Bobby is still thinking... tap again in a moment 🎲');
         return;
       }
       const displayContent = parseWebhookDisplayContent(rawText);
       console.log("[N8nIntegration] Display content:", displayContent.slice(0, 200));
-      const cleanContent = cleanHtmlContent(displayContent);
+      let cleanContent = cleanHtmlContent(displayContent);
+
+      // Retry once if response is too short — N8N race condition
+      if (cleanContent.trim().length < 50) {
+        console.log('[N8nIntegration] Response too short, retrying in 3s...');
+        await new Promise(r => setTimeout(r, 3000));
+        try {
+          const retryRes = await fetch(url, { method: 'POST', headers, body });
+          if (retryRes.ok) {
+            const retryRaw = await retryRes.text();
+            const retryContent = cleanHtmlContent(parseWebhookDisplayContent(retryRaw));
+            cleanContent = retryContent.trim().length >= 50
+              ? retryContent
+              : 'Bobby is still thinking... tap again in a moment 🎲';
+          }
+        } catch {
+          cleanContent = 'Bobby is still thinking... tap again in a moment 🎲';
+        }
+      }
+      if (!cleanContent.trim()) cleanContent = 'Bobby is still thinking... tap again in a moment 🎲';
+
       setBriefContent(cleanContent);
       // Only save real Bobby Vegas analysis — never raw JSON or processing stubs.
       const isRealAnalysis = (text: string): boolean => {
