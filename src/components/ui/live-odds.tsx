@@ -8,6 +8,7 @@ export interface GameOdds {
   team2: string;
   ml1: string;
   ml2: string;
+  draw?: string;
   spread1?: string;
   spread2?: string;
 }
@@ -75,7 +76,7 @@ export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) =>
     return sport;
   };
 
-  const GameCard = ({ game }: { game: typeof mockGames[0] & { spread1?: string; spread2?: string } }) => {
+  const GameCard = ({ game }: { game: typeof mockGames[0] & { draw?: string; spread1?: string; spread2?: string } }) => {
     const handleTap = () => {
       if (!onGameSelect) return;
       const teams = `${game.team1} vs ${game.team2}`;
@@ -85,6 +86,7 @@ export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) =>
         team2: game.team2,
         ml1: game.odds1,
         ml2: game.odds2,
+        draw: 'draw' in game ? game.draw : undefined,
         spread1: 'spread1' in game ? game.spread1 : undefined,
         spread2: 'spread2' in game ? game.spread2 : undefined,
       };
@@ -120,6 +122,12 @@ export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) =>
             <span>{game.odds1}</span>
             <span>/</span>
             <span>{game.odds2}</span>
+            {'draw' in game && game.draw && (
+              <>
+                <span>/</span>
+                <span className="text-muted-foreground/70">Draw {game.draw}</span>
+              </>
+            )}
             <span className="text-[10px] bg-primary/20 text-primary px-1 rounded">ML</span>
             {'spread1' in game && game.spread1 && game.spread1 !== 'N/A' && 'spread2' in game && game.spread2 && game.spread2 !== 'N/A' && (
               <>
@@ -189,10 +197,15 @@ export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) =>
         <div className="flex items-center gap-2 p-3 bg-loss/10 border border-loss/20 rounded-lg text-loss">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span className="text-xs font-medium">
-            {error.includes('quota') ? 'API quota exceeded — showing sample games' : `Error: ${error}`}
+            {error.includes('quota') ? 'API quota exceeded' : error}
           </span>
         </div>
-        {mockGames.map((game) => <GameCard key={game.id} game={game} />)}
+        <div className="flex items-center justify-center p-6 bg-secondary/30 rounded-lg border border-border/50">
+          <div className="text-center space-y-1">
+            <Clock className="w-5 h-5 text-muted-foreground mx-auto" />
+            <div className="text-xs text-muted-foreground">No games available right now</div>
+          </div>
+        </div>
       </div>
     );
   }

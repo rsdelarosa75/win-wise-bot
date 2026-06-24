@@ -28,6 +28,7 @@ interface ProcessedGame {
   team2: string;
   odds1: string;
   odds2: string;
+  draw?: string;
   spread1?: string;
   spread2?: string;
   commence_time: string;
@@ -64,6 +65,8 @@ export const useOddsApi = (sport: OddsSport = "NBA") => {
       let awaySpread = 'N/A';
       
       // Extract moneyline and spread odds by scanning bookmakers until both teams are found
+      let drawOdds: string | undefined;
+
       if (game.bookmakers?.length > 0) {
         // Moneyline: find a bookmaker that has both outcomes
         for (const bm of game.bookmakers) {
@@ -74,6 +77,8 @@ export const useOddsApi = (sport: OddsSport = "NBA") => {
             if (h && a) {
               homeOdds = h.price > 0 ? `+${h.price}` : `${h.price}`;
               awayOdds = a.price > 0 ? `+${a.price}` : `${a.price}`;
+              const d = h2h.outcomes.find(o => o.name === 'Draw');
+              if (d) drawOdds = d.price > 0 ? `+${d.price}` : `${d.price}`;
               break;
             }
           }
@@ -125,6 +130,7 @@ export const useOddsApi = (sport: OddsSport = "NBA") => {
         team2: game.home_team,
         odds1: awayOdds,
         odds2: homeOdds,
+        draw: drawOdds,
         spread1: awaySpread,
         spread2: homeSpread,
         commence_time: game.commence_time,
@@ -191,12 +197,7 @@ export const useOddsApi = (sport: OddsSport = "NBA") => {
 
       if (upcoming.length === 0) {
         setError('No upcoming games found');
-        // Fallback to sample games if no real data available
-        setGames([
-          { id: 'demo1', sport: 'NBA', team1: 'Lakers', team2: 'Celtics', odds1: '+130', odds2: '-150', commence_time: new Date().toISOString(), confidence: 'High', status: 'win' },
-          { id: 'demo2', sport: 'NBA', team1: 'Warriors', team2: 'Bucks', odds1: '+110', odds2: '-130', commence_time: new Date().toISOString(), confidence: 'Medium', status: 'neutral' },
-          { id: 'demo3', sport: 'NBA', team1: 'Knicks', team2: 'Heat', odds1: '+180', odds2: '-220', commence_time: new Date().toISOString(), confidence: 'Low', status: 'loss' }
-        ]);
+        setGames([]);
       } else {
         const processedGames = processOddsData(upcoming.slice(0, 10));
         setGames(processedGames);
@@ -204,14 +205,8 @@ export const useOddsApi = (sport: OddsSport = "NBA") => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch odds data';
       setError(errorMessage);
+      setGames([]);
       console.error('Odds API Error:', err);
-      
-      // Fallback to sample games on error
-      setGames([
-        { id: 'demo1', sport: 'NBA', team1: 'Lakers', team2 : 'Celtics', odds1: '+130', odds2: '-150', commence_time: new Date().toISOString(), confidence: 'High', status: 'win' },
-        { id: 'demo2', sport: 'NBA', team1: 'Warriors', team2: 'Bucks', odds1: '+110', odds2: '-130', commence_time: new Date().toISOString(), confidence: 'Medium', status: 'neutral' },
-        { id: 'demo3', sport: 'NBA', team1: 'Knicks', team2: 'Heat', odds1: '+180', odds2: '-220', commence_time: new Date().toISOString(), confidence: 'Low', status: 'loss' }
-      ]);
     } finally {
       setLoading(false);
     }
