@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: 'Bobby Vegas',
   webDir: 'dist',
   server: {
-    iosScheme: 'ionic',
+    url: 'https://win-wise-bot.vercel.app',
+    cleartext: false,
     allowNavigation: ['*'],
   },
   ios: {

@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import WebKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -8,6 +9,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private var didCheckInitialLoad = false
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Clear all WKWebView cache on every launch so the app always fetches
+        // the latest JS/CSS from Vercel instead of serving a stale local bundle.
+        WKWebsiteDataStore.default().removeData(
+            ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+            modifiedSince: Date(timeIntervalSince1970: 0)
+        ) { }
+
         // CapacitorViewDidAppear fires after CAPBridgeViewController.viewDidAppear,
         // which is AFTER prepareWebView() sets bounces=false and isScrollEnabled.
         // This is the only reliable hook to override those values.
