@@ -1,0 +1,266 @@
+{
+  "name": "Bobby Vegas F1 Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "f1-picks",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f1000000-0001-0001-0001-000000000001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "f1-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "driver1-id",
+              "name": "driver1",
+              "value": "={{ \n  (() => {\n    const raw =\n      $json?.message?.text ??\n      $json?.text ??\n      $json?.teams ??\n      $json?.body?.text ??\n      '';\n    const input = String(raw).replace(/[\\r\\n\\t]/g, '').trim();\n    if (input.toLowerCase().includes('general') || input === '') return 'General';\n    const vsMatch = input.match(/^(.+?)\\s*(?:vs|@| v | versus )\\s*(.+?)$/i);\n    if (vsMatch && vsMatch[1]) return vsMatch[1].replace(/[\\r\\n\\t]/g, '').trim();\n    return input;\n  })()\n}}",
+              "type": "string"
+            },
+            {
+              "id": "driver2-id",
+              "name": "driver2",
+              "value": "={{ \n  (() => {\n    const raw =\n      $json?.message?.text ??\n      $json?.text ??\n      $json?.teams ??\n      $json?.body?.text ??\n      '';\n    const input = String(raw).replace(/[\\r\\n\\t]/g, '').trim();\n    if (input.toLowerCase().includes('general') || input === '') return '';\n    const vsMatch = input.match(/^(.+?)\\s*(?:vs|@| v | versus )\\s*(.+?)$/i);\n    if (vsMatch && vsMatch[2]) return vsMatch[2].replace(/[\\r\\n\\t]/g, '').trim();\n    return '';\n  })()\n}}",
+              "type": "string"
+            },
+            {
+              "id": "race-date-id",
+              "name": "race_date",
+              "value": "={{ $json?.date ?? new Date().toISOString().split('T')[0] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f1000000-0002-0002-0002-000000000002",
+      "name": "Parse Drivers",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/f1_picks",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ teams: $('Parse Drivers').item.json.driver2 ? $('Parse Drivers').item.json.driver1 + ' vs ' + $('Parse Drivers').item.json.driver2 : $('Parse Drivers').item.json.driver1, sport: 'F1', game_date: $('Parse Drivers').item.json.race_date, status: 'processing', analysis: '', created_at: new Date().toISOString() }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "f1000000-0003-0003-0003-000000000003",
+      "name": "Insert F1 Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "job-id-id",
+              "name": "jobId",
+              "value": "={{ ($json[0]?.id ?? $json?.id ?? '').toString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f1000000-0004-0004-0004-000000000004",
+      "name": "Extract Job ID",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [840, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'processing', jobId: $json.jobId }) }}",
+        "options": {}
+      },
+      "id": "f1000000-0005-0005-0005-000000000005",
+      "name": "Respond Early",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1040, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://site.api.espn.com/apis/site/v2/sports/racing/f1/news?limit=5",
+        "options": { "timeout": 10000 }
+      },
+      "id": "f1000000-0006-0006-0006-000000000006",
+      "name": "ESPN F1 News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1240, 180],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard",
+        "options": { "timeout": 10000 }
+      },
+      "id": "f1000000-0007-0007-0007-000000000007",
+      "name": "ESPN F1 Scoreboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1240, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.the-odds-api.com/v4/sports/motorsport_f1/odds/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "regions",    "value": "us,uk" },
+            { "name": "markets",    "value": "outrights" },
+            { "name": "oddsFormat", "value": "american" },
+            { "name": "apiKey",     "value": "bc8b24096b97b911b25e5679919a9f0a" }
+          ]
+        },
+        "options": { "timeout": 10000 }
+      },
+      "id": "f1000000-0008-0008-0008-000000000008",
+      "name": "Get F1 Odds",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1240, 420],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const driver1 = $('Parse Drivers').item.json.driver1 || '';\nconst driver2 = $('Parse Drivers').item.json.driver2 || '';\nconst raceDate = $('Parse Drivers').item.json.race_date || '';\nconst isGeneral = driver1.toLowerCase() === 'general' || driver1 === '';\nconst isH2H = driver2 && driver2.toLowerCase() !== '' && !isGeneral;\n\n// --- Odds data: extract top 5 drivers by tightest american odds ---\nlet oddsData = [];\ntry {\n  oddsData = $('Get F1 Odds').all().map(i => i.json).flat() || [];\n} catch(e) { oddsData = []; }\n\nconst driverOddsMap = {};\nfor (const event of oddsData) {\n  for (const bookie of (event.bookmakers || [])) {\n    for (const market of (bookie.markets || [])) {\n      if (market.key === 'outrights') {\n        for (const outcome of (market.outcomes || [])) {\n          const name = outcome.name || '';\n          if (!driverOddsMap[name]) driverOddsMap[name] = [];\n          driverOddsMap[name].push(outcome.price);\n        }\n      }\n    }\n  }\n}\n\nconst avg = arr => arr.length ? Math.round(arr.reduce((a,b) => a+b, 0) / arr.length) : null;\nconst driverAvgOdds = Object.entries(driverOddsMap).map(([name, prices]) => ({\n  driver: name,\n  avgOdds: avg(prices)\n}));\ndriverAvgOdds.sort((a, b) => Math.abs(a.avgOdds) - Math.abs(b.avgOdds));\nconst top5 = driverAvgOdds.slice(0, 5);\n\nlet driver1Odds = null, driver2Odds = null;\nif (!isGeneral) {\n  const d1Lower = driver1.toLowerCase();\n  const d2Lower = (driver2 || '').toLowerCase();\n  for (const entry of driverAvgOdds) {\n    const n = entry.driver.toLowerCase();\n    if (n.includes(d1Lower) || d1Lower.includes(n)) driver1Odds = entry.avgOdds;\n    if (isH2H && (n.includes(d2Lower) || d2Lower.includes(n))) driver2Odds = entry.avgOdds;\n  }\n}\n\n// --- ESPN F1 News ---\nlet newsHeadlines = [];\ntry {\n  const newsItems = $('ESPN F1 News').first().json?.articles || [];\n  newsHeadlines = newsItems.slice(0, 5).map(a => a.headline || a.title || '').filter(Boolean);\n} catch(e) { newsHeadlines = []; }\n\n// --- ESPN F1 Scoreboard ---\nlet raceContext = {};\ntry {\n  const espnData = $('ESPN F1 Scoreboard').first().json;\n  const events = espnData?.events || [];\n  if (events.length > 0) {\n    const nextRace = events[0];\n    const competition = nextRace?.competitions?.[0] || {};\n    const competitors = competition?.competitors || [];\n    raceContext = {\n      raceName: nextRace?.name || '',\n      shortName: nextRace?.shortName || '',\n      venue: competition?.venue?.fullName || '',\n      venueCity: competition?.venue?.address?.city || '',\n      venueCountry: competition?.venue?.address?.country || '',\n      status: nextRace?.status?.type?.description || '',\n      date: nextRace?.date || '',\n      gridPositions: competitors.slice(0, 10).map(c => ({\n        driver: c.athlete?.displayName || c.team?.displayName || '',\n        position: c.order || c.linescores?.[0]?.value || null,\n        team: c.team?.displayName || ''\n      }))\n    };\n  }\n} catch(e) { raceContext = {}; }\n\nreturn [{\n  json: {\n    driver1, driver2, race_date: raceDate,\n    is_h2h: isH2H, is_general: isGeneral,\n    driver1_odds: driver1Odds, driver2_odds: driver2Odds,\n    top5_drivers: top5,\n    news_headlines: newsHeadlines,\n    race_context: raceContext\n  }\n}];"
+      },
+      "id": "f1000000-0009-0009-0009-000000000009",
+      "name": "Aggregate F1 Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "modelId": { "value": "gpt-4o", "mode": "list" },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are BOBBY VEGAS — a sharp, data-driven Formula 1 betting analyst. You know every circuit, understand tire strategy, track evolution, DRS zones, and how weather flips the grid. You focus on VALUE bets: top-3 finish props, head-to-head driver matchups, and podium specials — not just picking the race winner at chalk odds. You give direct, confident, actionable picks grounded in grid position, car pace, qualifying performance, and race conditions. Keep it concise, entertaining, and never just pick the favorite — find the edge."
+            },
+            {
+              "role": "user",
+              "content": "=# F1 BETTING ANALYSIS REQUEST\n\n## REQUEST TYPE\n{{ $json.is_h2h ? 'HEAD-TO-HEAD MATCHUP: ' + $('Parse Drivers').item.json.driver1 + ' vs ' + $('Parse Drivers').item.json.driver2 : $json.is_general ? 'General F1 Race Analysis' : 'DRIVER FOCUS: ' + $('Parse Drivers').item.json.driver1 }}\nRace Date: {{ $('Parse Drivers').item.json.race_date }}\n\n## RACE INFO\nRace: {{ $json.race_context.raceName || 'Next F1 Grand Prix' }}\nVenue: {{ $json.race_context.venue || 'TBD' }}, {{ $json.race_context.venueCity || '' }} {{ $json.race_context.venueCountry || '' }}\nStatus: {{ $json.race_context.status || 'Upcoming' }}\n\n## GRID POSITIONS (Qualifying / Starting Order)\n{{ $json.race_context.gridPositions && $json.race_context.gridPositions.length > 0 ? $json.race_context.gridPositions.map((g, i) => `P${i+1}: ${g.driver} (${g.team})`).join('\\n') : 'Grid positions not yet available' }}\n\n## CURRENT RACE WINNER ODDS (Top 5 Favorites)\n{{ $json.top5_drivers.length > 0 ? $json.top5_drivers.map((d, i) => `${i+1}. ${d.driver}: ${d.avgOdds > 0 ? '+' : ''}${d.avgOdds}`).join('\\n') : 'Odds not yet posted' }}\n\n{{ $json.is_h2h ? '## H2H DRIVER ODDS\\n' + $('Parse Drivers').item.json.driver1 + ': ' + ($json.driver1_odds !== null ? ($json.driver1_odds > 0 ? '+' : '') + $json.driver1_odds : 'N/A') + '\\n' + $('Parse Drivers').item.json.driver2 + ': ' + ($json.driver2_odds !== null ? ($json.driver2_odds > 0 ? '+' : '') + $json.driver2_odds : 'N/A') : '' }}\n\n## LATEST F1 NEWS\n{{ $json.news_headlines.length > 0 ? $json.news_headlines.join('\\n') : 'No recent news available' }}\n\n---\n\nProvide a complete F1 betting analysis using EXACTLY this format:\n\nRACE: [Grand Prix Name]\nDATE: [Race Date]\nSPORT: Formula 1 (F1)\n\nRACE OVERVIEW:\n[2-3 sentences on the circuit characteristics — high-speed, street circuit, overtaking difficulty, tire behavior]\n\nGRID & QUALIFYING ANALYSIS:\n[Analyze starting positions — pole advantage at this circuit, top-3 starting threat, safety car probability impact]\n\nWEATHER FACTOR:\n[Assess weather impact — rain probability flips the field, temperature affects tire deg, wind on street circuits. Rate weather impact: Low / Medium / High]\n\nCAR PACE & TEAM STRATEGY:\n[Which team has the fastest race pace vs qualifying pace? Tire strategy: 1-stop vs 2-stop circuits matter. Highlight undercut/overcut opportunities]\n\nKEY VALUE ANGLES:\n• TOP-3 FINISH: [Best value driver for a podium who isn't the race winner favorite]\n• H2H MATCHUP: [Best head-to-head bet between two specific drivers with reasoning]\n• DARK HORSE: [One long-shot worth a small stake and why]\n\nODDS ANALYSIS:\n[1-2 sentences on where the value lies vs chalk race winner odds]\n\nBOBBY'S PICK: [Specific bet — e.g., \"Norris Top 3 Finish\" or \"Norris beats Russell H2H\"]\nBET TYPE: [Top-3 Finish / Race Winner / H2H Matchup / Podium]\nCONFIDENCE: [High / Medium / Low]\n\nREASONING:\n[2-3 sentences — cite grid position, circuit history, tire strategy, or weather as your edge. Be specific.]\n\n⚠️ DISCLAIMER: For entertainment only. Bet responsibly."
+            }
+          ]
+        },
+        "options": { "maxTokens": 1000, "temperature": 0.7 }
+      },
+      "id": "f1000000-0010-0010-0010-000000000010",
+      "name": "Bobby Vegas F1 Analysis",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [1640, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "UE6lVYW9gMLdjD4T",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/f1_picks?id=eq.{{ $('Extract Job ID').item.json.jobId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'complete', analysis: $json.message?.content ?? $json.choices?.[0]?.message?.content ?? '', updated_at: new Date().toISOString() }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "f1000000-0011-0011-0011-000000000011",
+      "name": "Update F1 Pick",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1840, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Parse Drivers", "type": "main", "index": 0 }]]
+    },
+    "Parse Drivers": {
+      "main": [[{ "node": "Insert F1 Job", "type": "main", "index": 0 }]]
+    },
+    "Insert F1 Job": {
+      "main": [[{ "node": "Extract Job ID", "type": "main", "index": 0 }]]
+    },
+    "Extract Job ID": {
+      "main": [[{ "node": "Respond Early", "type": "main", "index": 0 }]]
+    },
+    "Respond Early": {
+      "main": [[
+        { "node": "ESPN F1 News",       "type": "main", "index": 0 },
+        { "node": "ESPN F1 Scoreboard", "type": "main", "index": 0 },
+        { "node": "Get F1 Odds",        "type": "main", "index": 0 }
+      ]]
+    },
+    "ESPN F1 News": {
+      "main": [[{ "node": "Aggregate F1 Data", "type": "main", "index": 0 }]]
+    },
+    "ESPN F1 Scoreboard": {
+      "main": [[{ "node": "Aggregate F1 Data", "type": "main", "index": 1 }]]
+    },
+    "Get F1 Odds": {
+      "main": [[{ "node": "Aggregate F1 Data", "type": "main", "index": 2 }]]
+    },
+    "Aggregate F1 Data": {
+      "main": [[{ "node": "Bobby Vegas F1 Analysis", "type": "main", "index": 0 }]]
+    },
+    "Bobby Vegas F1 Analysis": {
+      "main": [[{ "node": "Update F1 Pick", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": ["bobby-vegas", "f1", "formula-1", "motorsport"],
+  "triggerCount": 0,
+  "updatedAt": "2026-06-15T00:00:00.000Z",
+  "versionId": "1"
+}

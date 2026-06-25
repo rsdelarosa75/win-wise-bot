@@ -1,0 +1,215 @@
+{
+  "name": "Bobby Vegas Tennis Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tennis-picks",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ten-0001-0001-0001-0001-000000000001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "tennis-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "player1-id",
+              "name": "player1",
+              "value": "={{ (() => { const raw = $json?.teams ?? $json?.team1 ?? $json?.message?.text ?? ''; const m = String(raw).match(/^(.+?)\\s*(?:vs\\.?|@|versus)\\s*(.+?)$/i); return m ? m[1].trim() : raw.trim(); })() }}",
+              "type": "string"
+            },
+            {
+              "id": "player2-id",
+              "name": "player2",
+              "value": "={{ (() => { const raw = $json?.teams ?? $json?.team2 ?? $json?.message?.text ?? ''; const m = String(raw).match(/^(.+?)\\s*(?:vs\\.?|@|versus)\\s*(.+?)$/i); return m ? m[2].trim() : ''; })() }}",
+              "type": "string"
+            },
+            {
+              "id": "surface-id",
+              "name": "surface",
+              "value": "={{ $json?.surface ?? 'Unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "tournament-id",
+              "name": "tournament",
+              "value": "={{ $json?.tournament ?? 'ATP/WTA Tour' }}",
+              "type": "string"
+            },
+            {
+              "id": "game-date-id",
+              "name": "game_date",
+              "value": "={{ $json?.date ?? new Date().toISOString().split('T')[0] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ten-0002-0002-0002-0002-000000000002",
+      "name": "Parse Players",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://site.api.espn.com/apis/site/v2/sports/tennis/scoreboard",
+        "options": { "timeout": 10000 }
+      },
+      "id": "ten-0003-0003-0003-0003-000000000003",
+      "name": "ESPN Tennis Scoreboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 180],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://site.api.espn.com/apis/site/v2/sports/tennis/news?limit=5",
+        "options": { "timeout": 10000 }
+      },
+      "id": "ten-0004-0004-0004-0004-000000000004",
+      "name": "ESPN Tennis News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.the-odds-api.com/v4/sports/tennis_atp/odds?apiKey=bc8b24096b97b911b25e5679919a9f0a&regions=us&markets=h2h&oddsFormat=american",
+        "options": { "timeout": 10000 }
+      },
+      "id": "ten-0005-0005-0005-0005-000000000005",
+      "name": "Get Tennis Odds",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 420],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "ten-0006-0006-0006-0006-000000000006",
+      "name": "Aggregate Tennis Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [840, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const parseNode = $('Parse Players').item.json;\nconst player1 = parseNode.player1 || 'Player 1';\nconst player2 = parseNode.player2 || 'Player 2';\nconst surface = parseNode.surface || 'Unknown';\nconst tournament = parseNode.tournament || 'ATP/WTA Tour';\n\nlet scoreboard = '{}';\nlet news = '[]';\nlet odds = '[]';\n\ntry { scoreboard = JSON.stringify($input.all()[0]?.json ?? {}); } catch(_) {}\ntry { news = JSON.stringify($input.all()[1]?.json ?? {}); } catch(_) {}\ntry { odds = JSON.stringify($input.all()[2]?.json ?? []); } catch(_) {}\n\n// Parse odds for the matchup\nlet oddsPayload = 'No odds available';\ntry {\n  const oddsData = JSON.parse(odds);\n  if (Array.isArray(oddsData) && oddsData.length > 0) {\n    const p1lower = player1.toLowerCase();\n    const p2lower = player2.toLowerCase();\n    const match = oddsData.find(g => {\n      const a = (g.away_team || '').toLowerCase();\n      const h = (g.home_team || '').toLowerCase();\n      return (a.includes(p1lower.split(' ').pop()) || h.includes(p1lower.split(' ').pop())) ||\n             (a.includes(p2lower.split(' ').pop()) || h.includes(p2lower.split(' ').pop()));\n    });\n    if (match) {\n      const bm = match.bookmakers?.[0];\n      const h2h = bm?.markets?.find(m => m.key === 'h2h');\n      if (h2h?.outcomes) {\n        oddsPayload = h2h.outcomes.map(o => `${o.name}: ${o.price > 0 ? '+' : ''}${o.price}`).join(' | ');\n      }\n    }\n  }\n} catch(_) {}\n\nreturn [{\n  json: {\n    player1,\n    player2,\n    surface,\n    tournament,\n    espn_scoreboard: scoreboard.slice(0, 3000),\n    espn_news: news.slice(0, 2000),\n    odds_payload: oddsPayload\n  }\n}];"
+      },
+      "id": "ten-0007-0007-0007-0007-000000000007",
+      "name": "Build Tennis Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 300]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are Bobby Vegas — the sharpest AI sports bettor on the planet. You analyze tennis matches with surgical precision. Be decisive, confident, and specific. Never hedge excessively. Give a clear pick."
+            },
+            {
+              "role": "user",
+              "content": "=🎾 **TENNIS MATCH: {{ $json.player1 }} vs {{ $json.player2 }}**\n\n🏟️ **SURFACE:** {{ $json.surface }}\n🏆 **TOURNAMENT:** {{ $json.tournament }}\n\n📊 **LIVE DATA:**\nESPN Scoreboard: {{ $json.espn_scoreboard }}\n\n📰 **LATEST TENNIS NEWS:**\n{{ $json.espn_news }}\n\n💰 **SPORTSBOOK ODDS:**\n{{ $json.odds_payload }}\n\n---\nAnalyze this match and give me your pick. Focus on:\n\n1️⃣ **HEAD-TO-HEAD** — Historical H2H record between these players, especially on this surface\n2️⃣ **SURFACE WIN RATE** — Who thrives on {{ $json.surface }}? Career stats on this surface\n3️⃣ **RECENT FORM** — Last 5 matches for each player. Who's hot right now?\n4️⃣ **RANKINGS & MOMENTUM** — Current ATP/WTA standings, recent tournament results\n5️⃣ **PHYSICAL EDGE** — Serve stats, break point conversion, fitness/injury concerns\n6️⃣ **BETTING ANGLE** — Is there value in the moneyline? Any set betting opportunities?\n\nDeliver your verdict:\n**PICK:** [Player] to win\n**BEST BET:** [Specific bet with odds]\n**CONFIDENCE:** High / Medium / Low\n**KEY FACTOR:** One sentence on the decisive edge\n**FADE IF:** What would change your pick"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7
+        }
+      },
+      "id": "ten-0008-0008-0008-0008-000000000008",
+      "name": "Bobby Vegas Tennis Analysis",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [1240, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "UE6lVYW9gMLdjD4T",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.message?.content ?? $json.choices?.[0]?.message?.content ?? 'Analysis unavailable' }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [{ "name": "Content-Type", "value": "text/plain; charset=utf-8" }]
+          }
+        }
+      },
+      "id": "ten-0009-0009-0009-0009-000000000009",
+      "name": "Respond with Pick",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1440, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Parse Players", "type": "main", "index": 0 }]]
+    },
+    "Parse Players": {
+      "main": [[
+        { "node": "ESPN Tennis Scoreboard", "type": "main", "index": 0 },
+        { "node": "ESPN Tennis News", "type": "main", "index": 0 },
+        { "node": "Get Tennis Odds", "type": "main", "index": 0 }
+      ]]
+    },
+    "ESPN Tennis Scoreboard": {
+      "main": [[{ "node": "Aggregate Tennis Data", "type": "main", "index": 0 }]]
+    },
+    "ESPN Tennis News": {
+      "main": [[{ "node": "Aggregate Tennis Data", "type": "main", "index": 1 }]]
+    },
+    "Get Tennis Odds": {
+      "main": [[{ "node": "Aggregate Tennis Data", "type": "main", "index": 2 }]]
+    },
+    "Aggregate Tennis Data": {
+      "main": [[{ "node": "Build Tennis Context", "type": "main", "index": 0 }]]
+    },
+    "Build Tennis Context": {
+      "main": [[{ "node": "Bobby Vegas Tennis Analysis", "type": "main", "index": 0 }]]
+    },
+    "Bobby Vegas Tennis Analysis": {
+      "main": [[{ "node": "Respond with Pick", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": ["bobby-vegas", "tennis", "parked"],
+  "triggerCount": 0,
+  "updatedAt": "2026-06-16T00:00:00.000Z",
+  "versionId": "1"
+}

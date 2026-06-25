@@ -1,0 +1,271 @@
+{
+  "name": "Kalshi Odds Cache Refresh",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "minutes", "minutesInterval": 30 }
+          ]
+        }
+      },
+      "id": "kc-0001-0001-0001-0001-000000000001",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://external-api.kalshi.com/trade-api/v2/markets?status=open&limit=10&series_ticker=KXMLBGAME",
+        "options": { "timeout": 10000 }
+      },
+      "id": "kc-0002-0002-0002-0002-000000000002",
+      "name": "Get Kalshi MLB",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 120],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://external-api.kalshi.com/trade-api/v2/markets?status=open&limit=10&series_ticker=KXNBAGAME",
+        "options": { "timeout": 10000 }
+      },
+      "id": "kc-0003-0003-0003-0003-000000000003",
+      "name": "Get Kalshi NBA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 230],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://external-api.kalshi.com/trade-api/v2/markets?status=open&limit=10&series_ticker=KXNHLGAME",
+        "options": { "timeout": 10000 }
+      },
+      "id": "kc-0004-0004-0004-0004-000000000004",
+      "name": "Get Kalshi NHL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 340],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://external-api.kalshi.com/trade-api/v2/markets?status=open&limit=10&series_ticker=KXWNBAGAME",
+        "options": { "timeout": 10000 }
+      },
+      "id": "kc-0005-0005-0005-0005-000000000005",
+      "name": "Get Kalshi WNBA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 450],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://external-api.kalshi.com/trade-api/v2/markets?status=open&limit=10&series_ticker=KXNFLGAME",
+        "options": { "timeout": 10000 }
+      },
+      "id": "kc-0006-0006-0006-0006-000000000006",
+      "name": "Get Kalshi NFL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 560],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://external-api.kalshi.com/trade-api/v2/markets?status=open&limit=10&series_ticker=KXSOCCERGAME",
+        "options": { "timeout": 10000 }
+      },
+      "id": "kc-0007-0007-0007-0007-000000000007",
+      "name": "Get Kalshi Soccer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 670],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/odds_cache?on_conflict=sport",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ sport: 'MLB', data: $json, updated_at: new Date().toISOString() }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "kc-0008-0008-0008-0008-000000000008",
+      "name": "Save MLB to Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [740, 120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/odds_cache?on_conflict=sport",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ sport: 'NBA', data: $json, updated_at: new Date().toISOString() }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "kc-0009-0009-0009-0009-000000000009",
+      "name": "Save NBA to Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [740, 230]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/odds_cache?on_conflict=sport",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ sport: 'NHL', data: $json, updated_at: new Date().toISOString() }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "kc-0010-0010-0010-0010-000000000010",
+      "name": "Save NHL to Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [740, 340]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/odds_cache?on_conflict=sport",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ sport: 'WNBA', data: $json, updated_at: new Date().toISOString() }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "kc-0011-0011-0011-0011-000000000011",
+      "name": "Save WNBA to Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [740, 450]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/odds_cache?on_conflict=sport",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ sport: 'NFL', data: $json, updated_at: new Date().toISOString() }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "kc-0012-0012-0012-0012-000000000012",
+      "name": "Save NFL to Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [740, 560]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/odds_cache?on_conflict=sport",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ sport: 'Soccer', data: $json, updated_at: new Date().toISOString() }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "kc-0013-0013-0013-0013-000000000013",
+      "name": "Save Soccer to Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [740, 670]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[
+        { "node": "Get Kalshi MLB",    "type": "main", "index": 0 },
+        { "node": "Get Kalshi NBA",    "type": "main", "index": 0 },
+        { "node": "Get Kalshi NHL",    "type": "main", "index": 0 },
+        { "node": "Get Kalshi WNBA",   "type": "main", "index": 0 },
+        { "node": "Get Kalshi NFL",    "type": "main", "index": 0 },
+        { "node": "Get Kalshi Soccer", "type": "main", "index": 0 }
+      ]]
+    },
+    "Get Kalshi MLB":    { "main": [[{ "node": "Save MLB to Cache",    "type": "main", "index": 0 }]] },
+    "Get Kalshi NBA":    { "main": [[{ "node": "Save NBA to Cache",    "type": "main", "index": 0 }]] },
+    "Get Kalshi NHL":    { "main": [[{ "node": "Save NHL to Cache",    "type": "main", "index": 0 }]] },
+    "Get Kalshi WNBA":   { "main": [[{ "node": "Save WNBA to Cache",   "type": "main", "index": 0 }]] },
+    "Get Kalshi NFL":    { "main": [[{ "node": "Save NFL to Cache",    "type": "main", "index": 0 }]] },
+    "Get Kalshi Soccer": { "main": [[{ "node": "Save Soccer to Cache", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": ["bobby-vegas", "kalshi", "odds-cache"],
+  "triggerCount": 0,
+  "updatedAt": "2026-06-15T00:00:00.000Z",
+  "versionId": "1"
+}

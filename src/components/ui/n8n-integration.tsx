@@ -756,6 +756,37 @@ const formatGameOddsProp = (o: GameOdds): string => {
   }
   return s;
 };
+interface DivergenceResult {
+  kalshiImplied: number;
+  sbImplied: number;
+  kalshiDivergence: number;
+}
+const americanToImplied = (odds: string): number | null => {
+  const n = parseInt(odds.replace('+', ''), 10);
+  if (isNaN(n) || odds === 'N/A') return null;
+  const raw = n > 0 ? 100 / (n + 100) : Math.abs(n) / (Math.abs(n) + 100);
+  return Math.round(raw * 1000) / 10;
+};
+const calcKalshiDivergence = (kalshiOdds: string, sbOdds: string): DivergenceResult | null => {
+  const k = americanToImplied(kalshiOdds);
+  const s = americanToImplied(sbOdds);
+  if (k === null || s === null) return null;
+  return { kalshiImplied: k, sbImplied: s, kalshiDivergence: Math.round((k - s) * 10) / 10 };
+};
+const ALTERNATE_LINE_FRAMEWORK = [
+  `ALTERNATE LINE FRAMEWORK — Apply when kalshiDivergence data is present:`,
+  `- Divergence 5–7% favoring underdog: Recommend underdog +1.5 alternate line as primary play. Note: "Outright ML carries high variance — alternate spread captures the same edge at higher hit rate"`,
+  `- Divergence 7–10% favoring underdog: Recommend underdog +2.5 as primary, +1.5 as aggressive option. Note: "Books are overpricing the favorite's margin of victory"`,
+  `- Divergence >10% favoring underdog: Recommend both +1.5 and +2.5 alternate lines; mention outright ML as small unit value only. Note: "Severe mispricing detected — this divergence suggests the underdog is significantly more competitive than the books are pricing"`,
+  `- Divergence favors FAVORITE (Kalshi > books): Recommend favorite ML as primary. If divergence >7%, mention favorite -1.5 as aggressive option. Note: "Smart money confirms the favorite — sportsbook is offering value on the chalk"`,
+  `- Always include: "Check your sportsbook for actual alternate line pricing — if the line is -200 or worse the book has recaptured the edge. Look for +100 or better on alternate spreads."`,
+  `- State the kalshiDivergence value and which threshold triggered your recommendation.`,
+  `- Format the alternate line section exactly as:`,
+  `  🔀 ALTERNATE LINE PLAY:`,
+  `  Primary: [Team] +X.5 — look for [estimated fair odds] or better`,
+  `  Aggressive: [Team] +X.5 or ML — small unit only`,
+  `  ⚠️ Verify actual line pricing before placing — books may have adjusted`,
+].join('\n');
 // ── Soccer: fetch real sportsbook h2h (incl. draw) from The Odds API ───
 const extractSoccerMl = (game: OddsApiGame) => {
   let awayMl = "N/A";
@@ -787,16 +818,17 @@ const SOCCER_ODDS_API_SPORT_KEY = "soccer_fifa_world_cup";
 async function fetchSoccerOddsForWebhook(
   teamsValue: string,
   targetDate: string
-): Promise<string> {
+): Promise<{ oddsPayload: string; matchedGame: OddsApiGame | null }> {
+  const empty = { oddsPayload: "", matchedGame: null };
   const apiKey = import.meta.env.VITE_ODDS_API_KEY as string | undefined;
   if (!apiKey?.trim()) {
     console.log("[Soccer] Odds prefetch: missing VITE_ODDS_API_KEY");
-    return "";
+    return empty;
   }
   const pair = parseMatchupTeams(teamsValue.trim());
   if (!pair) {
     console.log("[Soccer] Odds prefetch: could not parse teams from:", teamsValue);
-    return "";
+    return empty;
   }
   const [team1, team2] = pair;
   try {
@@ -812,7 +844,7 @@ async function fetchSoccerOddsForWebhook(
     );
     if (!res.ok) {
       console.log("[Soccer] Odds API HTTP error:", res.status);
-      return "";
+      return empty;
     }
     const data: unknown = await res.json();
     const games = Array.isArray(data) ? (data as OddsApiGame[]) : [];
@@ -820,10 +852,12 @@ async function fetchSoccerOddsForWebhook(
       (g) => g?.away_team && g?.home_team && gameMatchesUserTeams(g, team1, team2)
     );
     const matchedGame = pickBestGame(matches, targetDate);
-    return matchedGame ? formatSoccerOddsForPayload(matchedGame) : "";
+    return matchedGame
+      ? { oddsPayload: formatSoccerOddsForPayload(matchedGame), matchedGame }
+      : empty;
   } catch (e) {
     console.log("[Soccer] Odds prefetch fetch error:", e);
-    return "";
+    return empty;
   }
 }
 // Extract a labelled field from analysis text, e.g. "CONFIDENCE: High"
