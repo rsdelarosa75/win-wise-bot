@@ -73,6 +73,7 @@ export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) =>
     if (sport === 'MLB') return 'MLB';
     if (sport === 'NFL') return 'NFL';
     if (sport.includes('NCAAF') || sport.includes('College')) return 'CFB';
+    if (sport === 'Soccer' || sport.toLowerCase().includes('soccer') || sport.toLowerCase().includes('fifa') || sport.toLowerCase().includes('world cup')) return 'Soccer';
     return sport;
   };
 

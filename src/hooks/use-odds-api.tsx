@@ -125,7 +125,7 @@ export const useOddsApi = (sport: OddsSport = "NBA") => {
 
       return {
         id: game.id,
-        sport: game.sport_title,
+        sport: (game.sport_title.toLowerCase().includes('soccer') || game.sport_title.toLowerCase().includes('fifa') || game.sport_title.toLowerCase().includes('world cup')) ? 'Soccer' : game.sport_title,
         team1: game.away_team,
         team2: game.home_team,
         odds1: awayOdds,
