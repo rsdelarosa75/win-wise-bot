@@ -11,6 +11,7 @@ export interface GameOdds {
   draw?: string;
   spread1?: string;
   spread2?: string;
+  confidence?: string;
 }
 
 type LiveOddsSport = "Soccer" | "NHL" | "WNBA" | "MLB" | "NFL" | "NCAAFB" | "NBA";
@@ -90,6 +91,7 @@ export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) =>
         draw: 'draw' in game ? game.draw : undefined,
         spread1: 'spread1' in game ? game.spread1 : undefined,
         spread2: 'spread2' in game ? game.spread2 : undefined,
+        confidence: 'confidence' in game ? String(game.confidence) : undefined,
       };
       console.log("[LiveOdds] Game tapped:", teams, "| sport:", sport);
       onGameSelect(teams, date, odds, sport);

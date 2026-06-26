@@ -749,11 +749,12 @@ const parseWebhookDisplayContent = (rawText: string): string => {
 };
 
 const formatGameOddsProp = (o: GameOdds): string => {
-  let s = `Moneyline: ${o.team1} ${o.ml1} / ${o.team2} ${o.ml2}`;
-  if (o.draw && o.draw !== "N/A") s += ` / Draw ${o.draw}`;
+  let s = `Away: ${o.team1} ${o.ml1} | Home: ${o.team2} ${o.ml2}`;
+  if (o.draw && o.draw !== "N/A") s += ` | Draw ${o.draw}`;
   if (o.spread1 && o.spread2 && o.spread1 !== "N/A" && o.spread2 !== "N/A") {
     s += ` | Spread: ${o.team1} ${o.spread1} / ${o.team2} ${o.spread2}`;
   }
+  if (o.confidence) s += ` | Edge Confidence: ${o.confidence}`;
   return s;
 };
 interface DivergenceResult {
@@ -992,10 +993,13 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       let sportPayload: Record<string, unknown> = {};
       if (currentSport === "NBA") {
         const result = await fetchMatchupOddsForWebhook(teamsValue, dateValue);
-        oddsPayload = result.oddsPayload;
-        if (!oddsPayload && odds) {
+        // Pre-loaded odds from the Live Odds card take priority — no re-fetch needed.
+        // Fall back to the Odds API result only when the user typed a game manually.
+        if (odds) {
           oddsPayload = formatGameOddsProp(odds);
-          console.log("[N8nIntegration] Using Live Odds card fallback for odds:", oddsPayload);
+          console.log("[N8nIntegration] Using pre-loaded Live Odds data:", oddsPayload);
+        } else {
+          oddsPayload = result.oddsPayload;
         }
         console.log("[BobbyVegas] apiInjuries:", result.injuries);
         sportPayload = {
@@ -1060,15 +1064,23 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           prompt: mlbPromptText,
         };
       } else if (currentSport === "Soccer") {
-        // Real sportsbook h2h (incl. draw) from the Odds API beats the
-        // Kalshi-implied fallback ml1/ml2/draw passed in via `odds`.
-        oddsPayload = await fetchSoccerOddsForWebhook(teamsValue, dateValue);
-        if (!oddsPayload && odds) {
+        const soccerResult = await fetchSoccerOddsForWebhook(teamsValue, dateValue);
+        // Pre-loaded odds from the Live Odds card take priority.
+        // Fall back to Odds API fetch (or Kalshi-implied odds) when none are pre-loaded.
+        if (odds) {
           oddsPayload = formatGameOddsProp(odds);
-          console.log("[Soccer] Using Kalshi-implied fallback for odds:", oddsPayload);
+          console.log("[Soccer] Using pre-loaded Live Odds data:", oddsPayload);
+        } else {
+          oddsPayload = soccerResult.oddsPayload;
+          console.log("[Soccer] Using fetched odds:", oddsPayload || "(none)");
         }
-        console.log("[Soccer] oddsPayload:", oddsPayload || "(none)");
-        if (oddsPayload) sportPayload = { odds: oddsPayload };
+        let divergenceFields: Record<string, unknown> = {};
+        if (odds && soccerResult.matchedGame) {
+          const { awayMl } = extractSoccerMl(soccerResult.matchedGame);
+          const div = calcKalshiDivergence(odds.ml1, awayMl);
+          if (div) divergenceFields = div;
+        }
+        if (oddsPayload) sportPayload = { odds: oddsPayload, ...divergenceFields };
       }
       // ── F1: async Supabase polling pattern ──────────────────────────
       if (currentSport === "F1") {
