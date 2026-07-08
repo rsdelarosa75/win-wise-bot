@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Preferences } from "@capacitor/preferences";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,14 +30,21 @@ interface WeatherData {
   bettingNotes: string[];
 }
 
+const DEFAULT_WEATHER_KEY = 'd38783baec584d36ab062031253108';
+const WEATHER_KEY_PREF = 'weather_api_key';
+
 export function WeatherImpact() {
-  const [apiKey, setApiKey] = useState(() => 
-    localStorage.getItem('weather_api_key') || 'd38783baec584d36ab062031253108'
-  );
+  const [apiKey, setApiKey] = useState(DEFAULT_WEATHER_KEY);
   const [weatherData, setWeatherData] = useState<WeatherData[]>([]);
   const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    Preferences.get({ key: WEATHER_KEY_PREF }).then(({ value }) => {
+      if (value) setApiKey(value);
+    });
+  }, []);
 
   // Mock data for demonstration
   const mockWeatherData: WeatherData[] = [
@@ -76,8 +84,8 @@ export function WeatherImpact() {
     setWeatherData(mockWeatherData);
   }, []);
 
-  const handleSaveApiKey = () => {
-    localStorage.setItem('weather_api_key', apiKey);
+  const handleSaveApiKey = async () => {
+    await Preferences.set({ key: WEATHER_KEY_PREF, value: apiKey });
     toast({
       title: "API Key Saved",
       description: "Weather API key has been saved successfully",

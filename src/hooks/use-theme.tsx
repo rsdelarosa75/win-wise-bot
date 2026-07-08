@@ -1,6 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
+import { Preferences } from "@capacitor/preferences";
 
 export type Theme = "dark" | "light";
+
+const THEME_KEY = "bv-theme";
 
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
@@ -14,17 +17,22 @@ function applyTheme(theme: Theme) {
 }
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem("bv-theme") as Theme | null;
-    return saved === "light" ? "light" : "dark";
-  });
+  const [theme, setThemeState] = useState<Theme>("dark");
+
+  useEffect(() => {
+    Preferences.get({ key: THEME_KEY }).then(({ value }) => {
+      const resolved = (value as Theme | null) === "light" ? "light" : "dark";
+      setThemeState(resolved);
+      applyTheme(resolved);
+    });
+  }, []);
 
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
   const setTheme = useCallback((t: Theme) => {
-    localStorage.setItem("bv-theme", t);
+    Preferences.set({ key: THEME_KEY, value: t });
     setThemeState(t);
   }, []);
 

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Play, Clock, CheckCircle, FileText, Bookmark, Check } from "lucide-react";
+import { SharePickButton } from "@/components/ui/SharePickButton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { usePicks } from "@/hooks/use-picks";
@@ -754,7 +755,6 @@ const formatGameOddsProp = (o: GameOdds): string => {
   if (o.spread1 && o.spread2 && o.spread1 !== "N/A" && o.spread2 !== "N/A") {
     s += ` | Spread: ${o.team1} ${o.spread1} / ${o.team2} ${o.spread2}`;
   }
-  if (o.confidence) s += ` | Edge Confidence: ${o.confidence}`;
   return s;
 };
 interface DivergenceResult {
@@ -1416,40 +1416,50 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
               {renderAnalysis(briefContent)}
             </div>
           </div>
-          {/* Save Pick — always visible, pinned to bottom of card */}
+          {/* Save Pick + Share — always visible, pinned to bottom of card */}
           <div className="px-4 pt-3 pb-4 shrink-0">
-            {user ? (
-              <Button
-                onClick={handleSavePick}
-                disabled={pickSaved || isSaving}
-                className="w-full min-h-[48px] font-bold text-black"
-                style={{ backgroundColor: pickSaved ? undefined : '#F5A100' }}
-                variant={pickSaved ? "outline" : "default"}
-              >
-                {pickSaved ? (
-                  <>
-                    <Check className="mr-2 w-4 h-4 text-win" />
-                    <span className="text-win">Saved to Tracker!</span>
-                  </>
-                ) : isSaving ? (
-                  <>
-                    <Clock className="mr-2 w-4 h-4 animate-spin" />
-                    Saving…
-                  </>
+            <div className="flex gap-2 items-stretch">
+              <div className="flex-1">
+                {user ? (
+                  <Button
+                    onClick={handleSavePick}
+                    disabled={pickSaved || isSaving}
+                    className="w-full min-h-[48px] font-bold text-black"
+                    style={{ backgroundColor: pickSaved ? undefined : '#F5A100' }}
+                    variant={pickSaved ? "outline" : "default"}
+                  >
+                    {pickSaved ? (
+                      <>
+                        <Check className="mr-2 w-4 h-4 text-win" />
+                        <span className="text-win">Saved to Tracker!</span>
+                      </>
+                    ) : isSaving ? (
+                      <>
+                        <Clock className="mr-2 w-4 h-4 animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      <>
+                        <Bookmark className="mr-2 w-4 h-4" />
+                        Save Pick 🎲
+                      </>
+                    )}
+                  </Button>
                 ) : (
-                  <>
-                    <Bookmark className="mr-2 w-4 h-4" />
-                    Save Pick 🎲
-                  </>
+                  <div className="w-full min-h-[44px] flex items-center justify-center rounded-lg border border-border/50 bg-secondary/30">
+                    <p className="text-xs text-center text-muted-foreground">
+                      <span className="text-primary font-semibold">Sign in</span> to save picks to your Tracker
+                    </p>
+                  </div>
                 )}
-              </Button>
-            ) : (
-              <div className="w-full min-h-[44px] flex items-center justify-center rounded-lg border border-border/50 bg-secondary/30">
-                <p className="text-xs text-center text-muted-foreground">
-                  <span className="text-primary font-semibold">Sign in</span> to save picks to your Tracker
-                </p>
               </div>
-            )}
+              <SharePickButton
+                matchup={specificTeams.trim() || `${sport} Analysis`}
+                pick={extractField(briefContent, "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation", "BET", "My Pick") ?? ''}
+                confidence={extractField(briefContent, "CONFIDENCE", "Confidence Level", "Confidence") ?? 'Medium'}
+                edgeNote={extractField(briefContent, "EDGE ALERT", "Edge Alert") ?? undefined}
+              />
+            </div>
           </div>
         </Card>
       )}

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Preferences } from "@capacitor/preferences";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,15 +7,21 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Zap, ExternalLink, Copy } from "lucide-react";
 
+const ZAPIER_URL_PREF = 'zapier_webhook_url';
+
 export function ZapierIntegration() {
-  const [webhookUrl, setWebhookUrl] = useState(() => 
-    localStorage.getItem('zapier_webhook_url') || ''
-  );
+  const [webhookUrl, setWebhookUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSaveWebhook = () => {
-    localStorage.setItem('zapier_webhook_url', webhookUrl);
+  useEffect(() => {
+    Preferences.get({ key: ZAPIER_URL_PREF }).then(({ value }) => {
+      if (value) setWebhookUrl(value);
+    });
+  }, []);
+
+  const handleSaveWebhook = async () => {
+    await Preferences.set({ key: ZAPIER_URL_PREF, value: webhookUrl });
     toast({
       title: "Webhook Saved",
       description: "Your Zapier webhook URL has been saved",
