@@ -58,7 +58,7 @@ export const useOddsApi = (sport: OddsSport = "NBA") => {
   );
 
   const processOddsData = useCallback((rawGames: OddsData[]): ProcessedGame[] => {
-    return rawGames.slice(0, 10).map((game) => {
+    return rawGames.slice(0, 20).map((game) => {
       let homeOdds = 'N/A';
       let awayOdds = 'N/A';
       let homeSpread = 'N/A';
@@ -186,7 +186,7 @@ export const useOddsApi = (sport: OddsSport = "NBA") => {
       console.log('[OddsAPI] Total games fetched:', allGames.length, '| Now:', now.toISOString());
       console.log('[OddsAPI] Game start times:', allGames.map(g => g.commence_time));
 
-      const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+      const threeHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
       const upcoming = allGames
         .filter(g => new Date(g.commence_time) > threeHoursAgo)
         .sort((a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime());
@@ -199,7 +199,7 @@ export const useOddsApi = (sport: OddsSport = "NBA") => {
         setError('No upcoming games found');
         setGames([]);
       } else {
-        const processedGames = processOddsData(upcoming.slice(0, 10));
+        const processedGames = processOddsData(upcoming.slice(0, 20));
         setGames(processedGames);
       }
     } catch (err) {
