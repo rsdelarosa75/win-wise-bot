@@ -1,141 +1,159 @@
 {
-  "name": "Bobby Vegas NCAAFB Analysis",
+  "name": "Bobby Vegas NCAAFB Picks",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "ncaafb-picks",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {
+          "allowedOrigins": "*",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
       },
-      "id": "a1b2c3d4-0001-0001-0001-000000000001",
-      "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [240, 300],
-      "webhookId": "ncaafb-webhook"
+      "typeVersion": 2.1,
+      "position": [
+        -8416,
+        1168
+      ],
+      "name": "Webhook",
+      "id": "51ed7a5f-a824-47de-abbb-6aacc4db19a3",
+      "webhookId": "ncaa2222-2222-2222-2222-222222222222"
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
             {
-              "id": "away-team-id",
+              "id": "field-001",
               "name": "away_team",
-              "value": "={{ \n  (() => {\n    const raw =\n      $json?.message?.text ??\n      $json?.text ??\n      $json?.teams ??\n      $json?.body?.text ??\n      '';\n    const input = String(raw).replace(/[\\r\\n\\t]/g, '').trim();\n    if (input.toLowerCase().includes('general') || input === '') return 'General';\n    const vsMatch = input.match(/^(.+?)\\s*(?:vs|@| v | versus )\\s*(.+?)$/i);\n    if (vsMatch && vsMatch[1]) return vsMatch[1].replace(/[\\r\\n\\t]/g, '').trim();\n    if (input.includes(',')) return input.split(',')[0].replace(/[\\r\\n\\t]/g, '').trim();\n    return input;\n  })()\n}}",
+              "value": "={{ $json.body.teams.split('vs')[0].trim() }}",
               "type": "string"
             },
             {
-              "id": "home-team-id",
+              "id": "field-002",
               "name": "home_team",
-              "value": "={{ \n  (() => {\n    const raw =\n      $json?.message?.text ??\n      $json?.text ??\n      $json?.teams ??\n      $json?.body?.text ??\n      '';\n    const input = String(raw).replace(/[\\r\\n\\t]/g, '').trim();\n    if (input.toLowerCase().includes('general') || input === '') return 'General';\n    const vsMatch = input.match(/^(.+?)\\s*(?:vs|@| v | versus )\\s*(.+?)$/i);\n    if (vsMatch && vsMatch[2]) return vsMatch[2].replace(/[\\r\\n\\t]/g, '').trim();\n    if (input.includes(',')) {\n      const parts = input.split(',');\n      return parts.length >= 2 ? parts[1].replace(/[\\r\\n\\t]/g, '').trim() : input;\n    }\n    return input;\n  })()\n}}",
+              "value": "={{ $json.body.teams.split('vs')[1].trim() }}",
               "type": "string"
             },
             {
-              "id": "date-id",
-              "name": "game_date",
-              "value": "={{ $json?.date ?? new Date().toISOString().split('T')[0] }}",
+              "id": "field-003",
+              "name": "sport",
+              "value": "={{ $json.body.sport || 'NCAAFB' }}",
+              "type": "string"
+            },
+            {
+              "id": "field-004",
+              "name": "teams",
+              "value": "={{ $json.body.teams }}",
+              "type": "string"
+            },
+            {
+              "id": "field-005",
+              "name": "job_id",
+              "value": "={{ $json.body.teams.replace(/ /g, '_') + '_' + $now.toMillis() }}",
               "type": "string"
             }
           ]
         },
         "options": {}
       },
-      "id": "a1b2c3d4-0002-0002-0002-000000000002",
-      "name": "Parse Teams",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [440, 300]
+      "position": [
+        -8240,
+        1168
+      ],
+      "name": "Parse Teams",
+      "id": "89e29365-910b-40fe-be40-04b3f306f228"
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "https://site.api.espn.com/apis/site/v2/sports/football/college-football/news?limit=3",
-        "options": {
-          "timeout": 10000
-        }
-      },
-      "id": "a1b2c3d4-0003-0003-0003-000000000003",
-      "name": "ESPN NCAAFB News",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [640, 180]
-    },
-    {
-      "parameters": {
-        "method": "GET",
         "url": "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard",
-        "options": {
-          "timeout": 10000
-        }
+        "options": {}
       },
-      "id": "a1b2c3d4-0004-0004-0004-000000000004",
-      "name": "ESPN NCAAFB Scoreboard",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [640, 300]
+      "typeVersion": 4.1,
+      "position": [
+        -8064,
+        1168
+      ],
+      "name": "Get ESPN Data",
+      "id": "f4ab2920-48c2-4fff-bc22-118877a5f052",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "https://api.the-odds-api.com/v4/sports/americanfootball_ncaaf/odds/",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            { "name": "regions", "value": "us" },
-            { "name": "markets", "value": "h2h,spreads" },
-            { "name": "oddsFormat", "value": "american" },
-            { "name": "apiKey", "value": "2d4bb7ff92134e499ec4f53affda0e94" }
-          ]
-        },
-        "options": {
-          "timeout": 10000
-        }
+        "url": "https://api.the-odds-api.com/v4/sports/americanfootball_ncaaf/odds/?regions=us&markets=h2h,spreads&oddsFormat=american&apiKey=bc8b24096b97b911b25e5679919a9f0a",
+        "options": {}
       },
-      "id": "a1b2c3d4-0005-0005-0005-000000000005",
-      "name": "Get NCAAF Odds",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [640, 420]
+      "typeVersion": 4.3,
+      "position": [
+        -7856,
+        1168
+      ],
+      "name": "Get NCAAFB Odds",
+      "id": "eff663d4-b912-45a9-8d79-7121965d7c40",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "const awayTeam = $('Parse Teams').item.json.away_team || '';\nconst homeTeam = $('Parse Teams').item.json.home_team || '';\nconst gameDate = $('Parse Teams').item.json.game_date || '';\n\n// --- Odds data ---\nlet oddsData = [];\ntry {\n  oddsData = $('Get NCAAF Odds').all().map(i => i.json) || [];\n} catch(e) { oddsData = []; }\n\n// Find matching game and compute avg odds\nconst isGeneral = awayTeam.toLowerCase() === 'general' || homeTeam.toLowerCase() === 'general';\nlet matchedGame = null;\nlet awayOdds = [];\nlet homeOdds = [];\n\nif (!isGeneral) {\n  for (const game of oddsData) {\n    const at = (game.away_team || '').toLowerCase();\n    const ht = (game.home_team || '').toLowerCase();\n    if (at.includes(awayTeam.toLowerCase()) || ht.includes(homeTeam.toLowerCase()) ||\n        awayTeam.toLowerCase().includes(at) || homeTeam.toLowerCase().includes(ht)) {\n      matchedGame = game;\n      for (const bookie of (game.bookmakers || [])) {\n        for (const market of (bookie.markets || [])) {\n          if (market.key === 'h2h') {\n            for (const outcome of (market.outcomes || [])) {\n              if ((outcome.name || '').toLowerCase().includes(awayTeam.toLowerCase()) ||\n                  awayTeam.toLowerCase().includes((outcome.name || '').toLowerCase())) {\n                awayOdds.push(outcome.price);\n              } else {\n                homeOdds.push(outcome.price);\n              }\n            }\n          }\n        }\n      }\n      break;\n    }\n  }\n}\n\nconst avg = arr => arr.length ? Math.round(arr.reduce((a,b) => a+b, 0) / arr.length) : null;\nconst awayAvg = avg(awayOdds);\nconst homeAvg = avg(homeOdds);\n\nlet favoriteTeam = 'Unknown', underdogTeam = 'Unknown', favoriteOdds = null, underdogOdds = null;\nif (awayAvg !== null && homeAvg !== null) {\n  if (awayAvg < homeAvg) {\n    favoriteTeam = awayTeam; favoriteOdds = awayAvg;\n    underdogTeam = homeTeam; underdogOdds = homeAvg;\n  } else {\n    favoriteTeam = homeTeam; favoriteOdds = homeAvg;\n    underdogTeam = awayTeam; underdogOdds = awayAvg;\n  }\n}\n\n// --- ESPN News ---\nlet newsHeadlines = [];\ntry {\n  const newsItems = $('ESPN NCAAFB News').first().json?.articles || [];\n  newsHeadlines = newsItems.slice(0, 3).map(a => a.headline || a.title || '');\n} catch(e) { newsHeadlines = []; }\n\n// --- ESPN Scoreboard: find matching game for rankings/records ---\nlet gameContext = {};\ntry {\n  const events = $('ESPN NCAAFB Scoreboard').first().json?.events || [];\n  for (const event of events) {\n    const competitors = event?.competitions?.[0]?.competitors || [];\n    const names = competitors.map(c => (c.team?.displayName || c.team?.shortDisplayName || '').toLowerCase());\n    if (!isGeneral && (names.some(n => n.includes(awayTeam.toLowerCase()) || awayTeam.toLowerCase().includes(n)) ||\n        names.some(n => n.includes(homeTeam.toLowerCase()) || homeTeam.toLowerCase().includes(n)))) {\n      gameContext.status = event?.status?.type?.description || '';\n      gameContext.competitors = competitors.map(c => ({\n        name: c.team?.displayName || '',\n        rank: c.curatedRank?.current || null,\n        record: c.records?.[0]?.summary || '',\n        homeAway: c.homeAway || ''\n      }));\n      gameContext.venue = event?.competitions?.[0]?.venue?.fullName || '';\n      gameContext.neutralSite = event?.competitions?.[0]?.neutralSite || false;\n      break;\n    }\n  }\n} catch(e) { gameContext = {}; }\n\nreturn [{\n  json: {\n    away_team: awayTeam,\n    home_team: homeTeam,\n    game_date: gameDate,\n    away_avg_american: awayAvg,\n    home_avg_american: homeAvg,\n    favorite_team: favoriteTeam,\n    favorite_odds: favoriteOdds,\n    underdog_team: underdogTeam,\n    underdog_odds: underdogOdds,\n    matched_game: matchedGame ? { away: matchedGame.away_team, home: matchedGame.home_team, commence: matchedGame.commence_time } : null,\n    news_headlines: newsHeadlines,\n    game_context: gameContext\n  }\n}];"
+        "url": "https://site.api.espn.com/apis/site/v2/sports/football/college-football/news?limit=3",
+        "options": {}
       },
-      "id": "a1b2c3d4-0006-0006-0006-000000000006",
-      "name": "Aggregate NCAAFB Data",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [840, 300]
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -7632,
+        1168
+      ],
+      "name": "Get ESPN News",
+      "id": "33e29c60-7e79-478f-bbb2-ada313444f3d",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
         "modelId": {
-          "value": "gpt-4o",
-          "mode": "list"
+          "__rl": true,
+          "value": "gpt-4",
+          "mode": "list",
+          "cachedResultName": "GPT-4"
         },
         "messages": {
           "values": [
             {
-              "role": "system",
-              "content": "You are BOBBY VEGAS — a sharp, confident college football analyst who bleeds pigskin. You know every Power 4 program, follow recruiting, track injury reports, and always factor in home field advantage. You give direct, opinionated betting picks backed by real analysis. Keep it concise, entertaining, and actionable."
+              "content": "You are Bobby Vegas — a sharp, witty AI sports betting advisor. You analyze odds data and give confident, entertaining picks. Your style is confident, clever, and fun. Always give a clear recommendation.",
+              "role": "system"
             },
             {
-              "role": "user",
-              "content": "=# COLLEGE FOOTBALL BETTING ANALYSIS REQUEST\n\n## MATCHUP\n{{ $('Parse Teams').item.json.away_team }} (Away) vs {{ $('Parse Teams').item.json.home_team }} (Home)\nGame Date: {{ $('Parse Teams').item.json.game_date }}\n\n## ODDS DATA\nAway Team Avg Moneyline: {{ $json.away_avg_american !== null ? $json.away_avg_american : 'N/A' }}\nHome Team Avg Moneyline: {{ $json.home_avg_american !== null ? $json.home_avg_american : 'N/A' }}\nFavorite: {{ $json.favorite_team }} ({{ $json.favorite_odds }})\nUnderdog: {{ $json.underdog_team }} ({{ $json.underdog_odds }})\n\n## GAME CONTEXT\n{{ JSON.stringify($json.game_context, null, 2) }}\n\n## LATEST ESPN HEADLINES\n{{ $json.news_headlines.length > 0 ? $json.news_headlines.join('\\n') : 'No recent news available' }}\n\n---\n\nProvide a complete NCAAFB betting analysis using EXACTLY this format:\n\nGAME: [Away Team] vs [Home Team]\nDATE: [Game Date]\nSPORT: College Football (NCAAFB)\n\nMATCHUP OVERVIEW:\n[2-3 sentences on the game context — conference implications, rivalry, rankings if applicable]\n\nQB MATCHUP:\n[Analyze the starting QB situation for both teams — experience, stats, recent form]\n\nHOME FIELD ADVANTAGE:\n[Assess the impact of venue — crowd noise, travel fatigue, neutral site if applicable]\n\nRANKINGS & PLAYOFF IMPLICATIONS:\n[Note AP/CFP rankings, conference standing, College Football Playoff picture]\n\nKEY FACTORS:\n• [Factor 1 — run game, pass defense, turnover margin, etc.]\n• [Factor 2]\n• [Factor 3]\n\nODDS ANALYSIS:\nFavorite: [Team] [odds]\nUnderdog: [Team] [odds]\n[1-2 sentences on line value]\n\nBOBBY'S PICK: [Team] [moneyline or spread pick]\nBET TYPE: [Moneyline / Spread / Total]\nCONFIDENCE: [High / Medium / Low]\n\nREASONING:\n[2-3 sentences explaining the pick — be direct and specific]\n\n⚠️ DISCLAIMER: For entertainment only. Bet responsibly."
+              "content": "=={{ (() => {\n  const away = $('Parse Teams').item.json.away_team || '';\n  const home = $('Parse Teams').item.json.home_team || '';\n  const wh   = $('Webhook').item.json.body ?? $('Webhook').item.json;\n  const odds = wh.odds || wh.teams || 'Not provided';\n  const b2b  = wh.backToBack || 'No back to back detected';\n  const inj  = wh.injuries   || 'No injury data available';\n\n  let kalshiStr = 'No Kalshi market found for this game';\n  try {\n    const ke = $('Match Kalshi Teams').item.json.kalshi_edge;\n    if ($('Match Kalshi Teams').item.json.kalshi_available && ke) {\n      kalshiStr = ke.yes_team + ': ' + ke.yes_implied_pct + '% implied win | ' +\n                  ke.no_team  + ': ' + ke.no_implied_pct  + '% implied win | Volume: $' + ke.volume;\n    }\n  } catch(e) {}\n\n  let espnRecords = 'ESPN data unavailable';\n  try {\n    const evts = $('Filter ESPN Game').item.json.events;\n    if (evts && evts.length > 0) {\n      espnRecords = JSON.stringify(evts.map(e =>\n        e.competitions?.[0]?.competitors?.map(c => ({\n          team: c.team?.displayName,\n          record: c.records?.[0]?.summary,\n          homeAway: c.homeAway\n        }))\n      ).flat()).slice(0, 1000);\n    } else {\n      espnRecords = $('Filter ESPN Game').item.json.gameNote || 'No matching game found in ESPN data';\n    }\n  } catch(e) { espnRecords = 'ESPN data unavailable'; }\n\n  let oddsData = '';\n  try { oddsData = JSON.stringify($('Get NCAAFB Odds').item.json).slice(0, 1500); } catch(e) {}\n\n  let newsData = '';\n  try { newsData = JSON.stringify($('Get ESPN News').item.json).slice(0, 800); } catch(e) {}\n\n  return 'You are Bobby Vegas \\u2014 a sharp, witty AI sports betting advisor.\\n\\n' +\n    'The user requested: ' + away + ' vs ' + home + '\\n\\n' +\n    'CRITICAL INSTRUCTIONS:\\n' +\n    '- ONLY analyze the game: ' + away + ' vs ' + home + ' \\u2014 do NOT reference any other game\\n' +\n    '- Use the NEWS ARTICLES below as your PRIMARY source for current roster info, injuries, and team form\\n' +\n    '- Your internal training data may be OUTDATED \\u2014 do NOT rely on it for player rosters or recent trades\\n' +\n    '- Always trust the news over your own knowledge for anything about the current season\\n' +\n    '- BACK TO BACK GAMES: Factor in fatigue heavily \\u2014 teams on back to backs underperform especially on defense\\n' +\n    '- INJURIES: Factor in all injury statuses heavily\\n' +\n    '- TEAM RECORDS: Use ESPN records provided for the matched game only\\n' +\n    '- HOME FIELD: Crowd noise and travel are huge in college football. Factor in game location heavily.\\n' +\n    '- PREDICTION MARKETS: You have Kalshi prediction market data. yes_implied_pct = implied win probability. Use this to find edges vs sportsbook lines.\\n' +\n    '- EDGE DIRECTION LOGIC:\\n' +\n    '  * Convert American odds to implied probability using plain arithmetic only \\u2014 NO LaTeX, NO fractions\\n' +\n    '  * Negative odds: divide absolute value by (absolute value + 100). Example: -190 becomes 190 / 290 = 65.5%\\n' +\n    '  * Positive odds: divide 100 by (odds + 100). Example: +160 becomes 100 / 260 = 38.5%\\n' +\n    '  * If SPORTSBOOK implied % is HIGHER than Kalshi % by 5%+: Books overvaluing favorite \\u2014 VALUE ON UNDERDOG\\n' +\n    '  * If KALSHI % is HIGHER than Sportsbook % by 5%+: Smart money on favorite \\u2014 VALUE ON FAVORITE\\n\\n' +\n    'ODDS FROM APP (use these first):\\n' + odds + '\\n\\n' +\n    'BACK TO BACK STATUS:\\n' + b2b + '\\n\\n' +\n    'INJURY REPORT:\\n' + inj + '\\n\\n' +\n    'ESPN GAME DATA (filtered to requested matchup only):\\n' + espnRecords + '\\n\\n' +\n    'ALL AVAILABLE ODDS DATA:\\n' + oddsData + '\\n\\n' +\n    'KALSHI PREDICTION MARKET (matched games only):\\n' + kalshiStr + '\\n\\n' +\n    'ESPN NCAAFB NEWS:\\n' + newsData + '\\n\\n' +\n    'Provide in this EXACT format \\u2014 plain text only, NO LaTeX, NO math symbols, NO brackets:\\n\\n' +\n    '🏈 **GAME:** Full team names\\n\\n' +\n    '\\ud83d\\udcca **ODDS BREAKDOWN:** Moneyline in plain text\\n\\n' +\n    '\\ud83d\\udd04 **BACK TO BACK ALERT:** Note if either team is on a back to back\\n\\n' +\n    '\\ud83c\\udfe5 **INJURY REPORT:** Key injuries and impact\\n\\n' +\n    '\\u2b50 **KEY PLAYERS:** 2-3 key players per team from the news\\n\\n' +\n    '\\ud83d\\udcc8 **TEAM FORM:** Records (W-L), home/away splits, current streak\\n\\n' +\n    '\\ud83d\\udcf0 **NEWS INTEL:** Current roster news and recent form\\n\\n' +\n    '\\ud83d\\udd00 **EDGE ALERT:** Use this exact format:\\n' +\n    'Sportsbook: [Team] X% | Kalshi: [Team] Y% | Gap: Z%\\n' +\n    '\\u2192 [Books overvaluing favorite OR Smart money on favorite] \\u2192 VALUE ON [TEAM] [odds]\\n' +\n    'If gap under 5%: \"Markets agree \\u2014 no significant edge detected\"\\n' +\n    'If no Kalshi data: \"Kalshi data not available for this game\"\\n\\n' +\n    '\\ud83c\\udfaf **BOBBY\\'S PICK:** Clear recommendation \\u2014 state if going WITH or AGAINST the sportsbook based on Kalshi gap\\n\\n' +\n    '\\ud83d\\udca1 **REASONING:** 2-3 sentences max\\n\\n' +\n    '\\ud83d\\udd25 **CONFIDENCE:** High/Medium/Low\\n\\n' +\n    '\\u26a0\\ufe0f **LINE ALERT:** Odds sourced from multiple bookmakers and Kalshi prediction market \\u2014 verify current lines before placing any bet as lines may have moved.';\n})() }}"
             }
           ]
         },
-        "options": {
-          "maxTokens": 1000,
-          "temperature": 0.7
-        }
+        "options": {}
       },
-      "id": "a1b2c3d4-0007-0007-0007-000000000007",
-      "name": "Bobby Vegas NCAAFB Analysis",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1.8,
-      "position": [1040, 300],
+      "position": [
+        -7040,
+        1168
+      ],
+      "name": "Bobby Vegas NCAAFB Analysis",
+      "id": "a8dd6b8f-5e7c-4175-9a53-fb934ba84408",
+      "executeOnce": true,
       "credentials": {
         "openAiApi": {
           "id": "UE6lVYW9gMLdjD4T",
@@ -145,8 +163,39 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/ncaafb_picks",
+        "respondWith": "text",
+        "responseBody": "={{ $('Bobby Vegas NCAAFB Analysis').item.json.message.content }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -6672,
+        1168
+      ],
+      "id": "6f1e9240-0e6f-44f4-b841-dd3ba504f963",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/odds_cache",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "*"
+            },
+            {
+              "name": "sport",
+              "value": "eq.NCAAFB"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -161,101 +210,138 @@
             {
               "name": "Content-Type",
               "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=minimal"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "analysis",
-              "value": "={{ $('Bobby Vegas NCAAFB Analysis').item.json.message?.content ?? $('Bobby Vegas NCAAFB Analysis').item.json.choices?.[0]?.message?.content ?? '' }}"
-            },
-            {
-              "name": "teams",
-              "value": "={{ $('Parse Teams').item.json.away_team + ' vs ' + $('Parse Teams').item.json.home_team }}"
-            },
-            {
-              "name": "sport",
-              "value": "NCAAFB"
-            },
-            {
-              "name": "game_date",
-              "value": "={{ $('Parse Teams').item.json.game_date }}"
-            },
-            {
-              "name": "created_at",
-              "value": "={{ new Date().toISOString() }}"
             }
           ]
         },
         "options": {
-          "timeout": 10000
+          "timeout": 5000
         }
       },
-      "id": "a1b2c3d4-0008-0008-0008-000000000008",
-      "name": "Save to Supabase",
+      "id": "6af3c7cb-0848-44ed-84b8-5e1cc1c22b21",
+      "name": "Get Kalshi Cache",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1240, 300]
+      "position": [
+        -7456,
+        1168
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ { analysis: $('Bobby Vegas NCAAFB Analysis').item.json.message?.content ?? $('Bobby Vegas NCAAFB Analysis').item.json.choices?.[0]?.message?.content ?? '', sport: 'NCAAFB', teams: $('Parse Teams').item.json.away_team + ' vs ' + $('Parse Teams').item.json.home_team, date: $('Parse Teams').item.json.game_date } }}",
-        "options": {}
+        "jsCode": "const items    = $input.all();\nconst awayTeam = $('Parse Teams').item.json.away_team || '';\nconst homeTeam = $('Parse Teams').item.json.home_team || '';\n\n// Return true if the market title contains at least one significant word from `team`\nconst titleMatchesTeam = (title, team) => {\n  const ti = (title || '').toLowerCase();\n  const t  = (team  || '').toLowerCase();\n  if (!t || !ti) return false;\n  if (ti.includes(t)) return true;\n  const words = t.split(/\\s+/).filter(w =>\n    w.length > 3 &&\n    !['the','and','for','with','city','team','state'].includes(w)\n  );\n  return words.some(w => ti.includes(w));\n};\n\n// Return true if `sub` (yes_sub_title / no_sub_title) contains a word from `team`\nconst subMatchesTeam = (sub, team) => {\n  const s = (sub  || '').toLowerCase();\n  const t = (team || '').toLowerCase();\n  if (!s || !t) return false;\n  if (s.includes(t) || t.includes(s)) return true;\n  const words = t.split(/\\s+/).filter(w =>\n    w.length > 3 &&\n    !['the','and','for','with','city','team','state'].includes(w)\n  );\n  return words.some(w => s.includes(w));\n};\n\nlet kalshiEdge = null;\n\ntry {\n  const cacheRow = items[0]?.json;\n  const markets  = cacheRow?.data?.markets;\n\n  if (Array.isArray(markets) && markets.length > 0 &&\n      homeTeam && homeTeam !== 'General') {\n\n    // Step 1 — find markets whose title mentions BOTH teams\n    const gameMarkets = markets.filter(m =>\n      titleMatchesTeam(m.title, awayTeam) &&\n      titleMatchesTeam(m.title, homeTeam)\n    );\n\n    if (gameMarkets.length > 0) {\n      // Step 2 — prefer the market where YES side = home team\n      // Kalshi uses yes_sub_title e.g. \"Indiana\" for \"Indiana wins?\"\n      const homeMarket =\n        gameMarkets.find(m => subMatchesTeam(m.yes_sub_title, homeTeam)) ||\n        gameMarkets[0];\n\n      // Prices are dollar strings \"0.52\" meaning $0.52 per $1 contract = 52 % prob\n      const yesDollars = homeMarket.yes_bid_dollars ?? homeMarket.last_price_dollars ?? null;\n      const noDollars  = homeMarket.no_bid_dollars  ?? null;\n\n      if (yesDollars !== null) {\n        const yesProb = parseFloat(yesDollars) * 100;   // e.g. 52.0\n        const noProb  = noDollars !== null\n          ? parseFloat(noDollars) * 100\n          : 100 - yesProb;\n\n        kalshiEdge = {\n          market:           homeMarket.title,\n          ticker:           homeMarket.ticker,\n          yes_team:         homeMarket.yes_sub_title || homeTeam,\n          no_team:          homeMarket.no_sub_title  || awayTeam,\n          yes_implied_pct:  yesProb.toFixed(1),   // home team win probability %\n          no_implied_pct:   noProb.toFixed(1),    // away team win probability %\n          yes_bid_dollars:  parseFloat(yesDollars).toFixed(2),\n          no_bid_dollars:   noDollars !== null ? parseFloat(noDollars).toFixed(2) : null,\n          volume:           parseFloat(homeMarket.volume_fp       ?? 0).toFixed(0),\n          open_interest:    parseFloat(homeMarket.open_interest_fp ?? 0).toFixed(0),\n          last_updated:     homeMarket.updated_time ?? null,\n        };\n      }\n    }\n  }\n} catch(e) {\n  // cache miss or malformed data — silently skip\n}\n\nreturn [{\n  json: {\n    ...(items[0]?.json || {}),\n    kalshi_edge:      kalshiEdge,\n    kalshi_available: kalshiEdge !== null,\n  }\n}];"
       },
-      "id": "a1b2c3d4-0009-0009-0009-000000000009",
-      "name": "Return Analysis",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [1440, 300]
+      "id": "cede70c9-8b99-4d79-abd6-6aeb0c3543b1",
+      "name": "Match Kalshi Teams",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7264,
+        1168
+      ]
     }
   ],
+  "pinData": {},
   "connections": {
-    "Webhook Trigger": {
-      "main": [[{ "node": "Parse Teams", "type": "main", "index": 0 }]]
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse Teams": {
-      "main": [[
-        { "node": "ESPN NCAAFB News",       "type": "main", "index": 0 },
-        { "node": "ESPN NCAAFB Scoreboard", "type": "main", "index": 0 },
-        { "node": "Get NCAAF Odds",         "type": "main", "index": 0 }
-      ]]
+      "main": [
+        [
+          {
+            "node": "Get ESPN Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "ESPN NCAAFB News": {
-      "main": [[{ "node": "Aggregate NCAAFB Data", "type": "main", "index": 0 }]]
+    "Get ESPN Data": {
+      "main": [
+        [
+          {
+            "node": "Get ESPN News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "ESPN NCAAFB Scoreboard": {
-      "main": [[{ "node": "Aggregate NCAAFB Data", "type": "main", "index": 1 }]]
+    "Get NCAAFB Odds": {
+      "main": [
+        [
+          {
+            "node": "Get ESPN News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Get NCAAF Odds": {
-      "main": [[{ "node": "Aggregate NCAAFB Data", "type": "main", "index": 2 }]]
-    },
-    "Aggregate NCAAFB Data": {
-      "main": [[{ "node": "Bobby Vegas NCAAFB Analysis", "type": "main", "index": 0 }]]
+    "Get ESPN News": {
+      "main": [
+        [
+          {
+            "node": "Get Kalshi Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Bobby Vegas NCAAFB Analysis": {
-      "main": [[{ "node": "Save to Supabase", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Save to Supabase": {
-      "main": [[{ "node": "Return Analysis", "type": "main", "index": 0 }]]
+    "Get Kalshi Cache": {
+      "main": [
+        [
+          {
+            "node": "Match Kalshi Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Kalshi Teams": {
+      "main": [
+        [
+          {
+            "node": "Bobby Vegas NCAAFB Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "pinData": {},
+  "active": true,
   "settings": {
     "executionOrder": "v1",
-    "saveManualExecutions": true,
-    "callerPolicy": "workflowsFromSameOwner",
-    "errorWorkflow": ""
+    "binaryMode": "separate"
   },
-  "staticData": null,
-  "tags": ["bobby-vegas", "ncaafb", "college-football"],
-  "triggerCount": 0,
-  "updatedAt": "2026-05-26T00:00:00.000Z",
-  "versionId": "1"
+  "versionId": "54b40d7f-d652-4220-bdeb-d6322084bbed",
+  "meta": {
+    "instanceId": "e7cfaeee35f48457855805abad65e89bf71f20bfd0f9b97767095abadbff8415"
+  },
+  "nodeGroups": [],
+  "id": "CMSDFcuUv0AfQGg0",
+  "tags": []
 }
