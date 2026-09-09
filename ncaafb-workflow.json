@@ -81,22 +81,28 @@
     },
     {
       "parameters": {
-        "url": "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        -8064,
-        1168
-      ],
-      "name": "Get ESPN Data",
-      "id": "f4ab2920-48c2-4fff-bc22-118877a5f052",
-      "alwaysOutputData": true
-    },
-    {
-      "parameters": {
-        "url": "https://api.the-odds-api.com/v4/sports/americanfootball_ncaaf/odds/?regions=us&markets=h2h,spreads&oddsFormat=american&apiKey=bc8b24096b97b911b25e5679919a9f0a",
+        "url": "https://api.the-odds-api.com/v4/sports/americanfootball_ncaaf/odds/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "regions",
+              "value": "us"
+            },
+            {
+              "name": "markets",
+              "value": "h2h,spreads"
+            },
+            {
+              "name": "oddsFormat",
+              "value": "american"
+            },
+            {
+              "name": "apiKey",
+              "value": "bc8b24096b97b911b25e5679919a9f0a"
+            }
+          ]
+        },
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -107,7 +113,9 @@
       ],
       "name": "Get NCAAFB Odds",
       "id": "eff663d4-b912-45a9-8d79-7121965d7c40",
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "continueOnFail": true,
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -122,7 +130,9 @@
       ],
       "name": "Get ESPN News",
       "id": "33e29c60-7e79-478f-bbb2-ada313444f3d",
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -139,7 +149,7 @@
               "role": "system"
             },
             {
-              "content": "=={{ (() => {\n  const away = $('Parse Teams').item.json.away_team || '';\n  const home = $('Parse Teams').item.json.home_team || '';\n  const wh   = $('Webhook').item.json.body ?? $('Webhook').item.json;\n  const odds = wh.odds || wh.teams || 'Not provided';\n  const b2b  = wh.backToBack || 'No back to back detected';\n  const inj  = wh.injuries   || 'No injury data available';\n\n  let kalshiStr = 'No Kalshi market found for this game';\n  try {\n    const ke = $('Match Kalshi Teams').item.json.kalshi_edge;\n    if ($('Match Kalshi Teams').item.json.kalshi_available && ke) {\n      kalshiStr = ke.yes_team + ': ' + ke.yes_implied_pct + '% implied win | ' +\n                  ke.no_team  + ': ' + ke.no_implied_pct  + '% implied win | Volume: $' + ke.volume;\n    }\n  } catch(e) {}\n\n  let espnRecords = 'ESPN data unavailable';\n  try {\n    const evts = $('Filter ESPN Game').item.json.events;\n    if (evts && evts.length > 0) {\n      espnRecords = JSON.stringify(evts.map(e =>\n        e.competitions?.[0]?.competitors?.map(c => ({\n          team: c.team?.displayName,\n          record: c.records?.[0]?.summary,\n          homeAway: c.homeAway\n        }))\n      ).flat()).slice(0, 1000);\n    } else {\n      espnRecords = $('Filter ESPN Game').item.json.gameNote || 'No matching game found in ESPN data';\n    }\n  } catch(e) { espnRecords = 'ESPN data unavailable'; }\n\n  let oddsData = '';\n  try { oddsData = JSON.stringify($('Get NCAAFB Odds').item.json).slice(0, 1500); } catch(e) {}\n\n  let newsData = '';\n  try { newsData = JSON.stringify($('Get ESPN News').item.json).slice(0, 800); } catch(e) {}\n\n  return 'You are Bobby Vegas \\u2014 a sharp, witty AI sports betting advisor.\\n\\n' +\n    'The user requested: ' + away + ' vs ' + home + '\\n\\n' +\n    'CRITICAL INSTRUCTIONS:\\n' +\n    '- ONLY analyze the game: ' + away + ' vs ' + home + ' \\u2014 do NOT reference any other game\\n' +\n    '- Use the NEWS ARTICLES below as your PRIMARY source for current roster info, injuries, and team form\\n' +\n    '- Your internal training data may be OUTDATED \\u2014 do NOT rely on it for player rosters or recent trades\\n' +\n    '- Always trust the news over your own knowledge for anything about the current season\\n' +\n    '- BACK TO BACK GAMES: Factor in fatigue heavily \\u2014 teams on back to backs underperform especially on defense\\n' +\n    '- INJURIES: Factor in all injury statuses heavily\\n' +\n    '- TEAM RECORDS: Use ESPN records provided for the matched game only\\n' +\n    '- HOME FIELD: Crowd noise and travel are huge in college football. Factor in game location heavily.\\n' +\n    '- PREDICTION MARKETS: You have Kalshi prediction market data. yes_implied_pct = implied win probability. Use this to find edges vs sportsbook lines.\\n' +\n    '- EDGE DIRECTION LOGIC:\\n' +\n    '  * Convert American odds to implied probability using plain arithmetic only \\u2014 NO LaTeX, NO fractions\\n' +\n    '  * Negative odds: divide absolute value by (absolute value + 100). Example: -190 becomes 190 / 290 = 65.5%\\n' +\n    '  * Positive odds: divide 100 by (odds + 100). Example: +160 becomes 100 / 260 = 38.5%\\n' +\n    '  * If SPORTSBOOK implied % is HIGHER than Kalshi % by 5%+: Books overvaluing favorite \\u2014 VALUE ON UNDERDOG\\n' +\n    '  * If KALSHI % is HIGHER than Sportsbook % by 5%+: Smart money on favorite \\u2014 VALUE ON FAVORITE\\n\\n' +\n    'ODDS FROM APP (use these first):\\n' + odds + '\\n\\n' +\n    'BACK TO BACK STATUS:\\n' + b2b + '\\n\\n' +\n    'INJURY REPORT:\\n' + inj + '\\n\\n' +\n    'ESPN GAME DATA (filtered to requested matchup only):\\n' + espnRecords + '\\n\\n' +\n    'ALL AVAILABLE ODDS DATA:\\n' + oddsData + '\\n\\n' +\n    'KALSHI PREDICTION MARKET (matched games only):\\n' + kalshiStr + '\\n\\n' +\n    'ESPN NCAAFB NEWS:\\n' + newsData + '\\n\\n' +\n    'Provide in this EXACT format \\u2014 plain text only, NO LaTeX, NO math symbols, NO brackets:\\n\\n' +\n    '🏈 **GAME:** Full team names\\n\\n' +\n    '\\ud83d\\udcca **ODDS BREAKDOWN:** Moneyline in plain text\\n\\n' +\n    '\\ud83d\\udd04 **BACK TO BACK ALERT:** Note if either team is on a back to back\\n\\n' +\n    '\\ud83c\\udfe5 **INJURY REPORT:** Key injuries and impact\\n\\n' +\n    '\\u2b50 **KEY PLAYERS:** 2-3 key players per team from the news\\n\\n' +\n    '\\ud83d\\udcc8 **TEAM FORM:** Records (W-L), home/away splits, current streak\\n\\n' +\n    '\\ud83d\\udcf0 **NEWS INTEL:** Current roster news and recent form\\n\\n' +\n    '\\ud83d\\udd00 **EDGE ALERT:** Use this exact format:\\n' +\n    'Sportsbook: [Team] X% | Kalshi: [Team] Y% | Gap: Z%\\n' +\n    '\\u2192 [Books overvaluing favorite OR Smart money on favorite] \\u2192 VALUE ON [TEAM] [odds]\\n' +\n    'If gap under 5%: \"Markets agree \\u2014 no significant edge detected\"\\n' +\n    'If no Kalshi data: \"Kalshi data not available for this game\"\\n\\n' +\n    '\\ud83c\\udfaf **BOBBY\\'S PICK:** Clear recommendation \\u2014 state if going WITH or AGAINST the sportsbook based on Kalshi gap\\n\\n' +\n    '\\ud83d\\udca1 **REASONING:** 2-3 sentences max\\n\\n' +\n    '\\ud83d\\udd25 **CONFIDENCE:** High/Medium/Low\\n\\n' +\n    '\\u26a0\\ufe0f **LINE ALERT:** Odds sourced from multiple bookmakers and Kalshi prediction market \\u2014 verify current lines before placing any bet as lines may have moved.';\n})() }}"
+              "content": "=={{ (() => {\n  const away = $('Parse Teams').item.json.away_team || '';\n  const home = $('Parse Teams').item.json.home_team || '';\n  const wh   = $('Webhook').item.json.body ?? $('Webhook').item.json;\n  const odds = wh.odds || 'Not provided';\n\n  // Fuzzy team matcher (mirrors Match Kalshi Teams / Filter CFBD Games)\n  const matchesTeam = (candidate, team) => {\n    const c = (candidate || '').toLowerCase();\n    const t = (team || '').toLowerCase();\n    if (!c || !t) return false;\n    if (c.includes(t) || t.includes(c)) return true;\n    const words = t.split(/\\s+/).filter(w =>\n      w.length > 3 &&\n      !['the','and','for','with','city','team','state','university'].includes(w)\n    );\n    return words.some(w => c.includes(w));\n  };\n\n  let kalshiStr = 'No Kalshi market found for this game';\n  try {\n    const ke = $('Match Kalshi Teams').item.json.kalshi_edge;\n    if ($('Match Kalshi Teams').item.json.kalshi_available && ke) {\n      kalshiStr = ke.yes_team + ': ' + ke.yes_implied_pct + '% implied win | ' +\n                  ke.no_team  + ': ' + ke.no_implied_pct  + '% implied win | Volume: $' + ke.volume;\n    }\n  } catch(e) {}\n\n  // CFBD game meta (venue, neutral site, kickoff, conferences)\n  let gameMeta = 'No matching FBS game found in CFBD schedule';\n  try {\n    const g = $('Filter CFBD Games').item.json;\n    if (g && g.matched) {\n      gameMeta =\n        g.awayTeam + ' (' + (g.awayConference || 'n/a') + ') at ' +\n        g.homeTeam + ' (' + (g.homeConference || 'n/a') + ') | ' +\n        'Kickoff: ' + (g.startDate || 'TBD') + ' | ' +\n        'Neutral site: ' + (g.neutralSite ? 'YES (no home-field edge)' : 'No') + ' | ' +\n        'Venue: ' + (g.venue || 'n/a') + ' | ' +\n        'Conference game: ' + (g.conferenceGame ? 'Yes' : 'No');\n    } else if (g && g.gameNote) {\n      gameMeta = g.gameNote;\n    }\n  } catch(e) {}\n\n  // CFBD season records (W-L overall + home/away) for the two teams\n  let recordsStr = 'CFBD records unavailable';\n  try {\n    const rows = $('CFBD Get Records').all().map(i => i.json);\n    const fmt = (label, r) => {\n      if (!r) return label + ': record unavailable';\n      const t = r.total || {};\n      const h = r.homeGames || {};\n      const a = r.awayGames || {};\n      return label.toUpperCase() + ': ' +\n        (t.wins ?? 0) + '-' + (t.losses ?? 0) + ' overall | ' +\n        (h.wins ?? 0) + '-' + (h.losses ?? 0) + ' home | ' +\n        (a.wins ?? 0) + '-' + (a.losses ?? 0) + ' away';\n    };\n    const awayRec = rows.find(r => matchesTeam(r.team, away));\n    const homeRec = rows.find(r => matchesTeam(r.team, home));\n    recordsStr = fmt(away, awayRec) + '\\n' + fmt(home, homeRec);\n  } catch(e) {}\n\n  let oddsData = '';\n  try { oddsData = JSON.stringify($('Get NCAAFB Odds').item.json).slice(0, 1500); } catch(e) {}\n\n  return 'You are Bobby Vegas — a sharp, witty AI sports betting advisor.\\n\\n' +\n    'The user requested: ' + away + ' vs ' + home + '\\n\\n' +\n    'CRITICAL INSTRUCTIONS:\\n' +\n    '- ONLY analyze the game: ' + away + ' vs ' + home + ' — do NOT reference any other game\\n' +\n    '- Use the CFBD SCHEDULE and RECORDS below as your PRIMARY source for matchup facts, venue, and team form\\n' +\n    '- Your internal training data may be OUTDATED — do NOT rely on it for rosters or recent results; if the data below does not cover something, say so rather than guessing\\n' +\n    '- TEAM RECORDS: Use ONLY the CFBD records provided below for W-L and home/away splits\\n' +\n    '- HOME FIELD: Crowd noise and travel matter in college football — but if the game is a NEUTRAL SITE per the data below, apply no home-field edge\\n' +\n    '- ROSTER/INJURY DATA: No reliable public injury feed exists for college football in this pipeline. Do NOT invent injuries. Treat roster confidence as LOW and weight the pick accordingly.\\n' +\n    '- PREDICTION MARKETS: You have Kalshi prediction market data. yes_implied_pct = implied win probability. Use this to find edges vs sportsbook lines.\\n' +\n    '- EDGE DIRECTION LOGIC:\\n' +\n    '  * Convert American odds to implied probability using plain arithmetic only — NO LaTeX, NO fractions\\n' +\n    '  * Negative odds: divide absolute value by (absolute value + 100). Example: -190 becomes 190 / 290 = 65.5%\\n' +\n    '  * Positive odds: divide 100 by (odds + 100). Example: +160 becomes 100 / 260 = 38.5%\\n' +\n    '  * If SPORTSBOOK implied % is HIGHER than Kalshi % by 5%+: Books overvaluing favorite — VALUE ON UNDERDOG\\n' +\n    '  * If KALSHI % is HIGHER than Sportsbook % by 5%+: Smart money on favorite — VALUE ON FAVORITE\\n\\n' +\n    'ODDS FROM APP (use these first):\\n' + odds + '\\n\\n' +\n    'CFBD GAME INFO (matched to requested matchup):\\n' + gameMeta + '\\n\\n' +\n    'CFBD SEASON RECORDS:\\n' + recordsStr + '\\n\\n' +\n    'ALL AVAILABLE ODDS DATA:\\n' + oddsData + '\\n\\n' +\n    'KALSHI PREDICTION MARKET (matched games only):\\n' + kalshiStr + '\\n\\n' +\n    'Provide in this EXACT format — plain text only, NO LaTeX, NO math symbols, NO brackets:\\n\\n' +\n    '🏈 **GAME:** Full team names (note neutral site if applicable)\\n\\n' +\n    '📊 **ODDS BREAKDOWN:** Moneyline in plain text\\n\\n' +\n    '📈 **TEAM FORM:** W-L records and home/away splits from the CFBD data above\\n\\n' +\n    '🏟️ **HOME FIELD:** Venue and whether home field applies (none if neutral site)\\n\\n' +\n    '🔀 **EDGE ALERT:** Use this exact format:\\n' +\n    'Sportsbook: [Team] X% | Kalshi: [Team] Y% | Gap: Z%\\n' +\n    '→ [Books overvaluing favorite OR Smart money on favorite] → VALUE ON [TEAM] [odds]\\n' +\n    'If gap under 5%: \"Markets agree — no significant edge detected\"\\n' +\n    'If no Kalshi data: \"Kalshi data not available for this game\"\\n\\n' +\n    '🎯 **BOBBY\\'S PICK:** Clear recommendation — state if going WITH or AGAINST the sportsbook based on Kalshi gap\\n\\n' +\n    '💡 **REASONING:** 2-3 sentences max\\n\\n' +\n    '🔥 **CONFIDENCE:** High/Medium/Low\\n\\n' +\n    '⚠️ **LINE ALERT:** Odds sourced from multiple bookmakers and Kalshi prediction market — verify current lines before placing any bet as lines may have moved. Roster confidence: LOW — no public injury data available for college football, so key absences may not be reflected.';\n})() }}"
             }
           ]
         },
@@ -239,6 +249,104 @@
         -7264,
         1168
       ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.collegefootballdata.com/calendar?year=2026",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -8180,
+        1360
+      ],
+      "id": "cfbd0001-0000-4000-8000-000000000001",
+      "name": "CFBD Get Calendar",
+      "alwaysOutputData": true,
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CFBD_API_CREDENTIAL_ID",
+          "name": "CFBD API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Derive the current CFBD week from /calendar at runtime — never hardcoded.\n// The HTTP node emits one item per calendar entry.\nconst weeks = $input.all().map(i => i.json);\nconst now = Date.now();\nconst parse = s => (s ? new Date(s).getTime() : null);\n\nconst regular = weeks.filter(w => (w.seasonType || w.season_type) === 'regular');\nconst pool = regular.length ? regular : weeks;\n\nlet chosen = null;\n\n// 1) now falls within [startDate, endDate]\nfor (const w of pool) {\n  const start = parse(w.startDate || w.firstGameStart);\n  const end   = parse(w.endDate   || w.lastGameStart);\n  if (start !== null && end !== null && now >= start && now <= end) { chosen = w; break; }\n}\n\n// 2) otherwise the latest week that has already started\nif (!chosen) {\n  const started = pool\n    .filter(w => { const s = parse(w.startDate || w.firstGameStart); return s !== null && s <= now; })\n    .sort((a, b) => parse(a.startDate || a.firstGameStart) - parse(b.startDate || b.firstGameStart));\n  if (started.length) chosen = started[started.length - 1];\n}\n\n// 3) fallback: first entry / week 1\nif (!chosen) chosen = pool[0] || { week: 1 };\n\nreturn [{ json: { year: 2026, week: chosen.week || 1 } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -8060,
+        1360
+      ],
+      "id": "cfbd0002-0000-4000-8000-000000000002",
+      "name": "Resolve Week"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.collegefootballdata.com/games?year=2026&week={{ $('Resolve Week').item.json.week }}&seasonType=regular&classification=fbs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -7940,
+        1360
+      ],
+      "id": "cfbd0003-0000-4000-8000-000000000003",
+      "name": "CFBD Get Games",
+      "alwaysOutputData": true,
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CFBD_API_CREDENTIAL_ID",
+          "name": "CFBD API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Match the requested matchup against the week's FBS games.\n// Fuzzy-matching mirrors the pattern in \"Match Kalshi Teams\".\nconst items    = $input.all();\nconst awayTeam = $('Parse Teams').item.json.away_team || '';\nconst homeTeam = $('Parse Teams').item.json.home_team || '';\n\nconst matchesTeam = (candidate, team) => {\n  const c = (candidate || '').toLowerCase();\n  const t = (team || '').toLowerCase();\n  if (!c || !t) return false;\n  if (c.includes(t) || t.includes(c)) return true;\n  const words = t.split(/\\s+/).filter(w =>\n    w.length > 3 &&\n    !['the', 'and', 'for', 'with', 'city', 'team', 'state', 'university'].includes(w)\n  );\n  return words.some(w => c.includes(w));\n};\n\nlet matched = null;\nfor (const it of items) {\n  const g = it.json;\n  if (!g || !g.homeTeam || !g.awayTeam) continue;\n  const hit =\n    (matchesTeam(g.awayTeam, awayTeam) && matchesTeam(g.homeTeam, homeTeam)) ||\n    (matchesTeam(g.awayTeam, homeTeam) && matchesTeam(g.homeTeam, awayTeam));\n  if (hit) { matched = g; break; }\n}\n\nif (matched) {\n  return [{ json: {\n    matched:        true,\n    id:             matched.id,\n    week:           matched.week,\n    startDate:      matched.startDate,\n    neutralSite:    matched.neutralSite,\n    conferenceGame: matched.conferenceGame,\n    venue:          matched.venue,\n    homeTeam:       matched.homeTeam,\n    homeConference: matched.homeConference,\n    awayTeam:       matched.awayTeam,\n    awayConference: matched.awayConference,\n  } }];\n}\n\nreturn [{ json: {\n  matched:  false,\n  gameNote: 'No matching FBS game found for ' + awayTeam + ' vs ' + homeTeam,\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7820,
+        1360
+      ],
+      "id": "cfbd0004-0000-4000-8000-000000000004",
+      "name": "Filter CFBD Games"
+    },
+    {
+      "parameters": {
+        "url": "https://api.collegefootballdata.com/records?year=2026",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -7120,
+        1360
+      ],
+      "id": "cfbd0005-0000-4000-8000-000000000005",
+      "name": "CFBD Get Records",
+      "alwaysOutputData": true,
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CFBD_API_CREDENTIAL_ID",
+          "name": "CFBD API"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -258,18 +366,51 @@
       "main": [
         [
           {
-            "node": "Get ESPN Data",
+            "node": "CFBD Get Calendar",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get ESPN Data": {
+    "CFBD Get Calendar": {
       "main": [
         [
           {
-            "node": "Get ESPN News",
+            "node": "Resolve Week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Week": {
+      "main": [
+        [
+          {
+            "node": "CFBD Get Games",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CFBD Get Games": {
+      "main": [
+        [
+          {
+            "node": "Filter CFBD Games",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter CFBD Games": {
+      "main": [
+        [
+          {
+            "node": "Get NCAAFB Odds",
             "type": "main",
             "index": 0
           }
@@ -298,17 +439,6 @@
         ]
       ]
     },
-    "Bobby Vegas NCAAFB Analysis": {
-      "main": [
-        [
-          {
-            "node": "Respond to Webhook",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Get Kalshi Cache": {
       "main": [
         [
@@ -324,7 +454,29 @@
       "main": [
         [
           {
+            "node": "CFBD Get Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CFBD Get Records": {
+      "main": [
+        [
+          {
             "node": "Bobby Vegas NCAAFB Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bobby Vegas NCAAFB Analysis": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
             "type": "main",
             "index": 0
           }
