@@ -3,6 +3,13 @@ import { ChevronLeft, RefreshCw, TrendingUp } from "lucide-react";
 import { N8nIntegration } from "@/components/ui/n8n-integration";
 import { Card } from "@/components/ui/card";
 import type { GameOdds } from "@/components/ui/live-odds";
+import {
+  fetchAllOpenWorldCupEvents,
+  matchEventToTeams,
+  computeProbDivergence,
+  computeVolumeSkew,
+} from "@/services/polymarket";
+import type { PolymarketProbDivergence, PolymarketVolumeSkew } from "@/services/polymarket";
 
 const SUPABASE_URL = "https://mocdziwqxbvjibylqxoz.supabase.co";
 const SUPABASE_ANON_KEY =
@@ -254,6 +261,9 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
   const [lastFetch, setLastFetch] = useState<string | null>(null);
   const [selected, setSelected] = useState<{ teams: string; sport: Sport; date: string; odds?: GameOdds } | null>(null);
 
+  type PolySignals = { probDiv: PolymarketProbDivergence[]; volSkew: PolymarketVolumeSkew | null };
+  const [polySignals, setPolySignals] = useState<Map<string, PolySignals>>(new Map());
+
   const fetchEdges = useCallback(async () => {
     setLoading(true);
     try {
@@ -277,6 +287,32 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
     const id = setInterval(fetchEdges, 30 * 60 * 1000);
     return () => clearInterval(id);
   }, [fetchEdges]);
+
+  // Fetch Polymarket signals for all Soccer edges (single batch API call)
+  useEffect(() => {
+    const soccerEdges = edges.filter(e => e.sport === 'Soccer');
+    if (soccerEdges.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const events = await fetchAllOpenWorldCupEvents();
+      if (cancelled || events.length === 0) return;
+      const next = new Map<string, PolySignals>();
+      for (const edge of soccerEdges) {
+        const event = matchEventToTeams(events, edge.yesTeam, edge.noTeam);
+        if (!event) continue;
+        const probDiv = computeProbDivergence(
+          event,
+          { home: edge.yesProb, away: edge.noProb, draw: edge.drawProb },
+          edge.yesTeam,
+          edge.noTeam,
+        );
+        const volSkew = computeVolumeSkew(event);
+        next.set(edge.ticker, { probDiv, volSkew });
+      }
+      if (!cancelled) setPolySignals(next);
+    })();
+    return () => { cancelled = true; };
+  }, [edges]);
 
   // Game tapped from Live Odds on Dashboard → auto-open Bobby's analysis
   useEffect(() => {
@@ -467,6 +503,65 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
                         <TrendingUp className="w-3 h-3" />
                       </button>
                     </div>
+
+                    {/* Polymarket signals — Soccer edges only, two architecturally separate sections */}
+                    {edge.sport === 'Soccer' && (() => {
+                      const sigs = polySignals.get(edge.ticker);
+                      if (!sigs) return null;
+                      return (
+                        <div className="mt-2 space-y-1.5">
+                          {/* Signal 1: Probability Divergence — Polymarket implied % vs Kalshi implied % */}
+                          {sigs.probDiv.length > 0 && (
+                            <div
+                              className="rounded-lg px-2.5 py-2"
+                              style={{ background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.22)' }}
+                            >
+                              <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#60a5fa' }}>
+                                Polymarket vs Kalshi
+                              </p>
+                              <div className="space-y-0.5">
+                                {sigs.probDiv.map(d => (
+                                  <div key={d.outcome} className="flex items-center justify-between gap-1">
+                                    <span className="text-[10px] text-muted-foreground truncate">{d.outcome}</span>
+                                    <span className="text-[10px] tabular-nums shrink-0">
+                                      <span style={{ color: Math.abs(d.gap) >= 3 ? '#60a5fa' : 'var(--muted-foreground)' }}>
+                                        {d.polymarketPct}% vs {d.sbPct}%
+                                      </span>
+                                      {' '}
+                                      <span style={{ color: d.gap > 0 ? '#4ade80' : '#f87171' }}>
+                                        ({d.gap > 0 ? '+' : ''}{d.gap}%)
+                                      </span>
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Signal 2: Volume Skew — sharp money concentration */}
+                          {sigs.volSkew && (
+                            <div
+                              className="rounded-lg px-2.5 py-2"
+                              style={{ background: 'rgba(168,85,247,0.07)', border: '1px solid rgba(168,85,247,0.22)' }}
+                            >
+                              <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#c084fc' }}>
+                                Sharp Volume
+                              </p>
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[10px] text-muted-foreground truncate">{sigs.volSkew.skewedOutcome}</span>
+                                <span
+                                  className="text-[10px] tabular-nums shrink-0"
+                                  style={{ color: sigs.volSkew.isSignificant ? '#c084fc' : undefined }}
+                                >
+                                  {sigs.volSkew.skewPct}% of ${(sigs.volSkew.totalVolume / 1e6).toFixed(2)}M
+                                  {sigs.volSkew.isSignificant && ' ⚡'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
