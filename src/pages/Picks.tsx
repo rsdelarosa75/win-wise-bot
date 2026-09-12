@@ -21,6 +21,19 @@ const SPORT_EMOJIS: Record<string, string> = {
   NBA: "🏀", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽", MLB: "⚾", F1: "🏎️",
 };
 
+// Sport order + example placeholders for the manual matchup entry.
+const MANUAL_SPORTS: Sport[] = ["NCAAFB", "NFL", "MLB", "NBA", "WNBA", "NHL", "Soccer", "F1"];
+const MATCHUP_PLACEHOLDER: Record<Sport, string> = {
+  NBA: "e.g., Lakers vs Warriors",
+  WNBA: "e.g., Liberty vs Aces",
+  NHL: "e.g., Panthers vs Oilers",
+  NFL: "e.g., Chiefs vs Bills",
+  NCAAFB: "e.g., Ohio State vs Texas",
+  Soccer: "e.g., Brazil vs Argentina",
+  MLB: "e.g., Red Sox vs Yankees",
+  F1: "e.g., Verstappen vs Norris",
+};
+
 interface KalshiMarket {
   ticker: string;
   title: string;
@@ -260,6 +273,8 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
   const [loading, setLoading]   = useState(true);
   const [lastFetch, setLastFetch] = useState<string | null>(null);
   const [selected, setSelected] = useState<{ teams: string; sport: Sport; date: string; odds?: GameOdds } | null>(null);
+  const [manualTeams, setManualTeams] = useState("");
+  const [manualSport, setManualSport] = useState<Sport>("NCAAFB");
 
   type PolySignals = { probDiv: PolymarketProbDivergence[]; volSkew: PolymarketVolumeSkew | null };
   const [polySignals, setPolySignals] = useState<Map<string, PolySignals>>(new Map());
@@ -390,6 +405,54 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
             </p>
           )}
         </div>
+
+        {/* Manual matchup entry — type any game for the chosen sport */}
+        <Card className="p-4 border-primary/20 bg-card/60">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const teams = manualTeams.trim();
+              if (!teams) return;
+              setSelected({ teams, sport: manualSport, date: todayYmd, odds: undefined });
+            }}
+            className="space-y-3"
+          >
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-primary shrink-0" />
+              <h2 className="text-sm font-semibold">Analyze any matchup</h2>
+            </div>
+            <div className="flex gap-2">
+              <select
+                value={manualSport}
+                onChange={(e) => setManualSport(e.target.value as Sport)}
+                aria-label="Sport"
+                className="h-11 shrink-0 rounded-md border border-border bg-background/50 px-2 text-sm"
+              >
+                {MANUAL_SPORTS.map((s) => (
+                  <option key={s} value={s}>
+                    {SPORT_EMOJIS[s]} {s}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={manualTeams}
+                onChange={(e) => setManualTeams(e.target.value)}
+                placeholder={MATCHUP_PLACEHOLDER[manualSport]}
+                aria-label="Matchup (Away vs Home)"
+                className="h-11 min-w-0 flex-1 rounded-md border border-border bg-background/50 px-3 text-sm"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!manualTeams.trim()}
+              className="w-full min-h-[44px] rounded-md text-sm font-black text-black uppercase tracking-wide disabled:opacity-50"
+              style={{ backgroundColor: "#F5A100" }}
+            >
+              Get Bobby's Pick
+            </button>
+          </form>
+        </Card>
 
         {/* Loading skeleton */}
         {loading && (
