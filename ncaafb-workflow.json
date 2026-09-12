@@ -25,11 +25,11 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -8416,
-        1168
+        -6336,
+        48
       ],
       "name": "Webhook",
-      "id": "51ed7a5f-a824-47de-abbb-6aacc4db19a3",
+      "id": "ee998e3f-e810-424b-a457-d55bac527784",
       "webhookId": "ncaa2222-2222-2222-2222-222222222222"
     },
     {
@@ -73,11 +73,11 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -8240,
-        1168
+        -6160,
+        48
       ],
       "name": "Parse Teams",
-      "id": "89e29365-910b-40fe-be40-04b3f306f228"
+      "id": "7557b27c-f6e8-438d-9896-8f6b8c0507ab"
     },
     {
       "parameters": {
@@ -108,14 +108,14 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        -7856,
-        1168
+        -5776,
+        48
       ],
       "name": "Get NCAAFB Odds",
-      "id": "eff663d4-b912-45a9-8d79-7121965d7c40",
+      "id": "fe829fce-6fb3-4e43-8afe-b15aa6b64a9e",
       "alwaysOutputData": true,
-      "continueOnFail": true,
-      "executeOnce": true
+      "executeOnce": true,
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -125,11 +125,11 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        -7632,
-        1168
+        -5552,
+        48
       ],
       "name": "Get ESPN News",
-      "id": "33e29c60-7e79-478f-bbb2-ada313444f3d",
+      "id": "369df36d-ac73-4ca3-983e-a1162a9a6d85",
       "alwaysOutputData": true,
       "executeOnce": true,
       "continueOnFail": true
@@ -158,11 +158,11 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1.8,
       "position": [
-        -7040,
-        1168
+        -4928,
+        48
       ],
       "name": "Bobby Vegas NCAAFB Analysis",
-      "id": "a8dd6b8f-5e7c-4175-9a53-fb934ba84408",
+      "id": "2cd86710-5926-4b1f-9fbf-845d947539ff",
       "executeOnce": true,
       "credentials": {
         "openAiApi": {
@@ -180,10 +180,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        -6672,
-        1168
+        -4592,
+        48
       ],
-      "id": "6f1e9240-0e6f-44f4-b841-dd3ba504f963",
+      "id": "10a5f0de-3328-45d0-aea8-cf607fd94f18",
       "name": "Respond to Webhook"
     },
     {
@@ -227,28 +227,30 @@
           "timeout": 5000
         }
       },
-      "id": "6af3c7cb-0848-44ed-84b8-5e1cc1c22b21",
+      "id": "4c62ec82-36aa-4d44-af07-a6833b2a0712",
       "name": "Get Kalshi Cache",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -7456,
-        1168
+        -5328,
+        -16
       ],
+      "disabled": true,
       "continueOnFail": true
     },
     {
       "parameters": {
         "jsCode": "const items    = $input.all();\nconst awayTeam = $('Parse Teams').item.json.away_team || '';\nconst homeTeam = $('Parse Teams').item.json.home_team || '';\n\n// Return true if the market title contains at least one significant word from `team`\nconst titleMatchesTeam = (title, team) => {\n  const ti = (title || '').toLowerCase();\n  const t  = (team  || '').toLowerCase();\n  if (!t || !ti) return false;\n  if (ti.includes(t)) return true;\n  const words = t.split(/\\s+/).filter(w =>\n    w.length > 3 &&\n    !['the','and','for','with','city','team','state'].includes(w)\n  );\n  return words.some(w => ti.includes(w));\n};\n\n// Return true if `sub` (yes_sub_title / no_sub_title) contains a word from `team`\nconst subMatchesTeam = (sub, team) => {\n  const s = (sub  || '').toLowerCase();\n  const t = (team || '').toLowerCase();\n  if (!s || !t) return false;\n  if (s.includes(t) || t.includes(s)) return true;\n  const words = t.split(/\\s+/).filter(w =>\n    w.length > 3 &&\n    !['the','and','for','with','city','team','state'].includes(w)\n  );\n  return words.some(w => s.includes(w));\n};\n\nlet kalshiEdge = null;\n\ntry {\n  const cacheRow = items[0]?.json;\n  const markets  = cacheRow?.data?.markets;\n\n  if (Array.isArray(markets) && markets.length > 0 &&\n      homeTeam && homeTeam !== 'General') {\n\n    // Step 1 — find markets whose title mentions BOTH teams\n    const gameMarkets = markets.filter(m =>\n      titleMatchesTeam(m.title, awayTeam) &&\n      titleMatchesTeam(m.title, homeTeam)\n    );\n\n    if (gameMarkets.length > 0) {\n      // Step 2 — prefer the market where YES side = home team\n      // Kalshi uses yes_sub_title e.g. \"Indiana\" for \"Indiana wins?\"\n      const homeMarket =\n        gameMarkets.find(m => subMatchesTeam(m.yes_sub_title, homeTeam)) ||\n        gameMarkets[0];\n\n      // Prices are dollar strings \"0.52\" meaning $0.52 per $1 contract = 52 % prob\n      const yesDollars = homeMarket.yes_bid_dollars ?? homeMarket.last_price_dollars ?? null;\n      const noDollars  = homeMarket.no_bid_dollars  ?? null;\n\n      if (yesDollars !== null) {\n        const yesProb = parseFloat(yesDollars) * 100;   // e.g. 52.0\n        const noProb  = noDollars !== null\n          ? parseFloat(noDollars) * 100\n          : 100 - yesProb;\n\n        kalshiEdge = {\n          market:           homeMarket.title,\n          ticker:           homeMarket.ticker,\n          yes_team:         homeMarket.yes_sub_title || homeTeam,\n          no_team:          homeMarket.no_sub_title  || awayTeam,\n          yes_implied_pct:  yesProb.toFixed(1),   // home team win probability %\n          no_implied_pct:   noProb.toFixed(1),    // away team win probability %\n          yes_bid_dollars:  parseFloat(yesDollars).toFixed(2),\n          no_bid_dollars:   noDollars !== null ? parseFloat(noDollars).toFixed(2) : null,\n          volume:           parseFloat(homeMarket.volume_fp       ?? 0).toFixed(0),\n          open_interest:    parseFloat(homeMarket.open_interest_fp ?? 0).toFixed(0),\n          last_updated:     homeMarket.updated_time ?? null,\n        };\n      }\n    }\n  }\n} catch(e) {\n  // cache miss or malformed data — silently skip\n}\n\nreturn [{\n  json: {\n    ...(items[0]?.json || {}),\n    kalshi_edge:      kalshiEdge,\n    kalshi_available: kalshiEdge !== null,\n  }\n}];"
       },
-      "id": "cede70c9-8b99-4d79-abd6-6aeb0c3543b1",
+      "id": "6fd14d81-5713-4465-84fb-f2167ff2821d",
       "name": "Match Kalshi Teams",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -7264,
-        1168
-      ]
+        -5168,
+        -16
+      ],
+      "disabled": true
     },
     {
       "parameters": {
@@ -260,19 +262,19 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -8180,
-        1360
+        -6096,
+        240
       ],
-      "id": "cfbd0001-0000-4000-8000-000000000001",
+      "id": "8d8e2583-0e4f-4699-a28e-e01b2e937f68",
       "name": "CFBD Get Calendar",
       "alwaysOutputData": true,
-      "continueOnFail": true,
       "credentials": {
         "httpHeaderAuth": {
-          "id": "CFBD_API_CREDENTIAL_ID",
+          "id": "0mzzNkBrb78OF1HX",
           "name": "CFBD API"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -281,10 +283,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -8060,
-        1360
+        -5984,
+        240
       ],
-      "id": "cfbd0002-0000-4000-8000-000000000002",
+      "id": "b5e07ac4-1b0e-4658-9946-9af3d84cd231",
       "name": "Resolve Week"
     },
     {
@@ -297,19 +299,19 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -7940,
-        1360
+        -5856,
+        240
       ],
-      "id": "cfbd0003-0000-4000-8000-000000000003",
+      "id": "88231ec5-85ea-4170-b1da-927b243b8fff",
       "name": "CFBD Get Games",
       "alwaysOutputData": true,
-      "continueOnFail": true,
       "credentials": {
         "httpHeaderAuth": {
-          "id": "CFBD_API_CREDENTIAL_ID",
+          "id": "0mzzNkBrb78OF1HX",
           "name": "CFBD API"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -318,10 +320,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -7820,
-        1360
+        -5744,
+        240
       ],
-      "id": "cfbd0004-0000-4000-8000-000000000004",
+      "id": "7a2edd3c-4218-4434-b677-325366734d54",
       "name": "Filter CFBD Games"
     },
     {
@@ -334,19 +336,19 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -7120,
-        1360
+        -5280,
+        176
       ],
-      "id": "cfbd0005-0000-4000-8000-000000000005",
+      "id": "73fc99f5-5182-465e-adb5-eb54c2efdf51",
       "name": "CFBD Get Records",
       "alwaysOutputData": true,
-      "continueOnFail": true,
       "credentials": {
         "httpHeaderAuth": {
-          "id": "CFBD_API_CREDENTIAL_ID",
+          "id": "0mzzNkBrb78OF1HX",
           "name": "CFBD API"
         }
-      }
+      },
+      "continueOnFail": true
     }
   ],
   "pinData": {},
@@ -432,7 +434,7 @@
       "main": [
         [
           {
-            "node": "Get Kalshi Cache",
+            "node": "CFBD Get Records",
             "type": "main",
             "index": 0
           }
@@ -441,24 +443,12 @@
     },
     "Get Kalshi Cache": {
       "main": [
-        [
-          {
-            "node": "Match Kalshi Teams",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Match Kalshi Teams": {
       "main": [
-        [
-          {
-            "node": "CFBD Get Records",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "CFBD Get Records": {
@@ -489,7 +479,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "54b40d7f-d652-4220-bdeb-d6322084bbed",
+  "versionId": "4f1328ba-e2d3-4d85-bc31-7f05ad5394cb",
   "meta": {
     "instanceId": "e7cfaeee35f48457855805abad65e89bf71f20bfd0f9b97767095abadbff8415"
   },
