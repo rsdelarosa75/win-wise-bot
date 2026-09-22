@@ -890,7 +890,7 @@ const renderAnalysis = (text: string) => {
           return (
             <p key={idx} className="flex gap-1.5 mb-0.5">
               <span className="shrink-0 text-muted-foreground mt-0.5">•</span>
-              <span>{renderInline(trimmed.replace(/^[-•]\s+/, ""))}</span>
+              <span className="flex-1 min-w-0 break-words">{renderInline(trimmed.replace(/^[-•]\s+/, ""))}</span>
             </p>
           );
         }
@@ -899,7 +899,7 @@ const renderAnalysis = (text: string) => {
           return (
             <p key={idx} className="flex gap-1.5 mb-0.5">
               <span className="shrink-0 text-muted-foreground">{numMatch[1]}.</span>
-              <span>{renderInline(numMatch[2])}</span>
+              <span className="flex-1 min-w-0 break-words">{renderInline(numMatch[2])}</span>
             </p>
           );
         }
@@ -1410,7 +1410,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           {/* Scrollable analysis — capped height so Save Pick never disappears */}
           <div
             className="px-4 pt-3 pb-0"
-            style={{ maxHeight: "52vh", overflowY: "auto", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+            style={{ maxHeight: "52vh", overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
           >
             <div className="bg-background/50 rounded-lg p-3">
               {renderAnalysis(briefContent)}

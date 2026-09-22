@@ -79,8 +79,12 @@ export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) =>
   };
 
   const GameCard = ({ game }: { game: typeof mockGames[0] & { draw?: string; spread1?: string; spread2?: string } }) => {
+    // Picks on games that have already kicked off (in-progress or final) are
+    // meaningless — gate interactivity on kickoff time.
+    const kickoffPassed = new Date(game.commence_time).getTime() <= Date.now();
+    const interactive = !!onGameSelect && !kickoffPassed;
     const handleTap = () => {
-      if (!onGameSelect) return;
+      if (!interactive) return;
       const teams = `${game.team1} vs ${game.team2}`;
       const date = game.commence_time.split('T')[0];
       const odds: GameOdds = {
@@ -101,12 +105,12 @@ export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) =>
       <div
         onClick={handleTap}
         className={`p-3 rounded-lg border space-y-2 overflow-x-hidden w-full transition-all duration-150
-          ${onGameSelect
+          ${interactive
             ? 'cursor-pointer bg-secondary/30 border-border/50 hover:border-primary/60 hover:bg-primary/5 active:scale-[0.98] active:border-primary'
             : 'bg-secondary/30 border-border/50'
           }`}
-        style={onGameSelect ? { boxShadow: undefined } : undefined}
-        onMouseEnter={e => { if (onGameSelect) (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 0 1px rgba(245,161,0,0.4)'; }}
+        style={interactive ? { boxShadow: undefined } : undefined}
+        onMouseEnter={e => { if (interactive) (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 0 1px rgba(245,161,0,0.4)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}
       >
         <div className="flex items-center justify-between gap-2">
@@ -157,7 +161,11 @@ export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) =>
         </div>
         {onGameSelect && (
           <div className="flex justify-end pt-0.5">
-            <span className="text-[11px] font-bold" style={{ color: 'hsl(var(--bv-accent-text))' }}>Get Pick →</span>
+            {interactive ? (
+              <span className="text-[11px] font-bold" style={{ color: 'hsl(var(--bv-accent-text))' }}>Get Pick →</span>
+            ) : (
+              <span className="text-[11px] font-medium text-muted-foreground">Started — pick unavailable</span>
+            )}
           </div>
         )}
       </div>
