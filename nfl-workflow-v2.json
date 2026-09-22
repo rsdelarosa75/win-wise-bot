@@ -1,0 +1,481 @@
+{
+  "name": "Bobby Vegas NFL Picks v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nfl-picks",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1600,
+        600
+      ],
+      "name": "Webhook",
+      "id": "nflv2-0001-webhook",
+      "webhookId": "nflv2222-2222-2222-2222-222222222222"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-001",
+              "name": "away_team",
+              "value": "={{ $json.body.teams.split('vs')[0].trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "field-002",
+              "name": "home_team",
+              "value": "={{ $json.body.teams.split('vs')[1].trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "field-003",
+              "name": "sport",
+              "value": "={{ $json.body.sport || 'NFL' }}",
+              "type": "string"
+            },
+            {
+              "id": "field-004",
+              "name": "teams",
+              "value": "={{ $json.body.teams }}",
+              "type": "string"
+            },
+            {
+              "id": "field-005",
+              "name": "job_id",
+              "value": "={{ $json.body.teams.replace(/ /g, '_') + '_' + $now.toMillis() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1420,
+        600
+      ],
+      "name": "Parse Teams",
+      "id": "nflv2-0002-parseteams"
+    },
+    {
+      "parameters": {
+        "jsCode": "const KALSHI_PREFIXES = ['Reg Time:', 'Total Goals:', 'Match Winner:', 'Moneyline:', 'To Win:', 'Winner:', 'Result:'];\n\nfunction stripPrefix(s) {\n  let clean = (s || '').trim();\n  for (const prefix of KALSHI_PREFIXES) {\n    const re = new RegExp('^' + prefix.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '\\\\s*', 'i');\n    if (re.test(clean)) { clean = clean.replace(re, '').trim(); break; }\n  }\n  return clean;\n}\n\nconst incoming = $input.first().json;\nconst awayTeam = stripPrefix(incoming.away_team || '');\nconst homeTeam = stripPrefix(incoming.home_team || '');\nconst matchupValid = awayTeam.toLowerCase() !== homeTeam.toLowerCase();\n\nreturn [{ json: { ...incoming, away_team: awayTeam, home_team: homeTeam, matchup_valid: matchupValid } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1240,
+        600
+      ],
+      "name": "Validate Matchup",
+      "id": "nflv2-0003-validate"
+    },
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1060,
+        600
+      ],
+      "name": "NFL Get Schedule",
+      "id": "nflv2-0004-schedule",
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Resolve the current NFL season + week from nflverse games.csv (schedules),\n// then emit one item per game for that week — the analog of CFBD Get Games.\n// nflverse games.csv is a single file spanning 1999->present; team columns are\n// abbreviations (KC, BUF, NYG, NYJ, LA, LAC). It is fetched as raw text upstream.\nconst raw = (() => { try { return $('NFL Get Schedule').first().json.data || ''; } catch (e) { return ''; } })();\n\nconst lines = raw.trim().split(/\\r?\\n/).filter(Boolean);\nif (lines.length < 2) {\n  return [{ json: { _season: new Date().getFullYear(), _week: 1, _no_schedule: true } }];\n}\nconst header = lines[0].split(',');\nconst idx = {};\nheader.forEach((h, i) => { idx[h.trim()] = i; });\nconst col = (cols, name) => { const i = idx[name]; return i === undefined ? '' : (cols[i] == null ? '' : String(cols[i]).trim()); };\n\nconst rows = [];\nfor (let i = 1; i < lines.length; i++) {\n  const cols = lines[i].split(',');\n  if (cols.length < header.length) continue;\n  rows.push(cols);\n}\n\nconst now = Date.now();\nconst parseD = s => s ? new Date(s + 'T17:00:00Z').getTime() : null;\n\n// Pick the season whose game window spans \"now\"; else the latest season present.\nconst seasonsPresent = [...new Set(rows.map(c => parseInt(col(c, 'season'), 10)).filter(n => !isNaN(n)))].sort((a, b) => b - a);\nlet season = seasonsPresent[0] || new Date().getFullYear();\nfor (const s of seasonsPresent) {\n  const ds = rows.filter(c => parseInt(col(c, 'season'), 10) === s).map(c => parseD(col(c, 'gameday'))).filter(Boolean);\n  if (!ds.length) continue;\n  const first = Math.min(...ds), last = Math.max(...ds), wk = 7 * 864e5;\n  if (now >= first - wk && now <= last + wk) { season = s; break; }\n}\n\nconst seasonGames = rows.filter(c => parseInt(col(c, 'season'), 10) === season);\n\n// Resolve week: earliest week that still has an unplayed game (no home_score);\n// else the latest week present (whole season already played).\nconst weeks = [...new Set(seasonGames.map(c => parseInt(col(c, 'week'), 10)).filter(n => !isNaN(n)))].sort((a, b) => a - b);\nlet week = weeks.length ? weeks[weeks.length - 1] : 1;\nfor (const w of weeks) {\n  const wg = seasonGames.filter(c => parseInt(col(c, 'week'), 10) === w);\n  const unplayed = wg.some(c => { const hs = col(c, 'home_score'); return hs === '' || hs == null; });\n  if (unplayed) { week = w; break; }\n}\n\nconst weekGames = seasonGames.filter(c => parseInt(col(c, 'week'), 10) === week);\n\nconst emit = weekGames.map(c => ({\n  json: {\n    _season: season,\n    _week: week,\n    game_id:        col(c, 'game_id'),\n    season:         col(c, 'season'),\n    week:           col(c, 'week'),\n    game_type:      col(c, 'game_type'),\n    gameday:        col(c, 'gameday'),\n    weekday:        col(c, 'weekday'),\n    gametime:       col(c, 'gametime'),\n    away_team:      col(c, 'away_team'),\n    home_team:      col(c, 'home_team'),\n    away_score:     col(c, 'away_score'),\n    home_score:     col(c, 'home_score'),\n    away_rest:      col(c, 'away_rest'),\n    home_rest:      col(c, 'home_rest'),\n    div_game:       col(c, 'div_game'),\n    roof:           col(c, 'roof'),\n    surface:        col(c, 'surface'),\n    spread_line:    col(c, 'spread_line'),\n    away_moneyline: col(c, 'away_moneyline'),\n    home_moneyline: col(c, 'home_moneyline'),\n    total_line:     col(c, 'total_line'),\n    away_qb_name:   col(c, 'away_qb_name'),\n    home_qb_name:   col(c, 'home_qb_name'),\n    stadium:        col(c, 'stadium'),\n  }\n}));\n\nreturn emit.length ? emit : [{ json: { _season: season, _week: week, _no_games: true } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        600
+      ],
+      "name": "NFL Resolve Week",
+      "id": "nflv2-0005-resolveweek"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NFL analog of CFB Match Fixture. NFL Resolve Week emits one item per game for\n// the current week (nflverse abbreviations). Map the requested full team names to\n// abbreviations by NICKNAME (unique across all 32 teams — this is what keeps the\n// two New York and two Los Angeles clubs distinct), then find the week's game and\n// attach venue, coordinates, roof, rest and divisional flag for downstream nodes.\nconst items = $input.all();\nconst awayReq = $('Parse Teams').first().json.away_team || '';\nconst homeReq = $('Parse Teams').first().json.home_team || '';\n\n// abbr -> [canonical Odds-API full name, city, nickname]\nconst TEAMS = {\n  ARI:['Arizona Cardinals','Arizona','Cardinals'], ATL:['Atlanta Falcons','Atlanta','Falcons'],\n  BAL:['Baltimore Ravens','Baltimore','Ravens'], BUF:['Buffalo Bills','Buffalo','Bills'],\n  CAR:['Carolina Panthers','Carolina','Panthers'], CHI:['Chicago Bears','Chicago','Bears'],\n  CIN:['Cincinnati Bengals','Cincinnati','Bengals'], CLE:['Cleveland Browns','Cleveland','Browns'],\n  DAL:['Dallas Cowboys','Dallas','Cowboys'], DEN:['Denver Broncos','Denver','Broncos'],\n  DET:['Detroit Lions','Detroit','Lions'], GB:['Green Bay Packers','Green Bay','Packers'],\n  HOU:['Houston Texans','Houston','Texans'], IND:['Indianapolis Colts','Indianapolis','Colts'],\n  JAX:['Jacksonville Jaguars','Jacksonville','Jaguars'], KC:['Kansas City Chiefs','Kansas City','Chiefs'],\n  LV:['Las Vegas Raiders','Las Vegas','Raiders'], LAC:['Los Angeles Chargers','Los Angeles','Chargers'],\n  LA:['Los Angeles Rams','Los Angeles','Rams'], LAR:['Los Angeles Rams','Los Angeles','Rams'],\n  MIA:['Miami Dolphins','Miami','Dolphins'], MIN:['Minnesota Vikings','Minnesota','Vikings'],\n  NE:['New England Patriots','New England','Patriots'], NO:['New Orleans Saints','New Orleans','Saints'],\n  NYG:['New York Giants','New York','Giants'], NYJ:['New York Jets','New York','Jets'],\n  PHI:['Philadelphia Eagles','Philadelphia','Eagles'], PIT:['Pittsburgh Steelers','Pittsburgh','Steelers'],\n  SEA:['Seattle Seahawks','Seattle','Seahawks'], SF:['San Francisco 49ers','San Francisco','49ers'],\n  TB:['Tampa Bay Buccaneers','Tampa Bay','Buccaneers'], TEN:['Tennessee Titans','Tennessee','Titans'],\n  WAS:['Washington Commanders','Washington','Commanders'],\n};\n// abbr -> [stadium, lat, lon, roof(dome|retractable|outdoor), altitude]\nconst STADIUMS = {\n  ARI:['State Farm Stadium',33.5277,-112.2626,'retractable',false],\n  ATL:['Mercedes-Benz Stadium',33.7554,-84.4009,'retractable',false],\n  BAL:['M&T Bank Stadium',39.2780,-76.6227,'outdoor',false],\n  BUF:['Highmark Stadium',42.7738,-78.7870,'outdoor',false],\n  CAR:['Bank of America Stadium',35.2258,-80.8528,'outdoor',false],\n  CHI:['Soldier Field',41.8623,-87.6167,'outdoor',false],\n  CIN:['Paycor Stadium',39.0955,-84.5161,'outdoor',false],\n  CLE:['Huntington Bank Field',41.5061,-81.6995,'outdoor',false],\n  DAL:['AT&T Stadium',32.7473,-97.0945,'retractable',false],\n  DEN:['Empower Field at Mile High',39.7439,-105.0201,'outdoor',true],\n  DET:['Ford Field',42.3400,-83.0456,'dome',false],\n  GB:['Lambeau Field',44.5013,-88.0622,'outdoor',false],\n  HOU:['NRG Stadium',29.6847,-95.4107,'retractable',false],\n  IND:['Lucas Oil Stadium',39.7601,-86.1639,'retractable',false],\n  JAX:['EverBank Stadium',30.3239,-81.6373,'outdoor',false],\n  KC:['Arrowhead Stadium',39.0489,-94.4839,'outdoor',false],\n  LV:['Allegiant Stadium',36.0909,-115.1833,'dome',false],\n  LAC:['SoFi Stadium',33.9535,-118.3392,'dome',false],\n  LA:['SoFi Stadium',33.9535,-118.3392,'dome',false],\n  LAR:['SoFi Stadium',33.9535,-118.3392,'dome',false],\n  MIA:['Hard Rock Stadium',25.9580,-80.2389,'outdoor',false],\n  MIN:['U.S. Bank Stadium',44.9736,-93.2575,'dome',false],\n  NE:['Gillette Stadium',42.0909,-71.2643,'outdoor',false],\n  NO:['Caesars Superdome',29.9511,-90.0812,'dome',false],\n  NYG:['MetLife Stadium',40.8135,-74.0745,'outdoor',false],\n  NYJ:['MetLife Stadium',40.8135,-74.0745,'outdoor',false],\n  PHI:['Lincoln Financial Field',39.9008,-75.1675,'outdoor',false],\n  PIT:['Acrisure Stadium',40.4468,-80.0158,'outdoor',false],\n  SEA:['Lumen Field',47.5952,-122.3316,'outdoor',false],\n  SF:[\"Levi's Stadium\",37.4030,-121.9698,'outdoor',false],\n  TB:['Raymond James Stadium',27.9759,-82.5033,'outdoor',false],\n  TEN:['Nissan Stadium',36.1665,-86.7713,'outdoor',false],\n  WAS:['Northwest Stadium',38.9077,-76.8645,'outdoor',false],\n};\n\nconst norm = s => (s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\\s+/g, ' ').trim();\nconst resolveAbbr = (name) => {\n  const n = norm(name);\n  if (!n) return null;\n  // 1) nickname (unique) — disambiguates NYG/NYJ and LA/LAC/LAR\n  for (const abbr of Object.keys(TEAMS)) { if (n.includes(norm(TEAMS[abbr][2]))) return abbr; }\n  // 2) full name\n  for (const abbr of Object.keys(TEAMS)) { if (n === norm(TEAMS[abbr][0]) || n.includes(norm(TEAMS[abbr][0]))) return abbr; }\n  // 3) raw abbreviation string\n  const up = (name || '').toUpperCase().trim();\n  if (TEAMS[up]) return up;\n  return null;\n};\n\nconst awayAbbr = resolveAbbr(awayReq);\nconst homeAbbr = resolveAbbr(homeReq);\n\nconst games = items.map(i => i.json).filter(g => g && g.away_team && g.home_team);\nconst sameTeam = (a, b) => a === b || (TEAMS[a] && TEAMS[b] && TEAMS[a][0] === TEAMS[b][0]);\n\nlet matched = null;\nfor (const g of games) {\n  if (awayAbbr && homeAbbr && sameTeam(g.away_team, awayAbbr) && sameTeam(g.home_team, homeAbbr)) { matched = g; break; }\n  if (awayAbbr && homeAbbr && sameTeam(g.away_team, homeAbbr) && sameTeam(g.home_team, awayAbbr)) { matched = g; break; }\n}\n\nconst st = abbr => STADIUMS[abbr] || [null, null, null, 'outdoor', false];\nlet fixture = null;\nif (matched) {\n  const a = matched.away_team, h = matched.home_team, hs = st(h);\n  fixture = {\n    game_id:        matched.game_id,\n    gameday:        matched.gameday,\n    gametime:       matched.gametime,\n    weekday:        matched.weekday,\n    season:         matched.season,\n    week:           matched.week,\n    game_type:      matched.game_type,\n    div_game:       matched.div_game === '1' || matched.div_game === 1,\n    away_abbr:      a,\n    home_abbr:      h,\n    away_team_name: (TEAMS[a] ? TEAMS[a][0] : a),\n    home_team_name: (TEAMS[h] ? TEAMS[h][0] : h),\n    away_rest:      matched.away_rest,\n    home_rest:      matched.home_rest,\n    away_qb_name:   matched.away_qb_name,\n    home_qb_name:   matched.home_qb_name,\n    spread_line:    matched.spread_line,\n    total_line:     matched.total_line,\n    stadium:        hs[0] || matched.stadium || null,\n    home_lat:       hs[1],\n    home_lon:       hs[2],\n    roof:           hs[3],\n    altitude:       hs[4],\n    schedule_roof:  matched.roof || null,\n  };\n}\n\nlet wk = {};\ntry { wk = $('NFL Resolve Week').first().json || {}; } catch (e) {}\n\nreturn [{\n  json: {\n    fixture,\n    fixtureFound: !!fixture,\n    fixtureNote: fixture\n      ? ('Matched nflverse game ' + fixture.game_id + ' (' + fixture.away_abbr + ' @ ' + fixture.home_abbr + ')')\n      : ('No ' + (wk._season || '') + ' week ' + (wk._week || '') + ' game found for ' + awayReq + ' vs ' + homeReq),\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -700,
+        600
+      ],
+      "name": "NFL Match Fixture",
+      "id": "nflv2-0006-fixture"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.open-meteo.com/v1/forecast?latitude={{ $('NFL Match Fixture').first().json.fixture ? $('NFL Match Fixture').first().json.fixture.home_lat : 39.0 }}&longitude={{ $('NFL Match Fixture').first().json.fixture ? $('NFL Match Fixture').first().json.fixture.home_lon : -95.0 }}&hourly=temperature_2m,precipitation_probability,wind_speed_10m,wind_gusts_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=8&timezone=UTC",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -520,
+        600
+      ],
+      "name": "NFL Get Weather",
+      "id": "nflv2-0007-weather",
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "=https://github.com/nflverse/nflverse-data/releases/download/injuries/injuries_{{ $('NFL Resolve Week').first().json._season || new Date().getFullYear() }}.csv",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -340,
+        600
+      ],
+      "name": "NFL Get Injuries",
+      "id": "nflv2-0008-injuries",
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// NFL analog of CFB Assemble Context. Collapses all context to a single item the\n// Bobby Vegas prompt reads. Records are derived from the same games.csv already\n// fetched (completed games this season); injuries and weather come from their own\n// fetches. No CFB talent-gap / roster-confidence caveats — the NFL mandates injury\n// reporting, so listed absences are treated as real signal.\nconst NL = String.fromCharCode(10);\nconst fixture     = $('NFL Match Fixture').first().json.fixture;\nconst fixtureNote = $('NFL Match Fixture').first().json.fixtureNote;\n\nconst csvParse = raw => {\n  const lines = (raw || '').trim().split(/\\r?\\n/).filter(Boolean);\n  if (lines.length < 2) return [];\n  const header = lines[0].split(',').map(h => h.trim());\n  const out = [];\n  for (let i = 1; i < lines.length; i++) {\n    const cols = lines[i].split(',');\n    if (cols.length < header.length) continue;\n    const o = {}; header.forEach((h, j) => { o[h] = (cols[j] == null ? '' : String(cols[j]).trim()); });\n    out.push(o);\n  }\n  return out;\n};\n\n// ---- season records from games.csv (completed games only) ----\nlet sched = [];\ntry { sched = csvParse($('NFL Get Schedule').first().json.data); } catch (e) {}\n\nconst recFor = (abbr, season) => {\n  let w = 0, l = 0, t = 0, hw = 0, hl = 0, aw = 0, al = 0;\n  for (const g of sched) {\n    if (String(g.season) !== String(season)) continue;\n    if (g.home_score === '' || g.away_score === '') continue;\n    const hs = parseInt(g.home_score, 10), as = parseInt(g.away_score, 10);\n    if (isNaN(hs) || isNaN(as)) continue;\n    if (g.home_team === abbr) { if (hs > as) { w++; hw++; } else if (hs < as) { l++; hl++; } else { t++; } }\n    else if (g.away_team === abbr) { if (as > hs) { w++; aw++; } else if (as < hs) { l++; al++; } else { t++; } }\n  }\n  return { w, l, t, hw, hl, aw, al };\n};\nconst recLine = (label, abbr, season) => {\n  const r = recFor(abbr, season);\n  const rec = r.w + '-' + r.l + (r.t ? '-' + r.t : '');\n  return label + ': ' + rec + ' overall | ' + r.hw + '-' + r.hl + ' home | ' + r.aw + '-' + r.al + ' away';\n};\n\n// ---- injuries from injuries_<season>.csv (final weekly designations) ----\nlet injRows = [];\ntry { injRows = csvParse($('NFL Get Injuries').first().json.data); } catch (e) {}\n\nconst KEY_POS = ['QB', 'LT', 'LG', 'C', 'RG', 'RT', 'T', 'G', 'OL', 'OT', 'OG'];\nconst injFor = (abbr, week) => {\n  const rows = injRows.filter(r => r.team === abbr && (week == null || String(r.week) === String(week)));\n  if (!rows.length) return null;\n  const sev = s => ({ 'Out': 3, 'Doubtful': 2, 'Questionable': 1 }[s] || 0);\n  const isKey = p => KEY_POS.includes((p || '').toUpperCase());\n  rows.sort((a, b) => (isKey(b.position) - isKey(a.position)) || (sev(b.report_status) - sev(a.report_status)));\n  return rows.map(r => {\n    const parts = [(r.full_name || r.position || 'Player'), '(' + (r.position || '?') + ')'];\n    if (r.report_status) parts.push(r.report_status);\n    const inj = r.report_primary_injury || r.practice_primary_injury;\n    if (inj) parts.push('- ' + inj);\n    if (r.practice_status) parts.push('[practice: ' + r.practice_status + ']');\n    return parts.join(' ');\n  });\n};\n\n// ---- weather from Open-Meteo (wind-forward; skip indoor) ----\nconst weatherStr = (() => {\n  if (!fixture) return 'Weather unavailable';\n  if (fixture.roof === 'dome') return 'Indoor stadium (' + (fixture.stadium || 'dome') + ') — weather not a factor';\n  let wx = null;\n  try { wx = $('NFL Get Weather').first().json; } catch (e) {}\n  const h = wx && wx.hourly ? wx.hourly : null;\n  if (!h || !Array.isArray(h.time)) {\n    return (fixture.roof === 'retractable' ? 'Retractable roof (' + (fixture.stadium || '') + ') — assume closed unless reported open; ' : '') + 'No live weather forecast available';\n  }\n  const kick = fixture.gameday ? new Date(fixture.gameday + 'T' + (fixture.gametime || '13:00') + ':00Z').getTime() : Date.now();\n  let bi = 0, bd = Infinity;\n  for (let i = 0; i < h.time.length; i++) {\n    const d = Math.abs(new Date(h.time[i] + ':00Z').getTime() - kick);\n    if (d < bd) { bd = d; bi = i; }\n  }\n  const at = (arr) => (arr && arr[bi] != null) ? Math.round(arr[bi]) : null;\n  const wind = at(h.wind_speed_10m), gust = at(h.wind_gusts_10m), temp = at(h.temperature_2m), pop = at(h.precipitation_probability);\n  const windNote = wind == null ? '' : (wind >= 20 ? ' — HIGH WIND, major passing/kicking suppressor' : wind >= 15 ? ' — notable wind, tilts toward the under and the run' : ' — light wind');\n  const parts = ['Wind ' + (wind == null ? '?' : wind) + ' mph' + (gust ? ' (gusts ' + gust + ')' : '') + windNote];\n  if (temp != null) parts.push('Temp ' + temp + 'F');\n  if (pop != null) parts.push('Precip ' + pop + '%');\n  const head = (fixture.roof === 'retractable') ? 'Retractable roof — forecast if open: ' : '';\n  const alt = fixture.altitude ? ' | ALTITUDE: Denver mile-high air extends kicking range and ball flight — separate from weather' : '';\n  return head + parts.join(' | ') + alt;\n})();\n\n// ---- rest differential ----\nconst restStr = (() => {\n  if (!fixture) return 'Rest data unavailable';\n  const ar = parseInt(fixture.away_rest, 10), hr = parseInt(fixture.home_rest, 10);\n  if (isNaN(ar) || isNaN(hr)) return 'Rest data unavailable';\n  const diff = hr - ar;\n  let note = 'even rest';\n  if (Math.abs(diff) >= 3) note = (diff > 0 ? fixture.home_team_name : fixture.away_team_name) + ' has a significant rest edge (' + Math.abs(diff) + ' extra days)';\n  else if (Math.abs(diff) >= 1) note = (diff > 0 ? fixture.home_team_name : fixture.away_team_name) + ' is slightly better rested';\n  const shortFlag = (ar <= 4 || hr <= 4) ? ' | SHORT REST in play (Thursday / short turnaround)' : '';\n  return fixture.away_team_name + ' ' + ar + ' days / ' + fixture.home_team_name + ' ' + hr + ' days — ' + note + shortFlag;\n})();\n\n// ---- build strings ----\nlet formStr = 'Team form not available';\nlet gameStr = 'Matchup details not available';\nlet homeFieldStr = 'Venue unconfirmed';\nlet injuryStr = 'No injury report data available';\n\nif (fixture) {\n  formStr = recLine(fixture.away_team_name, fixture.away_abbr, fixture.season) + ' || ' +\n            recLine(fixture.home_team_name, fixture.home_abbr, fixture.season);\n\n  gameStr = fixture.away_team_name + ' at ' + fixture.home_team_name + ' | ' +\n            'Kickoff: ' + (fixture.gameday || 'TBD') + ' ' + (fixture.gametime || '') + ' | ' +\n            (fixture.game_type && fixture.game_type !== 'REG' ? fixture.game_type + ' | ' : '') +\n            'Divisional game: ' + (fixture.div_game ? 'Yes' : 'No') + ' | ' +\n            'QBs: ' + (fixture.away_qb_name || 'TBD') + ' vs ' + (fixture.home_qb_name || 'TBD');\n\n  homeFieldStr = (fixture.stadium || 'Home venue') + ' — home crowd and travel favor ' + fixture.home_team_name +\n                 (fixture.roof === 'dome' ? ' (indoor)' : fixture.roof === 'retractable' ? ' (retractable roof)' : ' (outdoor)');\n\n  const ai = injFor(fixture.away_abbr, fixture.week);\n  const hi = injFor(fixture.home_abbr, fixture.week);\n  const block = (name, list) => name + ':' + NL + (list && list.length ? '  - ' + list.slice(0, 12).join(NL + '  - ') : '  - No injuries listed');\n  if (ai || hi) {\n    injuryStr = block(fixture.away_team_name, ai) + NL + block(fixture.home_team_name, hi);\n  } else {\n    injuryStr = 'No injury report rows found for week ' + fixture.week + ' (report may not be posted yet)';\n  }\n}\n\nreturn [{\n  json: {\n    fixture,\n    fixtureNote,\n    form_str:       formStr,\n    game_str:       gameStr,\n    home_field_str: homeFieldStr,\n    rest_str:       restStr,\n    weather_str:    weatherStr,\n    injury_str:     injuryStr,\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        600
+      ],
+      "name": "NFL Assemble Context",
+      "id": "nflv2-0009-assemble"
+    },
+    {
+      "parameters": {
+        "url": "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/?regions=us&markets=h2h,spreads&oddsFormat=american&apiKey=bc8b24096b97b911b25e5679919a9f0a",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        20,
+        600
+      ],
+      "name": "Get NFL Odds",
+      "id": "nflv2-0010-odds",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Match the nflverse-confirmed game to its Odds API entry.\n// Odds API uses full \"City Nickname\" names (\"Kansas City Chiefs\"); our fixture\n// already carries the canonical full names. Match on NICKNAME (the last word),\n// which is unique across all 32 teams — this is what stops the two New York and\n// two Los Angeles clubs from cross-matching. City alone never scores a match.\n// Get NFL Odds may emit the board as many items OR as one item wrapping the array.\nlet oddsGames = [];\nfor (const r of $input.all().map(i => i.json)) {\n  if (Array.isArray(r)) oddsGames = oddsGames.concat(r);\n  else if (r && r.home_team && r.away_team) oddsGames.push(r);\n  else if (r && Array.isArray(r.data)) oddsGames = oddsGames.concat(r.data);\n  else if (r && Array.isArray(r.body)) oddsGames = oddsGames.concat(r.body);\n}\noddsGames = oddsGames.filter(g => g && g.home_team && g.away_team);\n\nlet fixture = null;\ntry { fixture = $('NFL Match Fixture').first().json.fixture; } catch (e) {}\n\nconst empty = { odds_matched: false, odds_str: 'No sportsbook odds matched for this game', odds_raw: '' };\nif (!fixture) { return [{ json: empty }]; }\n\nconst fixAway = fixture.away_team_name || '';\nconst fixHome = fixture.home_team_name || '';\n\nconst norm = s => (s || '')\n  .normalize('NFD').replace(/[̀-ͯ]/g, '')\n  .toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\\s+/g, ' ').trim();\nconst nick = s => { const w = norm(s).split(' ').filter(Boolean); return w.length ? w[w.length - 1] : ''; };\n\n// 3 = exact full-name match, 2 = same nickname, 0 = no match (city alone never matches).\nconst score = (a, b) => {\n  const na = norm(a), nb = norm(b);\n  if (!na || !nb) return 0;\n  if (na === nb) return 3;\n  const ka = nick(a), kb = nick(b);\n  if (ka && ka === kb) return 2;\n  return 0;\n};\n\nlet best = null, bestScore = 0;\nfor (const g of oddsGames) {\n  const straight = (score(fixAway, g.away_team) && score(fixHome, g.home_team))\n    ? score(fixAway, g.away_team) + score(fixHome, g.home_team) : 0;\n  const swapped = (score(fixAway, g.home_team) && score(fixHome, g.away_team))\n    ? score(fixAway, g.home_team) + score(fixHome, g.away_team) : 0;\n  const gs = Math.max(straight, swapped);\n  if (gs > bestScore) { bestScore = gs; best = g; }\n}\n\nif (!best) { return [{ json: empty }]; }\n\nconst px = p => (p > 0 ? '+' + p : '' + p);\nconst bm = (best.bookmakers || [])[0];\nconst mkts = bm ? (bm.markets || []) : [];\nconst h2h = mkts.find(m => m.key === 'h2h');\nconst spr = mkts.find(m => m.key === 'spreads');\n\nconst parts = [];\nif (h2h) {\n  const a  = (h2h.outcomes || []).find(o => o.name === best.away_team);\n  const hh = (h2h.outcomes || []).find(o => o.name === best.home_team);\n  if (a && hh) parts.push('Moneyline: ' + best.away_team + ' ' + px(a.price) + ' / ' + best.home_team + ' ' + px(hh.price));\n}\nif (spr) {\n  const a  = (spr.outcomes || []).find(o => o.name === best.away_team);\n  const hh = (spr.outcomes || []).find(o => o.name === best.home_team);\n  if (a && hh && a.point !== undefined && hh.point !== undefined)\n    parts.push('Spread: ' + best.away_team + ' ' + px(a.point) + ' / ' + best.home_team + ' ' + px(hh.point));\n}\n\nreturn [{\n  json: {\n    odds_matched: parts.length > 0,\n    odds_str:     parts.length ? parts.join(' | ') : 'Matched game but no h2h/spread markets posted yet',\n    odds_raw:     JSON.stringify(best).slice(0, 1500),\n    odds_book:    bm ? (bm.title || bm.key || 'book') : null,\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        110,
+        780
+      ],
+      "name": "Match NFL Odds",
+      "id": "nflv2-0011-matchodds"
+    },
+    {
+      "parameters": {
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/odds_cache?sport=eq.NFL&select=data,updated_at",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        200,
+        600
+      ],
+      "name": "Get Kalshi Cache",
+      "id": "nflv2-0012-kalshi",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== Match Kalshi Teams (two-way market model, NFL) =====\n// Cloned from the ncaafb-v2 Kalshi chain. Two-way contract (Home-yes vs Away-yes),\n// no draw leg. Synonym groups are unused for the NFL; matching falls back to\n// normalized substring + significant-word matching against the cache markets.\n\nconst items    = $input.all();\nconst awayTeam = $('Parse Teams').first().json.away_team || '';\nconst homeTeam = $('Parse Teams').first().json.home_team || '';\n\nconst normalize = s => (s || '')\n  .normalize('NFD').replace(/[̀-ͯ]/g, '')\n  .toLowerCase().replace(/[^a-z0-9 -]/g, ' ')\n  .replace(/-/g, ' ').replace(/\\s+/g, ' ').trim();\n\nconst SYNONYM_GROUPS = [];\n\nconst findGroup = n => {\n  if (!n) return null;\n  for (const g of SYNONYM_GROUPS) {\n    if (g.some(p => p === n || n.includes(p) || p.includes(n))) return g;\n  }\n  return null;\n};\n\nconst STOP = ['the', 'and', 'for', 'with', 'city', 'team', 'state', 'new', 'los', 'san'];\nconst sigWords = n => n.split(' ').filter(w => w.length > 3 && !STOP.includes(w));\n\nconst titleMatchesTeam = (title, team) => {\n  const ti = normalize(title), t = normalize(team);\n  if (!t || !ti) return false;\n  if (ti.includes(t)) return true;\n  const g = findGroup(t);\n  if (g && g.some(p => ti.includes(p))) return true;\n  return sigWords(t).some(w => ti.includes(w));\n};\n\nconst subMatchesTeam = (sub, team) => {\n  const s = normalize(sub), t = normalize(team);\n  if (!s || !t) return false;\n  if (s.includes(t) || t.includes(s)) return true;\n  const g = findGroup(t);\n  if (g && g.some(p => s.includes(p))) return true;\n  return sigWords(t).some(w => s.includes(w));\n};\n\nlet kalshiEdge = null;\n\ntry {\n  const cacheRow = items[0] && items[0].json;\n  const markets  = cacheRow && cacheRow.data && cacheRow.data.markets;\n\n  if (Array.isArray(markets) && markets.length > 0 && homeTeam && homeTeam !== 'General') {\n\n    const gameMarkets = markets.filter(m =>\n      titleMatchesTeam(m.title, awayTeam) && titleMatchesTeam(m.title, homeTeam)\n    );\n\n    if (gameMarkets.length > 0) {\n      const homeLeg = gameMarkets.find(m => subMatchesTeam(m.yes_sub_title, homeTeam));\n      const awayLeg = gameMarkets.find(m => subMatchesTeam(m.yes_sub_title, awayTeam));\n\n      const legPct = leg => {\n        if (!leg) return null;\n        const yd = leg.yes_bid_dollars != null ? leg.yes_bid_dollars : (leg.last_price_dollars != null ? leg.last_price_dollars : null);\n        return yd !== null ? (parseFloat(yd) * 100) : null;\n      };\n      const legVol = leg => leg ? parseFloat(leg.volume_fp || 0) : 0;\n\n      const homePct = legPct(homeLeg), awayPct = legPct(awayLeg);\n\n      if (homePct !== null || awayPct !== null) {\n        const totalVolume = legVol(homeLeg) + legVol(awayLeg);\n        kalshiEdge = {\n          market:            gameMarkets[0].title,\n          home_team:         homeTeam,\n          away_team:         awayTeam,\n          home_implied_pct:  homePct !== null ? homePct.toFixed(1) : 'n/a',\n          away_implied_pct:  awayPct !== null ? awayPct.toFixed(1) : 'n/a',\n          volume:            totalVolume.toFixed(0),\n        };\n      }\n    }\n  }\n} catch (e) {}\n\nreturn [{\n  json: {\n    ...(items[0] && items[0].json ? items[0].json : {}),\n    kalshi_edge:      kalshiEdge,\n    kalshi_available: kalshiEdge !== null,\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        380,
+        600
+      ],
+      "name": "Match Kalshi Teams",
+      "id": "nflv2-0013-matchkalshi"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5",
+          "mode": "list",
+          "cachedResultName": "GPT-5"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are Bobby Vegas — a sharp sports handicapper with deep roots in Las Vegas and Atlantic City. You think like a professional bettor, not a recreational one. You don't chase narratives. You hunt edges. Your style is confident, direct, and occasionally dark — you've been in the sportsbook at 2am reading steam moves. You always give a clear recommendation.\n\nBefore you surface any pick, you run every game through this internal reasoning protocol. This happens silently before you speak. Never skip steps.\n\n\nSHARP REASONING PROTOCOL (Run Internally Before Every Pick)\n\nLAYER 1 — LINE INTELLIGENCE\n\n\nWhere did the line open and where is it now?\nHas it moved toward or away from the public side?\nSharp money moves lines against public sentiment. Is that happening here?\nWhat does the juice tell you? Juice above -115 signals the book is protecting a side.\nIs this a key number situation? Half-points at key numbers matter enormously.\n\n\nLAYER 2 — PUBLIC BIAS AUDIT\n\n\nWhat narrative is driving public action: revenge game, star player, hot streak, media hype?\nThe public consistently overvalues: recent performance, primetime favorites, popular brands, must-win emotional spots\nFade the public when: heavy one-sided action AND the line hasn't moved that direction (reverse line movement = sharp disagreement)\nAsk: Is the public right for the wrong reasons, or wrong entirely?\n\n\nLAYER 3 — SITUATIONAL AWARENESS\n\nFlag any that apply before picking:\n\n\nLookahead trap: Playing a lesser opponent before a marquee matchup?\nLetdown spot: Just had an emotional win or big cover?\nSchedule fatigue: Back-to-back, short rest, cross-timezone travel?\nInjury leverage: Is a key injury underpriced by the market?\nMotivational delta: Which team has more to play for today specifically?\nCrowd/venue factor: Neutral site, diaspora crowd, host-nation advantage?\n\n\nLAYER 4 — TRUE PROBABILITY vs. IMPLIED ODDS\n\n\nConvert the line to implied probability using plain arithmetic only — NO LaTeX, NO fractions\nNegative odds: divide absolute value by (absolute value + 100). Example: -190 = 190/290 = 65.5%\nPositive odds: divide 100 by (odds + 100). Example: +160 = 100/260 = 38.5%\nEstimate your own true probability for the outcome\nYou only have a bet if your number exceeds implied probability by at least 3-5%\nIf you cannot articulate why your number differs from the market's, you have a guess — not an edge\n\n\nLAYER 5 — SPORT-SPECIFIC EDGE FILTERS\n\nSoccer / MLS / World Cup\n\n\nAsian Handicap -1.5 alternate lines on dominant favorites are the Bobby Vegas signature play — proven edge\nBack favorites on AH -1.5 when: large xG differential, opponent is low-block with no counter threat, line hasn't been bet down\nDraw no bet is the conservative version — protect capital, sacrifice upside\nRecent form over last 5 games matters more than season-long table position\nHome/crowd advantage in football is real and consistent; away draws are frequent traps\nThree outcomes (home/draw/away) — always assess draw probability before recommending a win bet\n\n\nNFL / NCAAFB\n\n\nSituational football is king: divisional games, weather, rest advantage\nOffensive line matchup > skill position matchup\nHome field in cold-weather cities in January is severely underrated\nPlayoff teams with nothing to play for are dangerous lays\n\n\nNBA / WNBA\n\n\nRest is the single most undervalued variable — fade teams on 0 days rest vs 2+ days\nBack-to-back road games are fade spots regardless of talent gap\nPace mismatch exploits totals more than sides\n\n\nMLB\n\n\nStarting pitcher is the market — the #1 factor, everything else is secondary. Name both starters with ERA and state the mound edge.\nBullpen usage from the prior 2 days is severely underpriced by the public — a taxed pen is a real edge even when the starter looks good on paper\nBULLPEN IMPLICATIONS RULE: if the favored team has key bullpen injuries (closer, setup man, or ace reliever on IL), this significantly increases variance and underdog value — check closer and primary setup man availability, and if 2+ bullpen arms are out for the favorite, flag BULLPEN VULNERABILITY and weight +15-20% upset probability into the read. Never pick the favorite without addressing bullpen availability when key relievers are on IL\nBack-to-back detection: flag either team on a back-to-back or on short rest — fatigue hits bullpen availability and defensive execution harder than the batting order\nPark factors: know which parks are pitcher-friendly (suppress runs/HRs — e.g. spacious outfields, marine layer) vs hitter-friendly (inflate them — e.g. short porches, thin air) and weight the total and run-line accordingly\nWeather at outdoor stadiums: wind blowing out inflates HR rate and the total, wind blowing in suppresses it, hot/humid air carries further than cold/dense air — always check wind and temperature for outdoor parks, ignore for domes/retractable roofs closed\nPublic hammers overs — fade them in pitcher-friendly parks, cold weather, or when wind blows in\n\n\nNHL\n\n\nGoaltender confirmed status is non-negotiable before betting\nPuck line (+1.5) on underdog with strong goaltending = recurrent value\nFade goalies on back-to-back starts\n\n\nF1\n\n\nQualifying position dominates at street circuits (Monaco, Singapore, Baku) — pole wins 70%+\nWeather introduces variance that breaks favorites — live betting in changing conditions beats pre-race\n\n**TIRE & TEMPERATURE DYNAMICS (F1-specific edge)**\n- High ambient temperature tracks (Miami, Bahrain, Singapore, Abu Dhabi, \n  Jeddah) create aggressive tire degradation — cars and drivers that \n  manage rubber conservatively gain positions late in race stints\n- Low-grip, high-temp surfaces (Miami, Monaco in summer conditions) \n  create a downward spiral: sliding → overheating → less grip → more \n  sliding. Cars with high downforce and smooth driving styles (minimal \n  aggressive inputs) have a significant edge here\n- Identify which constructor runs cooler tire operating windows — \n  this is a qualifying-to-race performance divergence signal. A car \n  that qualifies well but degrades faster than competitors is a \n  FADE in long stints\n- Russell/Antonelli dynamic is the current live example: Antonelli \n  extracts more from the Mercedes on low-grip tracks by managing \n  tire heat better. Apply this logic to any teammate pairing where \n  driving style diverges\n- In warm weather races, back drivers with smooth throttle/brake \n  application styles over aggressive ones regardless of raw pace data\n- Constructor head-to-head bets are where this edge pays most — \n  tire management divergence within a team is more predictable \n  than outright race winner\n\n\nLAYER 6 — FINAL EDGE STATEMENT\n\nBefore outputting any pick, complete this sentence internally:\n\"My edge in this game is _____ because the market is mispricing _____ and I believe the true probability is _____ vs. the implied _____.\"\n\nIf you cannot complete that sentence with specifics, do not make the pick. Output \"No edge identified — pass\" instead. Passing is a pick. The best bettors pass more than they bet.",
+              "role": "system"
+            },
+            {
+              "content": "=={{ (() => {\n  const NL = String.fromCharCode(10);\n  const away = $('Parse Teams').first().json.away_team || '';\n  const home = $('Parse Teams').first().json.home_team || '';\n  const wh   = $('Webhook').first().json.body ?? $('Webhook').first().json;\n\n  let ctx = {};\n  try { ctx = $('NFL Assemble Context').first().json || {}; } catch(e) {}\n  const fixtureNote  = ctx.fixtureNote    || 'nflverse game match status unknown';\n  const formStr      = ctx.form_str       || 'Team form not available';\n  const gameStr      = ctx.game_str       || 'Matchup details not available';\n  const homeFieldStr = ctx.home_field_str || 'Venue unconfirmed';\n  const restStr      = ctx.rest_str       || 'Rest data unavailable';\n  const weatherStr   = ctx.weather_str    || 'Weather unavailable';\n  const injuryStr    = ctx.injury_str     || 'No injury report data available';\n\n  let kalshiStr = 'No Kalshi market found for this game';\n  try {\n    const mk = $('Match Kalshi Teams').first().json;\n    const ke = mk.kalshi_edge;\n    if (mk.kalshi_available && ke) {\n      kalshiStr = away + ': ' + ke.away_implied_pct + '% implied win | ' +\n                  home + ': ' + ke.home_implied_pct + '% implied win | ' +\n                  'Volume: $' + ke.volume;\n    }\n  } catch(e) {}\n\n  let matchedOdds = 'No sportsbook odds matched for this game';\n  let oddsData = '';\n  try {\n    const mo = $('Match NFL Odds').first().json;\n    if (mo.odds_matched) matchedOdds = mo.odds_str;\n    oddsData = mo.odds_raw || '';\n  } catch(e) {}\n\n  const odds = (wh && wh.odds) ? wh.odds : matchedOdds;\n\n  const L = [\n    'You are Bobby Vegas — a sharp, witty AI sports betting advisor.',\n    '',\n    'The user requested: ' + away + ' vs ' + home,\n    '',\n    'CRITICAL INSTRUCTIONS:',\n    '- ONLY analyze the game: ' + away + ' vs ' + home + ' — do NOT reference any other game',\n    '- NFLVERSE GAME MATCH STATUS: ' + fixtureNote + '. If the game was not found, say so plainly rather than inventing records, venue, injuries, or matchup data.',\n    '- The data below (schedule, venue, season records, rest, injuries) comes from nflverse — treat it as your PRIMARY source of truth. Do NOT rely on your own training data for current rosters, results, or form.',\n    '- If a specific data field says unavailable, say so plainly — do not invent players, injuries, or records.',\n    '- TEAM RECORDS: Use ONLY the nflverse records below for W-L and home/away splits. There is no reliable current-streak feed — do not state a streak.',\n    '- HOME FIELD: Use the HOME FIELD line below.',\n    '- INJURY REPORT: The NFL mandates injury reporting, so treat the injury data below as real, reliable signal. Weight by POSITION GROUP, not player count — quarterback and offensive-line availability dominate; a missing third receiver is close to noise. Offensive-line continuity is its own factor. Each row gives the game designation (Out/Doubtful/Questionable) and practice_status (DNP/LIMITED/FULL). This feed carries the FINAL weekly designation, not the day-by-day Wed/Thu/Fri practice progression — do not fabricate a progression arc. Do NOT invent injuries beyond what is listed.',\n    '- WEATHER: Use the WEATHER line below. Wind is the single largest NFL weather effect — above roughly 15 mph it suppresses passing and kicking and tilts toward the under; scale it rather than using a hard cutoff. For domes, weather is not a factor. Denver altitude extends kicking range and ball flight, a separate factor from weather.',\n    '- REST: Use the REST line below. Short rest (Thursday games), post-bye advantages, and long travel / international trips matter.',\n    '- KEY NUMBERS: NFL margins cluster tightly on 3 and 7. Half a point is NOT worth a constant amount — moving a spread from 2.5 to 3.5 is far larger than 5.5 to 6.5. Price the spread against the key numbers; never treat spread movement as linear. Do NOT apply Asian Handicap or alternate-line logic here — that is a soccer / college method and does not port to the NFL.',\n    '- PREDICTION MARKETS: You have Kalshi prediction market data. Implied win probability is given directly below (home/away, two-way market — no draw). Use it to find edges vs the sportsbook line.',\n    '- EDGE DIRECTION LOGIC:',\n    '  * Convert American odds to implied probability using plain arithmetic only — NO LaTeX, NO fractions',\n    '  * Negative odds: absolute value / (absolute value + 100). Example: -165 becomes 165 / 265 = 62.3%',\n    '  * Positive odds: 100 / (odds + 100). Example: +140 becomes 100 / 240 = 41.7%',\n    '  * If SPORTSBOOK implied % is HIGHER than Kalshi % by 5%+: Books overvaluing favorite — VALUE ON UNDERDOG',\n    '  * If KALSHI % is HIGHER than Sportsbook % by 5%+: Smart money on favorite — VALUE ON FAVORITE',\n    '- KALSHI VOLUME RULE:',\n    '  * Gap 5-15% with any volume: valid edge, recommend the value side',\n    '  * Gap 15-30% with volume over $5,000: strong edge, lean high confidence',\n    '  * Gap over 30% with volume over $5,000: extreme edge, flag as top pick',\n    '  * Gap over 30% with volume UNDER $5,000: treat as NOISE, ignore the gap, revert to standard analysis',\n    '  * Always state the Kalshi volume inside the EDGE ALERT output',\n    '- MODEL AMBIGUITY CHECK: Before stating a confident lean, check whether your signals (records/form, home field, rest, injuries, weather, Kalshi gap) actually agree. If they point in different directions or are closely bunched, say so plainly (\"signals are mixed between X and Y\") rather than forcing a confident-sounding pick.',\n    '- SELECTIVITY: The NFL is the sharpest, most efficient betting market there is. Genuine edges are rare and most slates produce none. Passing is the correct, professional output on the majority of games — do NOT manufacture a lean just to have something to say.',\n    '- FINAL EDGE STATEMENT: Before your pick, be able to state in one sentence what the market is mispricing and why. If you cannot, output \"No edge identified — pass\" instead of guessing.',\n    '',\n    'SPORTSBOOK ODDS (matched to this nflverse game — use these first):',\n    odds,\n    '',\n    'MATCHUP (nflverse):',\n    gameStr,\n    '',\n    'TEAM FORM / RECORDS (nflverse):',\n    formStr,\n    '',\n    'HOME FIELD (nflverse venue):',\n    homeFieldStr,\n    '',\n    'REST DIFFERENTIAL (nflverse):',\n    restStr,\n    '',\n    'WEATHER (Open-Meteo — wind emphasized; domes skipped):',\n    weatherStr,\n    '',\n    'INJURY REPORT (nflverse — final weekly designations, weight QB / O-line):',\n    injuryStr,\n    '',\n    'MATCHED ODDS (raw sportsbook JSON):',\n    oddsData,\n    '',\n    'KALSHI PREDICTION MARKET (matched games only):',\n    kalshiStr,\n    '',\n    'Provide in this EXACT format — plain text only, NO LaTeX, NO math symbols, NO brackets:',\n    '',\n    '🏈 **GAME:** Full team names (note if divisional)',\n    '',\n    '📊 **ODDS BREAKDOWN:** Moneyline and spread in plain text; if the spread sits on or near 3 or 7, say so',\n    '',\n    '📈 **TEAM FORM:** Records (W-L) and home/away splits from the nflverse data above',\n    '',\n    '🏟️ **HOME FIELD:** Venue and home-field context; divisional-game note',\n    '',\n    '🌬️ **WEATHER:** Wind first (impact on passing/kicking/total), then temp and precip; say \"Indoor — not a factor\" for domes; note Denver altitude if applicable',\n    '',\n    '🛌 **REST:** Rest differential and any short-rest / post-bye / travel angle',\n    '',\n    '🏥 **INJURY REPORT:** Key absences by team, weighted by position group (QB and O-line first); note O-line continuity',\n    '',\n    '🔀 **EDGE ALERT:** Use this exact format:',\n    'Sportsbook: [Team] X% | Kalshi: [Team] Y% | Gap: Z% | Volume: $[amount]',\n    '→ [Books overvaluing favorite OR Smart money on favorite] → VALUE ON [TEAM] [odds]',\n    'If gap under 5%: \"Markets agree — no significant edge detected\"',\n    'If no Kalshi data: \"Kalshi data not available for this game\"',\n    '',\n    '🎯 **BOBBY VEGAS PICK:** Clear recommendation — state if going WITH or AGAINST the sportsbook. If there is no edge, output \"No edge identified — pass\" and mean it.',\n    '',\n    '💡 **REASONING:** 2-3 sentences max — records/form, rest, injuries, weather, Kalshi signal',\n    '',\n    '🔥 **CONFIDENCE:** High/Medium/Low',\n    '',\n    '⚠️ **LINE ALERT:** Odds sourced from multiple bookmakers and Kalshi — verify current lines before betting as they may have moved. Inactives are published about 90 minutes before kickoff and are not reflected here, so a late scratch could change this read.'\n  ];\n\n  return L.join(NL);\n})() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        560,
+        600
+      ],
+      "name": "Bobby Vegas Analysis",
+      "id": "nflv2-0014-openai",
+      "executeOnce": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "UE6lVYW9gMLdjD4T",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"complete\",\n  \"analysis\": {{ JSON.stringify($('Bobby Vegas Analysis').first().json.message.content) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        740,
+        600
+      ],
+      "name": "Respond to Webhook",
+      "id": "nflv2-0015-respond"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Teams": {
+      "main": [
+        [
+          {
+            "node": "Validate Matchup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Matchup": {
+      "main": [
+        [
+          {
+            "node": "NFL Get Schedule",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NFL Get Schedule": {
+      "main": [
+        [
+          {
+            "node": "NFL Resolve Week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NFL Resolve Week": {
+      "main": [
+        [
+          {
+            "node": "NFL Match Fixture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NFL Match Fixture": {
+      "main": [
+        [
+          {
+            "node": "NFL Get Weather",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NFL Get Weather": {
+      "main": [
+        [
+          {
+            "node": "NFL Get Injuries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NFL Get Injuries": {
+      "main": [
+        [
+          {
+            "node": "NFL Assemble Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NFL Assemble Context": {
+      "main": [
+        [
+          {
+            "node": "Get NFL Odds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get NFL Odds": {
+      "main": [
+        [
+          {
+            "node": "Match NFL Odds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match NFL Odds": {
+      "main": [
+        [
+          {
+            "node": "Get Kalshi Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Kalshi Cache": {
+      "main": [
+        [
+          {
+            "node": "Match Kalshi Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Kalshi Teams": {
+      "main": [
+        [
+          {
+            "node": "Bobby Vegas Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bobby Vegas Analysis": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "pinData": {},
+  "tags": []
+}
