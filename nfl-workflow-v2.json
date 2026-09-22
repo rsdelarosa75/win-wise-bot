@@ -25,7 +25,7 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -1600,
+        -1900,
         600
       ],
       "name": "Webhook",
@@ -73,7 +73,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -1420,
+        -1720,
         600
       ],
       "name": "Parse Teams",
@@ -86,11 +86,101 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1240,
+        -1540,
         600
       ],
       "name": "Validate Matchup",
       "id": "nflv2-0003-validate"
+    },
+    {
+      "parameters": {
+        "url": "=https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/pick_log?sport=eq.NFL&away=eq.{{ encodeURIComponent($('Parse Teams').first().json.away_team) }}&home=eq.{{ encodeURIComponent($('Parse Teams').first().json.home_team) }}&select=full_response,tier,created_at&order=created_at.desc&limit=3",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -1360,
+        600
+      ],
+      "name": "Get Cache",
+      "id": "nflv2-0016-getcache",
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cache decision: is there a pick_log row for this matchup generated in the last\n// 30 minutes? If so, return it and skip generation (counted as a cache hit).\nlet rows = [];\ntry {\n  for (const r of $('Get Cache').all().map(i => i.json)) {\n    if (Array.isArray(r)) rows = rows.concat(r);\n    else if (r && r.created_at) rows.push(r);\n    else if (r && Array.isArray(r.data)) rows = rows.concat(r.data);\n  }\n} catch (e) {}\n\nconst now = Date.now();\nconst FRESH_MS = 30 * 60 * 1000;\nlet hit = null;\nfor (const r of rows) {\n  const t = r && r.created_at ? new Date(r.created_at).getTime() : NaN;\n  if (!isNaN(t) && (now - t) <= FRESH_MS) { hit = r; break; }   // Get Cache orders created_at desc\n}\n\nreturn [{\n  json: {\n    cache_hit: !!hit,\n    cached_response: hit ? (hit.full_response || '') : null,\n    cached_tier: hit ? (hit.tier || null) : null,\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1180,
+        600
+      ],
+      "name": "Cache Decision",
+      "id": "nflv2-0017-cachedecide"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cache-cond",
+              "leftValue": "={{ $json.cache_hit }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1000,
+        600
+      ],
+      "name": "Cache Hit?",
+      "id": "nflv2-0018-if"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"complete\",\n  \"cached\": true,\n  \"analysis\": {{ JSON.stringify($('Cache Decision').first().json.cached_response) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -820,
+        380
+      ],
+      "name": "Respond Cached",
+      "id": "nflv2-0019-respcached"
     },
     {
       "parameters": {
@@ -107,8 +197,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1060,
-        600
+        -820,
+        780
       ],
       "name": "NFL Get Schedule",
       "id": "nflv2-0004-schedule",
@@ -122,8 +212,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -880,
-        600
+        -640,
+        780
       ],
       "name": "NFL Resolve Week",
       "id": "nflv2-0005-resolveweek"
@@ -135,8 +225,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -700,
-        600
+        -460,
+        780
       ],
       "name": "NFL Match Fixture",
       "id": "nflv2-0006-fixture"
@@ -149,8 +239,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -520,
-        600
+        -280,
+        780
       ],
       "name": "NFL Get Weather",
       "id": "nflv2-0007-weather",
@@ -172,8 +262,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -340,
-        600
+        -100,
+        780
       ],
       "name": "NFL Get Injuries",
       "id": "nflv2-0008-injuries",
@@ -187,8 +277,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -160,
-        600
+        80,
+        780
       ],
       "name": "NFL Assemble Context",
       "id": "nflv2-0009-assemble"
@@ -201,8 +291,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        20,
-        600
+        260,
+        780
       ],
       "name": "Get NFL Odds",
       "id": "nflv2-0010-odds",
@@ -210,12 +300,12 @@
     },
     {
       "parameters": {
-        "jsCode": "// Match the nflverse-confirmed game to its Odds API entry.\n// Odds API uses full \"City Nickname\" names (\"Kansas City Chiefs\"); our fixture\n// already carries the canonical full names. Match on NICKNAME (the last word),\n// which is unique across all 32 teams — this is what stops the two New York and\n// two Los Angeles clubs from cross-matching. City alone never scores a match.\n// Get NFL Odds may emit the board as many items OR as one item wrapping the array.\nlet oddsGames = [];\nfor (const r of $input.all().map(i => i.json)) {\n  if (Array.isArray(r)) oddsGames = oddsGames.concat(r);\n  else if (r && r.home_team && r.away_team) oddsGames.push(r);\n  else if (r && Array.isArray(r.data)) oddsGames = oddsGames.concat(r.data);\n  else if (r && Array.isArray(r.body)) oddsGames = oddsGames.concat(r.body);\n}\noddsGames = oddsGames.filter(g => g && g.home_team && g.away_team);\n\nlet fixture = null;\ntry { fixture = $('NFL Match Fixture').first().json.fixture; } catch (e) {}\n\nconst empty = { odds_matched: false, odds_str: 'No sportsbook odds matched for this game', odds_raw: '' };\nif (!fixture) { return [{ json: empty }]; }\n\nconst fixAway = fixture.away_team_name || '';\nconst fixHome = fixture.home_team_name || '';\n\nconst norm = s => (s || '')\n  .normalize('NFD').replace(/[̀-ͯ]/g, '')\n  .toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\\s+/g, ' ').trim();\nconst nick = s => { const w = norm(s).split(' ').filter(Boolean); return w.length ? w[w.length - 1] : ''; };\n\n// 3 = exact full-name match, 2 = same nickname, 0 = no match (city alone never matches).\nconst score = (a, b) => {\n  const na = norm(a), nb = norm(b);\n  if (!na || !nb) return 0;\n  if (na === nb) return 3;\n  const ka = nick(a), kb = nick(b);\n  if (ka && ka === kb) return 2;\n  return 0;\n};\n\nlet best = null, bestScore = 0;\nfor (const g of oddsGames) {\n  const straight = (score(fixAway, g.away_team) && score(fixHome, g.home_team))\n    ? score(fixAway, g.away_team) + score(fixHome, g.home_team) : 0;\n  const swapped = (score(fixAway, g.home_team) && score(fixHome, g.away_team))\n    ? score(fixAway, g.home_team) + score(fixHome, g.away_team) : 0;\n  const gs = Math.max(straight, swapped);\n  if (gs > bestScore) { bestScore = gs; best = g; }\n}\n\nif (!best) { return [{ json: empty }]; }\n\nconst px = p => (p > 0 ? '+' + p : '' + p);\nconst bm = (best.bookmakers || [])[0];\nconst mkts = bm ? (bm.markets || []) : [];\nconst h2h = mkts.find(m => m.key === 'h2h');\nconst spr = mkts.find(m => m.key === 'spreads');\n\nconst parts = [];\nif (h2h) {\n  const a  = (h2h.outcomes || []).find(o => o.name === best.away_team);\n  const hh = (h2h.outcomes || []).find(o => o.name === best.home_team);\n  if (a && hh) parts.push('Moneyline: ' + best.away_team + ' ' + px(a.price) + ' / ' + best.home_team + ' ' + px(hh.price));\n}\nif (spr) {\n  const a  = (spr.outcomes || []).find(o => o.name === best.away_team);\n  const hh = (spr.outcomes || []).find(o => o.name === best.home_team);\n  if (a && hh && a.point !== undefined && hh.point !== undefined)\n    parts.push('Spread: ' + best.away_team + ' ' + px(a.point) + ' / ' + best.home_team + ' ' + px(hh.point));\n}\n\nreturn [{\n  json: {\n    odds_matched: parts.length > 0,\n    odds_str:     parts.length ? parts.join(' | ') : 'Matched game but no h2h/spread markets posted yet',\n    odds_raw:     JSON.stringify(best).slice(0, 1500),\n    odds_book:    bm ? (bm.title || bm.key || 'book') : null,\n  }\n}];\n"
+        "jsCode": "// Match the nflverse-confirmed game to its Odds API entry.\n// Odds API uses full \"City Nickname\" names (\"Kansas City Chiefs\"); our fixture\n// already carries the canonical full names. Match on NICKNAME (the last word),\n// which is unique across all 32 teams — this is what stops the two New York and\n// two Los Angeles clubs from cross-matching. City alone never scores a match.\n// Get NFL Odds may emit the board as many items OR as one item wrapping the array.\nlet oddsGames = [];\nfor (const r of $input.all().map(i => i.json)) {\n  if (Array.isArray(r)) oddsGames = oddsGames.concat(r);\n  else if (r && r.home_team && r.away_team) oddsGames.push(r);\n  else if (r && Array.isArray(r.data)) oddsGames = oddsGames.concat(r.data);\n  else if (r && Array.isArray(r.body)) oddsGames = oddsGames.concat(r.body);\n}\noddsGames = oddsGames.filter(g => g && g.home_team && g.away_team);\n\nlet fixture = null;\ntry { fixture = $('NFL Match Fixture').first().json.fixture; } catch (e) {}\n\nconst empty = { odds_matched: false, odds_str: 'No sportsbook odds matched for this game', odds_raw: '' };\nif (!fixture) { return [{ json: empty }]; }\n\nconst fixAway = fixture.away_team_name || '';\nconst fixHome = fixture.home_team_name || '';\n\nconst norm = s => (s || '')\n  .normalize('NFD').replace(/[̀-ͯ]/g, '')\n  .toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\\s+/g, ' ').trim();\nconst nick = s => { const w = norm(s).split(' ').filter(Boolean); return w.length ? w[w.length - 1] : ''; };\n\n// 3 = exact full-name match, 2 = same nickname, 0 = no match (city alone never matches).\nconst score = (a, b) => {\n  const na = norm(a), nb = norm(b);\n  if (!na || !nb) return 0;\n  if (na === nb) return 3;\n  const ka = nick(a), kb = nick(b);\n  if (ka && ka === kb) return 2;\n  return 0;\n};\n\nlet best = null, bestScore = 0;\nfor (const g of oddsGames) {\n  const straight = (score(fixAway, g.away_team) && score(fixHome, g.home_team))\n    ? score(fixAway, g.away_team) + score(fixHome, g.home_team) : 0;\n  const swapped = (score(fixAway, g.home_team) && score(fixHome, g.away_team))\n    ? score(fixAway, g.home_team) + score(fixHome, g.away_team) : 0;\n  const gs = Math.max(straight, swapped);\n  if (gs > bestScore) { bestScore = gs; best = g; }\n}\n\nif (!best) { return [{ json: empty }]; }\n\nconst px = p => (p > 0 ? '+' + p : '' + p);\nconst bm = (best.bookmakers || [])[0];\nconst mkts = bm ? (bm.markets || []) : [];\nconst h2h = mkts.find(m => m.key === 'h2h');\nconst spr = mkts.find(m => m.key === 'spreads');\n\nconst parts = [];\nlet book_away_ml = null, book_home_ml = null;\nlet book_away_spread = null, book_home_spread = null, book_away_spread_price = null, book_home_spread_price = null;\nif (h2h) {\n  const a  = (h2h.outcomes || []).find(o => o.name === best.away_team);\n  const hh = (h2h.outcomes || []).find(o => o.name === best.home_team);\n  if (a && hh) {\n    book_away_ml = a.price; book_home_ml = hh.price;\n    parts.push('Moneyline: ' + best.away_team + ' ' + px(a.price) + ' / ' + best.home_team + ' ' + px(hh.price));\n  }\n}\nif (spr) {\n  const a  = (spr.outcomes || []).find(o => o.name === best.away_team);\n  const hh = (spr.outcomes || []).find(o => o.name === best.home_team);\n  if (a && hh && a.point !== undefined && hh.point !== undefined) {\n    book_away_spread = a.point; book_home_spread = hh.point;\n    book_away_spread_price = a.price ?? null; book_home_spread_price = hh.price ?? null;\n    parts.push('Spread: ' + best.away_team + ' ' + px(a.point) + ' / ' + best.home_team + ' ' + px(hh.point));\n  }\n}\n\nreturn [{\n  json: {\n    odds_matched: parts.length > 0,\n    odds_str:     parts.length ? parts.join(' | ') : 'Matched game but no h2h/spread markets posted yet',\n    odds_raw:     JSON.stringify(best).slice(0, 1500),\n    odds_book:    bm ? (bm.title || bm.key || 'book') : null,\n    book_away_ml, book_home_ml,\n    book_away_spread, book_home_spread, book_away_spread_price, book_home_spread_price,\n  }\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        110,
+        440,
         780
       ],
       "name": "Match NFL Odds",
@@ -242,8 +332,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        200,
-        600
+        620,
+        780
       ],
       "name": "Get Kalshi Cache",
       "id": "nflv2-0012-kalshi",
@@ -256,11 +346,53 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        380,
-        600
+        800,
+        780
       ],
       "name": "Match Kalshi Teams",
       "id": "nflv2-0013-matchkalshi"
+    },
+    {
+      "parameters": {
+        "url": "=https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/nfl_team_ratings?season=eq.{{ $('NFL Resolve Week').first().json._season }}&team=in.({{ $('NFL Match Fixture').first().json.fixture ? ($('NFL Match Fixture').first().json.fixture.away_abbr + ',' + $('NFL Match Fixture').first().json.fixture.home_abbr) : 'NONE' }})&select=team,week,rating,off_epa,def_epa&order=week.desc",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        980,
+        780
+      ],
+      "name": "Get Team Ratings",
+      "id": "nflv2-0020-getratings",
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// NFL Model Line — Bobby's independent number from the power ratings, compared\n// to the book. expected_margin(home) = home_rating - away_rating + HFA + rest;\n// edge = model margin - book margin. Feeds the four-tier read and the pick log.\nconst flatten = items => {\n  let out = [];\n  for (const r of items.map(i => i.json)) {\n    if (Array.isArray(r)) out = out.concat(r);\n    else if (r && r.team && r.rating !== undefined && r.rating !== null) out.push(r);\n    else if (r && Array.isArray(r.data)) out = out.concat(r.data);\n  }\n  return out;\n};\n\nlet ratingRows = [];\ntry { ratingRows = flatten($('Get Team Ratings').all()); } catch (e) {}\nlet fixture = null;\ntry { fixture = $('NFL Match Fixture').first().json.fixture; } catch (e) {}\nlet odds = {};\ntry { odds = $('Match NFL Odds').first().json || {}; } catch (e) {}\n\nconst empty = {\n  model_available: false,\n  model_line_str: 'Model line unavailable — no power rating for one or both teams (run the ratings workflow)',\n  model_spread: null, book_spread: null, edge_pts: null, edge_side: null, crosses_key: [],\n};\nif (!fixture) { return [{ json: empty }]; }\n\n// latest rating per team\nconst latest = {};\nfor (const r of ratingRows) {\n  const wk = parseInt(r.week, 10) || 0;\n  if (!latest[r.team] || wk > latest[r.team].week) latest[r.team] = { week: wk, rating: parseFloat(r.rating) };\n}\nconst hAbbr = fixture.home_abbr, aAbbr = fixture.away_abbr;\nconst hr = latest[hAbbr] ? latest[hAbbr].rating : undefined;\nconst ar = latest[aAbbr] ? latest[aAbbr].rating : undefined;\nif (hr === undefined || ar === undefined || isNaN(hr) || isNaN(ar)) { return [{ json: empty }]; }\n\n// rest adjustment: +1 pt per 3-day home rest edge, capped ±3\nconst aRest = parseInt(fixture.away_rest, 10), hRest = parseInt(fixture.home_rest, 10);\nlet rest_adj = 0;\nif (!isNaN(aRest) && !isNaN(hRest)) rest_adj = Math.max(-3, Math.min(3, (hRest - aRest) / 3));\n\nconst HFA = 1.8;\nconst model_home_margin = hr - ar + HFA + rest_adj;        // + = home favored\nconst model_spread_home = -model_home_margin;              // home spread (neg = home favored)\nconst book_spread_home = (odds.book_home_spread != null && odds.book_home_spread !== '') ? parseFloat(odds.book_home_spread) : null;\nconst book_home_margin = book_spread_home != null && !isNaN(book_spread_home) ? -book_spread_home : null;\n\nconst hName = fixture.home_team_name, aName = fixture.away_team_name;\nconst fmt = s => (s > 0 ? '+' : '') + s.toFixed(1);\n\nconst modelFavName = model_home_margin >= 0 ? hName : aName;\nconst modelFavSpread = -Math.abs(model_home_margin);\n\nlet bookStr = 'unavailable';\nif (book_home_margin != null) {\n  const bookFavName = book_home_margin >= 0 ? hName : aName;\n  bookStr = bookFavName + ' ' + fmt(-Math.abs(book_home_margin));\n}\n\nlet edge_pts = null, edge_side = null, edge_side_abbr = null, crosses = [];\nif (book_home_margin != null) {\n  const diff = model_home_margin - book_home_margin;       // + = model likes home more than book\n  edge_pts = Math.round(Math.abs(diff) * 10) / 10;\n  edge_side = diff > 0 ? hName : aName;\n  edge_side_abbr = diff > 0 ? hAbbr : aAbbr;\n  for (const k of [3, 7]) {\n    const lo = Math.min(Math.abs(model_home_margin), Math.abs(book_home_margin));\n    const hi = Math.max(Math.abs(model_home_margin), Math.abs(book_home_margin));\n    if (lo < k && hi >= k) crosses.push(k);\n  }\n}\n\nconst model_line_str = 'Bobby number ' + modelFavName + ' ' + fmt(modelFavSpread) +\n  ' | Book ' + bookStr +\n  (edge_pts != null ? (' | Edge ' + edge_pts.toFixed(1) + ' toward ' + edge_side) : ' | Edge n/a (no book spread)') +\n  (crosses.length ? ' (crosses key ' + crosses.join(' & ') + ')' : '');\n\nreturn [{\n  json: {\n    model_available: true,\n    model_line_str,\n    model_spread: Math.round(model_spread_home * 10) / 10,\n    book_spread: book_spread_home,\n    edge_pts,\n    edge_side, edge_side_abbr,\n    crosses_key: crosses,\n    home_rating: hr, away_rating: ar, rest_adj: Math.round(rest_adj * 10) / 10,\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        780
+      ],
+      "name": "NFL Model Line",
+      "id": "nflv2-0021-modelline"
     },
     {
       "parameters": {
@@ -277,7 +409,7 @@
               "role": "system"
             },
             {
-              "content": "=={{ (() => {\n  const NL = String.fromCharCode(10);\n  const away = $('Parse Teams').first().json.away_team || '';\n  const home = $('Parse Teams').first().json.home_team || '';\n  const wh   = $('Webhook').first().json.body ?? $('Webhook').first().json;\n\n  let ctx = {};\n  try { ctx = $('NFL Assemble Context').first().json || {}; } catch(e) {}\n  const fixtureNote  = ctx.fixtureNote    || 'nflverse game match status unknown';\n  const formStr      = ctx.form_str       || 'Team form not available';\n  const gameStr      = ctx.game_str       || 'Matchup details not available';\n  const homeFieldStr = ctx.home_field_str || 'Venue unconfirmed';\n  const restStr      = ctx.rest_str       || 'Rest data unavailable';\n  const weatherStr   = ctx.weather_str    || 'Weather unavailable';\n  const injuryStr    = ctx.injury_str     || 'No injury report data available';\n\n  let kalshiStr = 'No Kalshi market found for this game';\n  try {\n    const mk = $('Match Kalshi Teams').first().json;\n    const ke = mk.kalshi_edge;\n    if (mk.kalshi_available && ke) {\n      kalshiStr = away + ': ' + ke.away_implied_pct + '% implied win | ' +\n                  home + ': ' + ke.home_implied_pct + '% implied win | ' +\n                  'Volume: $' + ke.volume;\n    }\n  } catch(e) {}\n\n  let matchedOdds = 'No sportsbook odds matched for this game';\n  let oddsData = '';\n  try {\n    const mo = $('Match NFL Odds').first().json;\n    if (mo.odds_matched) matchedOdds = mo.odds_str;\n    oddsData = mo.odds_raw || '';\n  } catch(e) {}\n\n  const odds = (wh && wh.odds) ? wh.odds : matchedOdds;\n\n  const L = [\n    'You are Bobby Vegas — a sharp, witty AI sports betting advisor.',\n    '',\n    'The user requested: ' + away + ' vs ' + home,\n    '',\n    'CRITICAL INSTRUCTIONS:',\n    '- ONLY analyze the game: ' + away + ' vs ' + home + ' — do NOT reference any other game',\n    '- NFLVERSE GAME MATCH STATUS: ' + fixtureNote + '. If the game was not found, say so plainly rather than inventing records, venue, injuries, or matchup data.',\n    '- The data below (schedule, venue, season records, rest, injuries) comes from nflverse — treat it as your PRIMARY source of truth. Do NOT rely on your own training data for current rosters, results, or form.',\n    '- If a specific data field says unavailable, say so plainly — do not invent players, injuries, or records.',\n    '- TEAM RECORDS: Use ONLY the nflverse records below for W-L and home/away splits. There is no reliable current-streak feed — do not state a streak.',\n    '- HOME FIELD: Use the HOME FIELD line below.',\n    '- INJURY REPORT: The NFL mandates injury reporting, so treat the injury data below as real, reliable signal. Weight by POSITION GROUP, not player count — quarterback and offensive-line availability dominate; a missing third receiver is close to noise. Offensive-line continuity is its own factor. Each row gives the game designation (Out/Doubtful/Questionable) and practice_status (DNP/LIMITED/FULL). This feed carries the FINAL weekly designation, not the day-by-day Wed/Thu/Fri practice progression — do not fabricate a progression arc. Do NOT invent injuries beyond what is listed.',\n    '- WEATHER: Use the WEATHER line below. Wind is the single largest NFL weather effect — above roughly 15 mph it suppresses passing and kicking and tilts toward the under; scale it rather than using a hard cutoff. For domes, weather is not a factor. Denver altitude extends kicking range and ball flight, a separate factor from weather.',\n    '- REST: Use the REST line below. Short rest (Thursday games), post-bye advantages, and long travel / international trips matter.',\n    '- KEY NUMBERS: NFL margins cluster tightly on 3 and 7. Half a point is NOT worth a constant amount — moving a spread from 2.5 to 3.5 is far larger than 5.5 to 6.5. Price the spread against the key numbers; never treat spread movement as linear. Do NOT apply Asian Handicap or alternate-line logic here — that is a soccer / college method and does not port to the NFL.',\n    '- PREDICTION MARKETS: You have Kalshi prediction market data. Implied win probability is given directly below (home/away, two-way market — no draw). Use it to find edges vs the sportsbook line.',\n    '- KALSHI EDGE PROTOCOL — follow in order; ALWAYS log the Kalshi volume and gate result in the EDGE ALERT:',\n    '  * STEP 1 — DEVIG THE SPORTSBOOK LINE FIRST. Convert BOTH sides American odds to raw implied probability, then remove the vig: divide each side by the sum of the two (the overround) so the two fair probabilities total 100%. Compare the DEVIGGED sportsbook probability to Kalshi — never the raw implied.',\n    '    - Negative odds: absolute value / (absolute value + 100). Example: -165 = 165 / 265 = 62.3% raw',\n    '    - Positive odds: 100 / (odds + 100). Example: +140 = 100 / 240 = 41.7% raw',\n    '    - Devig example: raw 62.3% + 41.7% = 104.0% (the vig); fair favorite = 62.3 / 104.0 = 59.9%, fair underdog = 41.7 / 104.0 = 40.1%',\n    '  * STEP 2 — LIQUIDITY GATE. Kalshi divergence is a directional signal ONLY when Kalshi volume is at least $5,000. If volume is under $5,000 the market is thin: display \"thin market, not actionable\" with the volume, and treat Kalshi as NO signal (do not follow or fade it) — revert to the standard data-driven read.',\n    '  * STEP 3 — DIRECTION (only if the gate passed). Gap = Kalshi % minus DEVIGGED sportsbook % for the same team. Kalshi higher by 5%+: smart money on that team, value there. Devigged sportsbook higher by 5%+: book overvaluing that side, value on the other side. Under 5%: markets agree, no edge.',\n    '  * STEP 4 — CORROBORATION REQUIRED. A Kalshi divergence ALONE can NEVER produce a pick. You must have at least one corroborating layer — the injury report, rest differential, weather, or team form/records — pointing the SAME direction as the Kalshi edge. If none agrees, output \"No edge identified — pass\" and note the divergence was unconfirmed.',\n    '  * STEP 5 — BET TYPE. When the gate passes and the gap is 5-10 points, default to the UNDERDOG ON THE SPREAD, not the moneyline; if that spread is within a point of a key number (3 or 7), recommend buying to it. Reserve the moneyline underdog for gaps ABOVE 10 points that also have a corroborating layer. Frame the edge as \"market implies -X, book has -Y.\"',\n    '- MODEL AMBIGUITY CHECK: Before stating a confident lean, check whether your signals (records/form, home field, rest, injuries, weather, Kalshi gap) actually agree. If they point in different directions or are closely bunched, say so plainly (\"signals are mixed between X and Y\") rather than forcing a confident-sounding pick.',\n    '- SELECTIVITY: The NFL is the sharpest, most efficient betting market there is. Genuine edges are rare and most slates produce none. Passing is the correct, professional output on the majority of games — do NOT manufacture a lean just to have something to say.',\n    '- FINAL EDGE STATEMENT: Before your pick, be able to state in one sentence what the market is mispricing and why. If you cannot, output \"No edge identified — pass\" instead of guessing.',\n    '',\n    'SPORTSBOOK ODDS (matched to this nflverse game — use these first):',\n    odds,\n    '',\n    'MATCHUP (nflverse):',\n    gameStr,\n    '',\n    'TEAM FORM / RECORDS (nflverse):',\n    formStr,\n    '',\n    'HOME FIELD (nflverse venue):',\n    homeFieldStr,\n    '',\n    'REST DIFFERENTIAL (nflverse):',\n    restStr,\n    '',\n    'WEATHER (Open-Meteo — wind emphasized; domes skipped):',\n    weatherStr,\n    '',\n    'INJURY REPORT (nflverse — final weekly designations, weight QB / O-line):',\n    injuryStr,\n    '',\n    'MATCHED ODDS (raw sportsbook JSON):',\n    oddsData,\n    '',\n    'KALSHI PREDICTION MARKET (matched games only):',\n    kalshiStr,\n    '',\n    'Provide in this EXACT format — plain text only, NO LaTeX, NO math symbols, NO brackets:',\n    '',\n    '🏈 **GAME:** Full team names (note if divisional)',\n    '',\n    '📊 **ODDS BREAKDOWN:** Moneyline and spread in plain text; if the spread sits on or near 3 or 7, say so',\n    '',\n    '📈 **TEAM FORM:** Records (W-L) and home/away splits from the nflverse data above',\n    '',\n    '🏟️ **HOME FIELD:** Venue and home-field context; divisional-game note',\n    '',\n    '🌬️ **WEATHER:** Wind first (impact on passing/kicking/total), then temp and precip; say \"Indoor — not a factor\" for domes; note Denver altitude if applicable',\n    '',\n    '🛌 **REST:** Rest differential and any short-rest / post-bye / travel angle',\n    '',\n    '🏥 **INJURY REPORT:** Key absences by team, weighted by position group (QB and O-line first); note O-line continuity',\n    '',\n    '🔀 **EDGE ALERT:** Use this exact format (always show volume and gate result):',\n    'Kalshi volume: $[amount] | Liquidity gate: [PASSED >= $5k | FAILED — thin market, not actionable]',\n    'Sportsbook devigged: [Team] X% | Kalshi: [Team] Y% | Gap: Z pts',\n    'Corroboration: [layer that agrees, or none]',\n    '→ [bet type and side per the protocol, OR \"No edge — pass\"]',\n    'If gate FAILED: \"Kalshi shows the gap but volume is thin — not actionable; reverting to standard analysis\"',\n    'If gap under 5% with gate passed: \"Markets agree — no significant edge detected\"',\n    'If no Kalshi data: \"Kalshi data not available for this game\"',\n    '',\n    '🎯 **BOBBY VEGAS PICK:** Clear recommendation with the BET TYPE (spread / moneyline / total) chosen per the Kalshi protocol — state if going WITH or AGAINST the sportsbook. A Kalshi divergence needs a corroborating layer; if none agrees, or the market is thin (< $5k), output \"No edge identified — pass\" and mean it.',\n    '',\n    '💡 **REASONING:** 2-3 sentences max — records/form, rest, injuries, weather, and the Kalshi read (devigged, gated, corroborated)',\n    '',\n    '🔥 **CONFIDENCE:** High/Medium/Low',\n    '',\n    '⚠️ **LINE ALERT:** Odds sourced from multiple bookmakers and Kalshi — verify current lines before betting as they may have moved. Inactives are published about 90 minutes before kickoff and are not reflected here, so a late scratch could change this read.'\n  ];\n\n  return L.join(NL);\n})() }}"
+              "content": "=={{ (() => {\n  const NL = String.fromCharCode(10);\n  const away = $('Parse Teams').first().json.away_team || '';\n  const home = $('Parse Teams').first().json.home_team || '';\n  const wh   = $('Webhook').first().json.body ?? $('Webhook').first().json;\n\n  let ctx = {};\n  try { ctx = $('NFL Assemble Context').first().json || {}; } catch(e) {}\n  const fixtureNote  = ctx.fixtureNote    || 'nflverse game match status unknown';\n  const formStr      = ctx.form_str       || 'Team form not available';\n  const gameStr      = ctx.game_str       || 'Matchup details not available';\n  const homeFieldStr = ctx.home_field_str || 'Venue unconfirmed';\n  const restStr      = ctx.rest_str       || 'Rest data unavailable';\n  const weatherStr   = ctx.weather_str    || 'Weather unavailable';\n  const injuryStr    = ctx.injury_str     || 'No injury report data available';\n\n  let kalshiStr = 'No Kalshi market found for this game';\n  try {\n    const mk = $('Match Kalshi Teams').first().json;\n    const ke = mk.kalshi_edge;\n    if (mk.kalshi_available && ke) {\n      kalshiStr = away + ': ' + ke.away_implied_pct + '% implied win | ' +\n                  home + ': ' + ke.home_implied_pct + '% implied win | ' +\n                  'Volume: $' + ke.volume;\n    }\n  } catch(e) {}\n\n  let matchedOdds = 'No sportsbook odds matched for this game';\n  let oddsData = '';\n  try {\n    const mo = $('Match NFL Odds').first().json;\n    if (mo.odds_matched) matchedOdds = mo.odds_str;\n    oddsData = mo.odds_raw || '';\n  } catch(e) {}\n\n  const odds = (wh && wh.odds) ? wh.odds : matchedOdds;\n\n  let ml = {};\n  try { ml = $('NFL Model Line').first().json || {}; } catch(e) {}\n  const modelLineStr = (ml && ml.model_available) ? ml.model_line_str : 'Model line unavailable — power ratings not found for one or both teams';\n\n  const L = [\n    'You are Bobby Vegas — a sharp, witty AI sports betting advisor.',\n    '',\n    'The user requested: ' + away + ' vs ' + home,\n    '',\n    'CRITICAL INSTRUCTIONS:',\n    '- ONLY analyze the game: ' + away + ' vs ' + home + ' — do NOT reference any other game',\n    '- NFLVERSE GAME MATCH STATUS: ' + fixtureNote + '. If the game was not found, say so plainly rather than inventing records, venue, injuries, or matchup data.',\n    '- The data below (schedule, venue, season records, rest, injuries) comes from nflverse — treat it as your PRIMARY source of truth. Do NOT rely on your own training data for current rosters, results, or form.',\n    '- If a specific data field says unavailable, say so plainly — do not invent players, injuries, or records.',\n    '- TEAM RECORDS: Use ONLY the nflverse records below for W-L and home/away splits. There is no reliable current-streak feed — do not state a streak.',\n    '- HOME FIELD: Use the HOME FIELD line below.',\n    '- INJURY REPORT: The NFL mandates injury reporting, so treat the injury data below as real, reliable signal. Weight by POSITION GROUP, not player count — quarterback and offensive-line availability dominate; a missing third receiver is close to noise. Offensive-line continuity is its own factor. Each row gives the game designation (Out/Doubtful/Questionable) and practice_status (DNP/LIMITED/FULL). This feed carries the FINAL weekly designation, not the day-by-day Wed/Thu/Fri practice progression — do not fabricate a progression arc. Do NOT invent injuries beyond what is listed.',\n    '- WEATHER: Use the WEATHER line below. Wind is the single largest NFL weather effect — above roughly 15 mph it suppresses passing and kicking and tilts toward the under; scale it rather than using a hard cutoff. For domes, weather is not a factor. Denver altitude extends kicking range and ball flight, a separate factor from weather.',\n    '- REST: Use the REST line below. Short rest (Thursday games), post-bye advantages, and long travel / international trips matter.',\n    '- KEY NUMBERS: NFL margins cluster tightly on 3 and 7. Half a point is NOT worth a constant amount — moving a spread from 2.5 to 3.5 is far larger than 5.5 to 6.5. Price the spread against the key numbers; never treat spread movement as linear. Do NOT apply Asian Handicap or alternate-line logic here — that is a soccer / college method and does not port to the NFL.',\n    '- MODEL LINE IS YOUR PRIMARY SIGNAL. Bobby has his own number from the power ratings (opponent-adjusted offense/defense EPA, home field, rest). It is given below as MODEL LINE, with the edge in points vs the book. The edge in POINTS drives the pick. If the model line says unavailable, say so and fall back to the data read (form, injuries, rest, weather) — never invent a number.',\n    '- KEY NUMBERS: NFL margins cluster on 3 and 7; half-points are not linear (2.5->3.5 is far bigger than 5.5->6.5). When the edge points at the UNDERDOG, prefer the SPREAD over the moneyline, and if the model and book straddle a key number (3 or 7), recommend buying to it. Do NOT use Asian Handicap / alternate-line logic.',\n    '- KALSHI IS CORROBORATION ONLY — it never drives the pick alone. Liquidity gate still applies: a Kalshi signal counts only when volume is at least $5,000; under that, show \"thin market, not actionable\" and ignore it. To compare, DEVIG the book first (convert both American odds to implied prob, divide each by their sum so they total 100%), then compare the devigged favorite % to Kalshi. If Kalshi agrees with the model edge (same side, gate passed) it RAISES the tier; it can never create a pick by itself.',\n    '- FOUR-TIER READ — every game gets exactly one tier; give a direction on all but Stay Away:',\n    '  * STRONG PLAY: model edge >= 3 pts, OR model edge >= 1.5 pts WITH Kalshi corroboration (gate passed and Kalshi leans the same side).',\n    '  * LEAN: model edge 1.5-3 pts with no corroboration — state the side.',\n    '  * FAIR LINE: model edge under 1.5 pts — no play; state the number at which each side WOULD become a play (e.g. \"home becomes a play at -4 or better, away at +8 or better\").',\n    '  * STAY AWAY: genuine uncertainty or a bad spot — conflicting signals, missing ratings or odds, an unresolved key injury, or a trap. Say why.',\n    '- MODEL AMBIGUITY CHECK: if the model edge and the data read (injuries, rest, weather, form) point in DIFFERENT directions, do not force a Strong Play — drop a tier and say the signals are mixed.',\n    '- FINAL EDGE STATEMENT: before the pick, state in one sentence what the market is mispricing and by how many points, grounded in the model line. If you cannot, the tier is Fair Line or Stay Away.',\n    '',\n    'SPORTSBOOK ODDS (matched to this nflverse game — use these first):',\n    odds,\n    '',\n    'MODEL LINE (Bobby power rating vs the book — PRIMARY signal, drives the pick):',\n    modelLineStr,\n    '',\n    'MATCHUP (nflverse):',\n    gameStr,\n    '',\n    'TEAM FORM / RECORDS (nflverse):',\n    formStr,\n    '',\n    'HOME FIELD (nflverse venue):',\n    homeFieldStr,\n    '',\n    'REST DIFFERENTIAL (nflverse):',\n    restStr,\n    '',\n    'WEATHER (Open-Meteo — wind emphasized; domes skipped):',\n    weatherStr,\n    '',\n    'INJURY REPORT (nflverse — final weekly designations, weight QB / O-line):',\n    injuryStr,\n    '',\n    'MATCHED ODDS (raw sportsbook JSON):',\n    oddsData,\n    '',\n    'KALSHI PREDICTION MARKET (matched games only):',\n    kalshiStr,\n    '',\n    'Provide in this EXACT format — plain text only, NO LaTeX, NO math symbols, NO brackets:',\n    '',\n    '🏈 **GAME:** Full team names (note if divisional)',\n    '',\n    '📊 **ODDS BREAKDOWN:** Moneyline and spread in plain text; if the spread sits on or near 3 or 7, say so',\n    '',\n    '📈 **TEAM FORM:** Records (W-L) and home/away splits from the nflverse data above',\n    '',\n    '🏟️ **HOME FIELD:** Venue and home-field context; divisional-game note',\n    '',\n    '🌬️ **WEATHER:** Wind first (impact on passing/kicking/total), then temp and precip; say \"Indoor — not a factor\" for domes; note Denver altitude if applicable',\n    '',\n    '🛌 **REST:** Rest differential and any short-rest / post-bye / travel angle',\n    '',\n    '🏥 **INJURY REPORT:** Key absences by team, weighted by position group (QB and O-line first); note O-line continuity',\n    '',\n    '📐 **MODEL LINE:** State it exactly as: Bobby number [Team] -X.0 | Book [Team] -Y | Edge Z toward [Team]. Use the MODEL LINE data above verbatim; if it is unavailable, say the power ratings have not been computed yet and lean on the data read.',\n    '',\n    '🔀 **KALSHI CORROBORATION:** Use this exact format (corroboration only — never the pick by itself):',\n    'Kalshi volume: $[amount] | Liquidity gate: [PASSED >= $5k | FAILED — thin market, not actionable]',\n    'Devigged book: [Team] X% | Kalshi: [Team] Y% | Agrees with model edge: [yes / no / n-a]',\n    'If gate FAILED or no Kalshi: \"No usable Kalshi signal — model stands alone\"',\n    '',\n    '🎯 **BOBBY VEGAS PICK:** Lead with the TIER in caps (STRONG PLAY / LEAN / FAIR LINE / STAY AWAY). Then the side and BET TYPE (spread / moneyline / total) with the number. If the edge points at the dog, prefer the spread and note any key-number (3 or 7) buy. For FAIR LINE, give the numbers at which each side becomes a play. For STAY AWAY, say why.',\n    '',\n    '💡 **REASONING:** 2-3 sentences max — the model edge first, then the data read (injuries, rest, weather, form) and whether Kalshi corroborates.',\n    '',\n    '🔥 **CONFIDENCE:** High/Medium/Low — align with the tier (Strong Play = High or Medium, Lean = Medium, Fair Line / Stay Away = Low).',\n    '',\n    '⚠️ **LINE ALERT:** Odds sourced from multiple bookmakers and Kalshi — verify current lines before betting as they may have moved. Inactives post about 90 minutes before kickoff and are not reflected here.',\n    '',\n    'FINALLY, append this machine-readable footer as the LAST line with nothing after it (the engine fills the numeric model fields; you fill the judgment fields):',\n    'PICK_JSON: {\"tier\":\"Strong Play|Lean|Fair Line|Stay Away\",\"pick_type\":\"spread|moneyline|total|none\",\"side\":\"full team name, over/under, or none\",\"confidence\":\"High|Medium|Low\"}'\n  ];\n\n  return L.join(NL);\n})() }}"
             }
           ]
         },
@@ -286,8 +418,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1.8,
       "position": [
-        560,
-        600
+        1340,
+        780
       ],
       "name": "Bobby Vegas Analysis",
       "id": "nflv2-0014-openai",
@@ -301,6 +433,59 @@
     },
     {
       "parameters": {
+        "jsCode": "// Parse Bobby's PICK_JSON footer (tier/pick_type/side/confidence) and merge the\n// deterministic model, odds, and Kalshi fields into a single pick_log row.\nconst content = (() => { try { return $('Bobby Vegas Analysis').first().json.message.content || ''; } catch (e) { return ''; } })();\n\nlet footer = {};\nconst m = content.match(/PICK_JSON:\\s*(\\{[\\s\\S]*?\\})\\s*$/);\nif (m) { try { footer = JSON.parse(m[1]); } catch (e) {} }\n\nconst pt = $('Parse Teams').first().json;\nconst wh = $('Webhook').first().json.body ?? $('Webhook').first().json;\nlet ml = {}; try { ml = $('NFL Model Line').first().json || {}; } catch (e) {}\nlet mo = {}; try { mo = $('Match NFL Odds').first().json || {}; } catch (e) {}\nlet fx = null; try { fx = $('NFL Match Fixture').first().json.fixture; } catch (e) {}\nlet ke = null; try { const mk = $('Match Kalshi Teams').first().json; if (mk.kalshi_available) ke = mk.kalshi_edge; } catch (e) {}\n\nconst side = footer.side || null;\nconst pick_type = footer.pick_type || null;\nconst norm = s => (s || '').toLowerCase();\nconst sideIsHome = () => fx && fx.home_team_name && side && norm(side).includes(norm(fx.home_team_name));\nconst sideIsAway = () => fx && fx.away_team_name && side && norm(side).includes(norm(fx.away_team_name));\n\n// line + price at pick from the matched book, per side and bet type\nlet line_at_pick = null, price_at_pick = null;\nif (fx && side) {\n  if (pick_type === 'spread') {\n    line_at_pick  = sideIsHome() ? mo.book_home_spread : sideIsAway() ? mo.book_away_spread : null;\n    price_at_pick = sideIsHome() ? mo.book_home_spread_price : sideIsAway() ? mo.book_away_spread_price : null;\n  } else if (pick_type === 'moneyline') {\n    price_at_pick = sideIsHome() ? mo.book_home_ml : sideIsAway() ? mo.book_away_ml : null;\n  }\n}\n\n// devigged sportsbook implied for the picked side\nlet sportsbook_implied = null;\nif (mo.book_home_ml != null && mo.book_away_ml != null) {\n  const imp = o => o > 0 ? 100 / (o + 100) : Math.abs(o) / (Math.abs(o) + 100);\n  const rh = imp(mo.book_home_ml), ra = imp(mo.book_away_ml), sum = rh + ra;\n  if (sum > 0) {\n    if (sideIsHome()) sportsbook_implied = Math.round(rh / sum * 1000) / 10;\n    else if (sideIsAway()) sportsbook_implied = Math.round(ra / sum * 1000) / 10;\n  }\n}\n\nlet kalshi_implied = null, kalshi_volume = null, gate_passed = null;\nif (ke) {\n  kalshi_volume = parseFloat(ke.volume); if (isNaN(kalshi_volume)) kalshi_volume = null;\n  gate_passed = kalshi_volume != null ? kalshi_volume >= 5000 : null;\n  const hp = parseFloat(ke.home_implied_pct), ap = parseFloat(ke.away_implied_pct);\n  if (sideIsHome()) kalshi_implied = isNaN(hp) ? null : hp;\n  else if (sideIsAway()) kalshi_implied = isNaN(ap) ? null : ap;\n}\n\nconst source    = (wh && wh.test) ? 'test' : 'app';\nconst game_date = (wh && wh.targetDate) ? wh.targetDate : (fx && fx.gameday) ? fx.gameday : null;\nconst kickoff   = (fx && fx.gameday && fx.gametime) ? (fx.gameday + 'T' + fx.gametime + ':00Z') : null;\nconst num = v => (v != null && v !== '' && !isNaN(parseFloat(v))) ? parseFloat(v) : null;\n\nconst row = {\n  sport: 'NFL',\n  away: pt.away_team, home: pt.home_team,\n  game_date, kickoff,\n  tier: footer.tier || null,\n  pick_type, side,\n  line_at_pick: num(line_at_pick),\n  price_at_pick: price_at_pick != null ? parseInt(price_at_pick, 10) : null,\n  model_spread: ml.model_spread != null ? ml.model_spread : null,\n  book_spread: ml.book_spread != null ? ml.book_spread : null,\n  edge_pts: ml.edge_pts != null ? ml.edge_pts : null,\n  sportsbook_implied, kalshi_implied, kalshi_volume, gate_passed,\n  confidence: footer.confidence || null,\n  model: 'gpt-5',\n  prompt_version: 'nfl-v2-model-1',\n  source,\n  full_response: content,\n};\n\nreturn [{ json: { row } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        780
+      ],
+      "name": "Parse Footer",
+      "id": "nflv2-0022-footer"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/pick_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.row) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1700,
+        780
+      ],
+      "name": "Insert Pick Log",
+      "id": "nflv2-0023-insertlog",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
         "respondWith": "json",
         "responseBody": "={\n  \"status\": \"complete\",\n  \"analysis\": {{ JSON.stringify($('Bobby Vegas Analysis').first().json.message.content) }}\n}",
         "options": {}
@@ -308,8 +493,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        740,
-        600
+        1880,
+        780
       ],
       "name": "Respond to Webhook",
       "id": "nflv2-0015-respond"
@@ -340,6 +525,46 @@
     },
     "Validate Matchup": {
       "main": [
+        [
+          {
+            "node": "Get Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cache": {
+      "main": [
+        [
+          {
+            "node": "Cache Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Decision": {
+      "main": [
+        [
+          {
+            "node": "Cache Hit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Hit?": {
+      "main": [
+        [
+          {
+            "node": "Respond Cached",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "NFL Get Schedule",
@@ -452,6 +677,28 @@
       "main": [
         [
           {
+            "node": "Get Team Ratings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Team Ratings": {
+      "main": [
+        [
+          {
+            "node": "NFL Model Line",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NFL Model Line": {
+      "main": [
+        [
+          {
             "node": "Bobby Vegas Analysis",
             "type": "main",
             "index": 0
@@ -460,6 +707,28 @@
       ]
     },
     "Bobby Vegas Analysis": {
+      "main": [
+        [
+          {
+            "node": "Parse Footer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Footer": {
+      "main": [
+        [
+          {
+            "node": "Insert Pick Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Pick Log": {
       "main": [
         [
           {
