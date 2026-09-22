@@ -51,7 +51,7 @@ check('flagged model_line_str carries the note', /EARLY-SEASON MODEL UNCERTAINTY
 
 // Parse Footer cap enforcement
 function footer(tier, early) {
-  const content = '🎯 BOBBY VEGAS PICK: ' + tier + '\n\nPICK_JSON: {"tier":"' + tier + '","pick_type":"spread","side":"Home Team","confidence":"High"}';
+  const content = '🎯 **BOBBY VEGAS PICK:** ' + tier + ' — Home Team spread -3.5\n\nPICK_JSON: {"tier":"' + tier + '","pick_type":"spread","side":"Home Team","confidence":"High"}';
   const outputs = {
     'Bobby Vegas Analysis': [{ json: { message: { content } } }],
     'Parse Teams': [{ json: { away_team: 'Away Team', home_team: 'Home Team' } }],
@@ -61,12 +61,28 @@ function footer(tier, early) {
     'NFL Match Fixture': [{ json: { fixture: { home_team_name: 'Home Team', away_team_name: 'Away Team' } } }],
     'Match Kalshi Teams': [{ json: { kalshi_available: false } }],
   };
-  return runNode(parseFooterSrc, outputs).row;
+  return runNode(parseFooterSrc, outputs);
 }
-check('footer Strong Play + flagged -> logged tier Lean', footer('Strong Play', true).tier === 'Lean');
-check('footer Strong Play + flagged -> early_uncertainty logged true', footer('Strong Play', true).early_uncertainty === true);
-check('footer Strong Play + NOT flagged -> stays Strong Play', footer('Strong Play', false).tier === 'Strong Play');
-check('footer Lean + flagged -> stays Lean (only caps Strong Play)', footer('Lean', true).tier === 'Lean');
+const tierInDisplay = d => (d.match(/\b(STRONG PLAY|LEAN|FAIR LINE|STAY AWAY)\b/i) || [])[0];
+check('footer Strong Play + flagged -> logged tier Lean', footer('Strong Play', true).row.tier === 'Lean');
+check('footer Strong Play + flagged -> early_uncertainty logged true', footer('Strong Play', true).row.early_uncertainty === true);
+check('footer Strong Play + NOT flagged -> stays Strong Play', footer('Strong Play', false).row.tier === 'Strong Play');
+check('footer Lean + flagged -> stays Lean (only caps Strong Play)', footer('Lean', true).row.tier === 'Lean');
+
+// ── display post-processor: visible tier ALWAYS equals logged tier ──
+for (const [t, early] of [['Strong Play', true], ['Strong Play', false], ['Lean', true], ['Fair Line', false]]) {
+  const o = footer(t, early);
+  const disp = tierInDisplay(o.display_content);
+  check(`display tier == log tier  (${t}, early=${early})`, disp && disp.toUpperCase() === o.row.tier.toUpperCase(),
+    `display=${disp} log=${o.row.tier}`);
+  check(`full_response == display  (${t}, early=${early})`, o.row.full_response === o.display_content);
+  check(`PICK_JSON footer stripped from display  (${t})`, !/PICK_JSON/.test(o.display_content));
+}
+{
+  const o = footer('Strong Play', true);
+  check('flagged downgrade shows LEAN (not STRONG PLAY) in display', /LEAN/.test(o.display_content) && !/STRONG PLAY/.test(o.display_content.replace(/capped from Strong Play/gi, '')));
+  check('flagged downgrade notes the cap in display', /capped from Strong Play/i.test(o.display_content));
+}
 
 console.log(`\n${pass}/${total} passed`);
 process.exit(pass === total ? 0 : 1);
