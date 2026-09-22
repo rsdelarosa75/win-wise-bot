@@ -10,6 +10,7 @@ import {
   computeVolumeSkew,
 } from "@/services/polymarket";
 import type { PolymarketProbDivergence, PolymarketVolumeSkew } from "@/services/polymarket";
+import { SPORT_ORDER, DEFAULT_SPORT } from "@/lib/sports";
 
 const SUPABASE_URL = "https://mocdziwqxbvjibylqxoz.supabase.co";
 const SUPABASE_ANON_KEY =
@@ -21,8 +22,9 @@ const SPORT_EMOJIS: Record<string, string> = {
   NBA: "🏀", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽", MLB: "⚾", F1: "🏎️",
 };
 
-// Sport order + example placeholders for the manual matchup entry.
-const MANUAL_SPORTS: Sport[] = ["NCAAFB", "NFL", "MLB", "NBA", "WNBA", "NHL", "Soccer", "F1"];
+// Sport order + example placeholders for the manual matchup entry. Follows the
+// shared SPORT_ORDER; F1 is appended here since it has no Live Odds pill.
+const MANUAL_SPORTS: Sport[] = [...SPORT_ORDER, "F1"];
 const MATCHUP_PLACEHOLDER: Record<Sport, string> = {
   NBA: "e.g., Lakers vs Warriors",
   WNBA: "e.g., Liberty vs Aces",
@@ -274,7 +276,7 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
   const [lastFetch, setLastFetch] = useState<string | null>(null);
   const [selected, setSelected] = useState<{ teams: string; sport: Sport; date: string; odds?: GameOdds } | null>(null);
   const [manualTeams, setManualTeams] = useState("");
-  const [manualSport, setManualSport] = useState<Sport>("NCAAFB");
+  const [manualSport, setManualSport] = useState<Sport>(DEFAULT_SPORT);
 
   type PolySignals = { probDiv: PolymarketProbDivergence[]; volSkew: PolymarketVolumeSkew | null };
   const [polySignals, setPolySignals] = useState<Map<string, PolySignals>>(new Map());

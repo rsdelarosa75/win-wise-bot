@@ -5,6 +5,7 @@ import { LiveOdds } from "@/components/ui/live-odds";
 import { Card } from "@/components/ui/card";
 import type { GameOdds } from "@/components/ui/live-odds";
 import { useTheme } from "@/hooks/use-theme";
+import { SPORT_ORDER, DEFAULT_SPORT } from "@/lib/sports";
 
 type Sport = "Soccer" | "NHL" | "WNBA" | "MLB" | "NFL" | "NCAAFB" | "NBA";
 
@@ -20,18 +21,15 @@ const getGreeting = () => {
   return "Good evening 👋";
 };
 
-const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] = [
-  { sport: "Soccer", emoji: "⚽", label: "Soccer" },
-  { sport: "NHL",    emoji: "🏒", label: "NHL" },
-  { sport: "WNBA",   emoji: "🏀", label: "WNBA" },
-  { sport: "MLB",    emoji: "⚾", label: "MLB" },
-  { sport: "NFL",    emoji: "🏈", label: "NFL" },
-  { sport: "NCAAFB", emoji: "🏈", label: "NCAAFB" },
-  { sport: "NBA",    emoji: "🏀", label: "NBA" },
-];
+// Emoji per sport; pill order/content is derived from the shared SPORT_ORDER.
+const SPORT_EMOJI: Record<Sport, string> = {
+  NFL: "🏈", NCAAFB: "🏈", MLB: "⚾", NBA: "🏀", NHL: "🏒", WNBA: "🏀", Soccer: "⚽",
+};
+const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] =
+  SPORT_ORDER.map((sport) => ({ sport, emoji: SPORT_EMOJI[sport], label: sport }));
 
 const Dashboard = ({ onPicksTabClick, onGameSelect }: DashboardProps) => {
-  const [oddsSport, setOddsSport] = useState<Sport>("Soccer");
+  const [oddsSport, setOddsSport] = useState<Sport>(DEFAULT_SPORT);
   const [picksLabel, setPicksLabel] = useState("Today's Picks");
   const { theme, toggleTheme } = useTheme();
 
