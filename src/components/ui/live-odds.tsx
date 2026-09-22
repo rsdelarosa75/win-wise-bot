@@ -1,7 +1,16 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useOddsApi } from '@/hooks/use-odds-api';
+import { usePickTiers, type PickTier } from '@/hooks/use-pick-tiers';
 import { RefreshCw, Clock, AlertCircle } from 'lucide-react';
+
+// Bobby's four-tier read -> pill styling. Strong green, Lean gold, Fair grey, Stay Away red.
+const TIER_PILL: Record<PickTier, { className: string; style?: Record<string, string> }> = {
+  'Strong Play': { className: 'border-win/40 text-win' },
+  'Lean':        { className: '', style: { borderColor: 'rgba(245,161,0,0.5)', color: '#F5A100' } },
+  'Fair Line':   { className: 'border-muted-foreground/30 text-muted-foreground' },
+  'Stay Away':   { className: 'border-loss/40 text-loss' },
+};
 
 export interface GameOdds {
   team1: string;
@@ -23,6 +32,7 @@ interface LiveOddsProps {
 
 export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) => {
   const { games, loading, error, lastUpdated, fetchOdds, hasApiKey } = useOddsApi(sport);
+  const { tierFor } = usePickTiers(sport);
 
   const mockGames = [
     {
@@ -144,16 +154,17 @@ export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) =>
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <Badge
-              variant="outline"
-              className={`text-[10px] px-1.5 py-0
-                ${game.status === 'win' ? 'border-win/30 text-win' : ''}
-                ${game.status === 'neutral' ? 'border-neutral/30 text-neutral' : ''}
-                ${game.status === 'loss' ? 'border-loss/30 text-loss' : ''}
-              `}
-            >
-              {game.confidence}
-            </Badge>
+            {/* Tier pill from the most recent pick_log row (30-min freshness). No pick -> no pill. */}
+            {(() => {
+              const tier = tierFor(game.team1, game.team2);
+              if (!tier) return null;
+              const p = TIER_PILL[tier];
+              return (
+                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${p.className}`} style={p.style}>
+                  {tier}
+                </Badge>
+              );
+            })()}
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/30">
               {sportLabel(game.sport)}
             </Badge>
