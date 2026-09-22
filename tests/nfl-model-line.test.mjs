@@ -22,12 +22,13 @@ const runNode = (src, outputs) => {
 
 // Drive Model Line: ratings hr/ar (home/away), a book home spread, a week, and Kalshi.
 // model_home_margin = hr - ar + 1.8 (equal rest); edge = |model_margin - (-book_home_spread)|.
-function modelLine({ week, hr, ar, book_home_spread, kalshi }) {
+function modelLine({ week, hr, ar, book_home_spread, kalshi, qbOutHome = false, qbOutAway = false }) {
   const outputs = {
     'Get Team Ratings': [{ json: [{ team: 'HOM', week, rating: hr }, { team: 'AWY', week, rating: ar }] }],
     'NFL Match Fixture': [{ json: { fixture: { home_abbr: 'HOM', away_abbr: 'AWY', home_team_name: 'Home Team', away_team_name: 'Away Team', home_rest: '7', away_rest: '7' } } }],
     'Match NFL Odds': [{ json: { book_home_spread, book_home_ml: -150, book_away_ml: 130, book_away_spread: -book_home_spread } }],
     'Match Kalshi Teams': [{ json: kalshi || { kalshi_available: false } }],
+    'NFL Assemble Context': [{ json: { qb_out_home: qbOutHome, qb_out_away: qbOutAway } }],
   };
   return runNode(modelLineSrc, outputs);
 }
@@ -49,14 +50,22 @@ check('wk3 edge 5.2 + Kalshi favors AWAY (opposes) -> still flagged', modelLine(
 check('wk3 edge 5.2 + Kalshi home but thin (<$5k) -> still flagged', modelLine({ week: 3, ...edge52, kalshi: kalshiThin }).early_uncertainty === true);
 check('flagged model_line_str carries the note', /EARLY-SEASON MODEL UNCERTAINTY/.test(modelLine({ week: 3, ...edge52 }).model_line_str));
 
+// ── injury-driven downgrade (QB out on the edge-favored side, edge > 5) ──
+// edge52 favors HOME. wk8 so the early-season cap is NOT in play (isolate injury logic).
+check('edge>5 + QB out on edge (home) side -> injury_driven', modelLine({ week: 8, ...edge52, qbOutHome: true }).injury_driven === true);
+check('edge>5 + QB out on OTHER (away) side -> NOT injury_driven', modelLine({ week: 8, ...edge52, qbOutAway: true }).injury_driven === false);
+check('edge>5 + no QB out -> NOT injury_driven', modelLine({ week: 8, ...edge52 }).injury_driven === false);
+check('edge exactly 5.0 + QB out -> NOT injury_driven (strict >5)', modelLine({ week: 8, hr: 0, ar: 0, book_home_spread: 3.2, qbOutHome: true }).injury_driven === false);
+check('injury_driven note in model_line_str', /INJURY-DRIVEN/.test(modelLine({ week: 8, ...edge52, qbOutHome: true }).model_line_str));
+
 // Parse Footer cap enforcement
-function footer(tier, early) {
+function footer(tier, early, injuryDriven = false) {
   const content = '🎯 **BOBBY VEGAS PICK:** ' + tier + ' — Home Team spread -3.5\n\nPICK_JSON: {"tier":"' + tier + '","pick_type":"spread","side":"Home Team","confidence":"High"}';
   const outputs = {
     'Bobby Vegas Analysis': [{ json: { message: { content } } }],
     'Parse Teams': [{ json: { away_team: 'Away Team', home_team: 'Home Team' } }],
     'Webhook': [{ json: { body: { test: true } } }],
-    'NFL Model Line': [{ json: { model_spread: -5, book_spread: 3.4, edge_pts: 5.2, early_uncertainty: early } }],
+    'NFL Model Line': [{ json: { model_spread: -5, book_spread: 3.4, edge_pts: 5.2, early_uncertainty: early, injury_driven: injuryDriven } }],
     'Match NFL Odds': [{ json: { book_home_spread: 3.4, book_home_ml: -150, book_away_ml: 130 } }],
     'NFL Match Fixture': [{ json: { fixture: { home_team_name: 'Home Team', away_team_name: 'Away Team' } } }],
     'Match Kalshi Teams': [{ json: { kalshi_available: false } }],
@@ -69,6 +78,12 @@ check('footer Strong Play + flagged -> early_uncertainty logged true', footer('S
 check('footer Strong Play + NOT flagged -> stays Strong Play', footer('Strong Play', false).row.tier === 'Strong Play');
 check('footer Lean + flagged -> stays Lean (only caps Strong Play)', footer('Lean', true).row.tier === 'Lean');
 
+// injury_driven forces Stay Away over ANY tier (strongest override)
+check('injury_driven Strong Play -> logged Stay Away', footer('Strong Play', false, true).row.tier === 'Stay Away');
+check('injury_driven Lean -> logged Stay Away', footer('Lean', false, true).row.tier === 'Stay Away');
+check('injury_driven -> display shows STAY AWAY', /STAY AWAY/.test(footer('Strong Play', false, true).display_content));
+check('injury_driven -> display notes QB reason', /starting QB out/i.test(footer('Strong Play', false, true).display_content));
+
 // ── display post-processor: visible tier ALWAYS equals logged tier ──
 for (const [t, early] of [['Strong Play', true], ['Strong Play', false], ['Lean', true], ['Fair Line', false]]) {
   const o = footer(t, early);
@@ -80,8 +95,8 @@ for (const [t, early] of [['Strong Play', true], ['Strong Play', false], ['Lean'
 }
 {
   const o = footer('Strong Play', true);
-  check('flagged downgrade shows LEAN (not STRONG PLAY) in display', /LEAN/.test(o.display_content) && !/STRONG PLAY/.test(o.display_content.replace(/capped from Strong Play/gi, '')));
-  check('flagged downgrade notes the cap in display', /capped from Strong Play/i.test(o.display_content));
+  check('flagged downgrade shows LEAN (not STRONG PLAY) in display', /LEAN/.test(o.display_content) && !/STRONG PLAY/.test(o.display_content));
+  check('flagged downgrade notes the cap in display', /capped: early-season/i.test(o.display_content));
 }
 
 console.log(`\n${pass}/${total} passed`);
