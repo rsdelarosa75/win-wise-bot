@@ -114,11 +114,14 @@
           "id": "CFBD_API_CREDENTIAL_ID",
           "name": "CFBD API"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 2500
     },
     {
       "parameters": {
-        "jsCode": "// Derive the current CFB week from /calendar at runtime — never hardcoded.\n// The HTTP node emits one item per calendar entry.\nconst weeks = $input.all().map(i => i.json);\nconst now = Date.now();\nconst parse = s => (s ? new Date(s).getTime() : null);\n\nconst regular = weeks.filter(w => (w.seasonType || w.season_type) === 'regular');\nconst pool = regular.length ? regular : weeks;\n\nlet chosen = null;\n\n// 1) now falls within [startDate, endDate]\nfor (const w of pool) {\n  const start = parse(w.startDate || w.firstGameStart);\n  const end   = parse(w.endDate   || w.lastGameStart);\n  if (start !== null && end !== null && now >= start && now <= end) { chosen = w; break; }\n}\n\n// 2) otherwise the latest week that has already started\nif (!chosen) {\n  const started = pool\n    .filter(w => { const s = parse(w.startDate || w.firstGameStart); return s !== null && s <= now; })\n    .sort((a, b) => parse(a.startDate || a.firstGameStart) - parse(b.startDate || b.firstGameStart));\n  if (started.length) chosen = started[started.length - 1];\n}\n\n// 3) fallback: first entry / week 1\nif (!chosen) chosen = pool[0] || { week: 1 };\n\nconst year = chosen.season ? parseInt(chosen.season, 10) : new Date().getFullYear();\n\nreturn [{ json: { year: year || 2026, week: chosen.week || 1, weekNote: 'Resolved week ' + (chosen.week || 1) } }];\n"
+        "jsCode": "// Derive the current CFB week from /calendar at runtime — never hardcoded.\n// Prefer the user's targetDate (YYYY-MM-DD) as the reference instant so the\n// games we fetch (and disambiguate against) are the ones on that date; fall\n// back to real \"now\" when no date was supplied.\nconst weeks = $input.all().map(i => i.json);\nlet ref = Date.now();\ntry {\n  const td = (($('Webhook').first().json.body || {}).targetDate || '').slice(0, 10);\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(td)) ref = new Date(td + 'T18:00:00Z').getTime();\n} catch (e) {}\nconst now = ref;\nconst parse = s => (s ? new Date(s).getTime() : null);\n\nconst regular = weeks.filter(w => (w.seasonType || w.season_type) === 'regular');\nconst pool = regular.length ? regular : weeks;\n\nlet chosen = null;\nfor (const w of pool) {\n  const start = parse(w.startDate || w.firstGameStart);\n  const end   = parse(w.endDate   || w.lastGameStart);\n  if (start !== null && end !== null && now >= start && now <= end) { chosen = w; break; }\n}\nif (!chosen) {\n  const started = pool\n    .filter(w => { const s = parse(w.startDate || w.firstGameStart); return s !== null && s <= now; })\n    .sort((a, b) => parse(a.startDate || a.firstGameStart) - parse(b.startDate || b.firstGameStart));\n  if (started.length) chosen = started[started.length - 1];\n}\nif (!chosen) chosen = pool[0] || { week: 1 };\n\nconst year = chosen.season ? parseInt(chosen.season, 10) : new Date(now).getFullYear();\n\nreturn [{ json: { year: year || 2026, week: chosen.week || 1, weekNote: 'Resolved week ' + (chosen.week || 1) } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -151,11 +154,14 @@
           "id": "CFBD_API_CREDENTIAL_ID",
           "name": "CFBD API"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 2500
     },
     {
       "parameters": {
-        "jsCode": "// CFB analog of MLB Match Fixture: match the requested teams against the\n// week's FBS games (CFBD /games emits one item per game).\nconst items = $input.all();\nconst away  = $('Parse Teams').first().json.away_team || '';\nconst home  = $('Parse Teams').first().json.home_team || '';\n\nconst matchesTeam = (name, team) => {\n  if (!name || !team) return false;\n  const n = name.toLowerCase();\n  const t = team.toLowerCase();\n  if (n.includes(t) || t.includes(n)) return true;\n  const words = t.split(/\\s+/).filter(w =>\n    w.length > 3 &&\n    !['the','and','for','with','city','team','state','university'].includes(w)\n  );\n  return words.some(w => n.includes(w));\n};\n\nconst allGames = items.map(i => i.json).filter(g => g && g.homeTeam && g.awayTeam);\n\nconst matchedGame = allGames.find(g =>\n  (matchesTeam(g.awayTeam, away) && matchesTeam(g.homeTeam, home)) ||\n  (matchesTeam(g.awayTeam, home) && matchesTeam(g.homeTeam, away))\n);\n\nconst result = matchedGame ? {\n  id:              matchedGame.id,\n  gameDate:        matchedGame.startDate,\n  completed:       matchedGame.completed,\n  neutralSite:     matchedGame.neutralSite,\n  conferenceGame:  matchedGame.conferenceGame,\n  venue:           matchedGame.venue || null,\n  away_team_name:  matchedGame.awayTeam,\n  away_conference: matchedGame.awayConference || null,\n  home_team_name:  matchedGame.homeTeam,\n  home_conference: matchedGame.homeConference || null,\n} : null;\n\nreturn [{\n  json: {\n    fixture:      result,\n    fixtureFound: !!result,\n    fixtureNote:  result ? ('Matched CFBD game id ' + result.id) : ('No FBS game found for ' + away + ' vs ' + home),\n  }\n}];\n"
+        "jsCode": "// ===== Resolve teams by CFBD ID (fixes the \"Miami\" collision) =====\n// Root cause of the old bug: downstream nodes re-matched the team NAME with a\n// substring/includes + first-match, so \"Miami\" grabbed whichever of Miami (FL)\n// / Miami (OH) appeared first. Here we resolve both sides to a unique CFBD team\n// id ONE time and hand those ids downstream; nothing re-matches by name.\n\nfunction norm(s) {\n  return (s || '')\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n    .toLowerCase().replace(/&/g, ' and ')\n    .replace(/[^a-z0-9 ]/g, ' ').replace(/\\s+/g, ' ').trim();\n}\nfunction teamForms(t) {\n  const f = new Set();\n  if (t.school) f.add(norm(t.school));\n  if (t.abbreviation) f.add(norm(t.abbreviation));\n  if (t.school && t.mascot) f.add(norm(t.school + ' ' + t.mascot));\n  (t.alternateNames || []).forEach(a => { const n = norm(a); if (n) f.add(n); });\n  return f;\n}\n// normalized input -> acceptable exact identity strings. A key resolving to 2+\n// schools is intentionally ambiguous and settled by the scheduled opponent.\nconst ALIAS = {\n  'miami': ['miami','miami oh'], 'miami fl': ['miami'], 'miami florida': ['miami'],\n  'miami hurricanes': ['miami'], 'the u': ['miami'], 'canes': ['miami'],\n  'miami oh': ['miami oh'], 'miami ohio': ['miami oh'], 'miami of ohio': ['miami oh'],\n  'miami redhawks': ['miami oh'], 'redhawks': ['miami oh'],\n  'usc': ['usc'], 'southern cal': ['usc'], 'southern california': ['usc'],\n  'south carolina': ['south carolina'], 'gamecocks': ['south carolina'],\n  'texas': ['texas'], 'texas am': ['texas a and m'], 'texas a m': ['texas a and m'],\n  'tamu': ['texas a and m'], 'aggies': ['texas a and m'],\n  'texas tech': ['texas tech'], 'red raiders': ['texas tech'],\n  'utsa': ['utsa','ut san antonio'], 'utep': ['utep','ut el paso'],\n  'florida': ['florida'], 'florida state': ['florida state'], 'fsu': ['florida state'],\n  'seminoles': ['florida state'], 'fau': ['fau','florida atlantic'],\n  'florida atlantic': ['florida atlantic','fau'], 'fiu': ['fiu','florida international'],\n  'florida international': ['florida international','fiu'],\n  'georgia': ['georgia'], 'georgia tech': ['georgia tech'],\n  'georgia state': ['georgia state'], 'georgia southern': ['georgia southern'],\n  'washington': ['washington'], 'washington state': ['washington state'], 'wazzu': ['washington state'],\n  'kansas': ['kansas'], 'kansas state': ['kansas state'], 'k state': ['kansas state'],\n  'ucf': ['ucf','central florida'], 'central florida': ['central florida','ucf'],\n  'uconn': ['uconn','connecticut'], 'connecticut': ['connecticut','uconn'],\n  'ole miss': ['ole miss','mississippi'], 'mississippi state': ['mississippi state'],\n  'michigan': ['michigan'], 'michigan state': ['michigan state'],\n  'central michigan': ['central michigan'], 'western michigan': ['western michigan'],\n  'eastern michigan': ['eastern michigan'],\n};\nfunction candidatesFor(raw, teams) {\n  const n = norm(raw);\n  const accept = ALIAS[n] ? ALIAS[n].slice() : [n];\n  const out = [], seen = new Set();\n  for (const t of teams) {\n    if (accept.some(a => teamForms(t).has(a)) && !seen.has(t.id)) {\n      seen.add(t.id); out.push({ id: t.id, school: t.school, conference: t.conference });\n    }\n  }\n  return out;\n}\n\n// Flatten the HTTP shapes (array-in-one-item OR one item per row).\nfunction flatten(rows) {\n  let out = [];\n  for (const r of rows) {\n    if (Array.isArray(r)) out = out.concat(r);\n    else if (r && Array.isArray(r.data)) out = out.concat(r.data);\n    else if (r) out.push(r);\n  }\n  return out;\n}\n\nconst awayRaw = $('Parse Teams').first().json.away_team || '';\nconst homeRaw = $('Parse Teams').first().json.home_team || '';\nlet targetDate = '';\ntry { targetDate = (($('Webhook').first().json.body || {}).targetDate || '').slice(0, 10); } catch (e) {}\nif (!/^\\d{4}-\\d{2}-\\d{2}$/.test(targetDate)) targetDate = '';\n\nconst games = flatten($input.all().map(i => i.json)).filter(g => g && g.homeTeam && g.awayTeam);\n// Team directory derived from THIS week's games — avoids a separate /teams\n// call and CFBD's burst rate limit. Every game carries both teams' id+school.\nconst teamMap = new Map();\nfor (const g of games) {\n  if (g.awayId != null) teamMap.set(g.awayId, { id: g.awayId, school: g.awayTeam, conference: g.awayConference || null });\n  if (g.homeId != null) teamMap.set(g.homeId, { id: g.homeId, school: g.homeTeam, conference: g.homeConference || null });\n}\nconst teams = [...teamMap.values()];\n\nconst awayC = candidatesFor(awayRaw, teams);\nconst homeC = candidatesFor(homeRaw, teams);\nconst note = [];\nif (!teams.length) note.push('CFBD team directory unavailable');\nif (!awayC.length) note.push('no CFBD team matched \"' + awayRaw + '\"');\nif (!homeC.length) note.push('no CFBD team matched \"' + homeRaw + '\"');\n\nlet pool = games;\nif (targetDate) {\n  const onDate = games.filter(g => String(g.startDate || '').slice(0, 10) === targetDate);\n  if (onDate.length) pool = onDate;\n}\nconst inList = (list, id) => list.some(c => c.id === id);\nlet g = null;\nfor (const cand of pool) {\n  if (inList(awayC, cand.awayId) && inList(homeC, cand.homeId)) { g = cand; break; }\n  if (inList(awayC, cand.homeId) && inList(homeC, cand.awayId)) { g = cand; break; }\n}\n\nconst nameById = id => { const t = teams.find(x => x.id === id); return t ? t.school : null; };\n\nlet resolved, fixture = null, fixtureNote;\nif (g) {\n  resolved = {\n    resolved: true,\n    game_id: g.id, game_date: g.startDate, completed: g.completed,\n    neutral_site: g.neutralSite, conference_game: g.conferenceGame, venue: g.venue || null,\n    away_id: g.awayId, away_school: g.awayTeam || nameById(g.awayId), away_conference: g.awayConference || null,\n    home_id: g.homeId, home_school: g.homeTeam || nameById(g.homeId), home_conference: g.homeConference || null,\n    requested_away: awayRaw, requested_home: homeRaw, target_date: targetDate || null,\n    resolution_note: 'Resolved by CFBD game id ' + g.id + ' (' +\n      (g.awayTeam || nameById(g.awayId)) + ' #' + g.awayId + ' at ' +\n      (g.homeTeam || nameById(g.homeId)) + ' #' + g.homeId + ')',\n  };\n  fixture = {\n    id: g.id, gameDate: g.startDate, completed: g.completed,\n    neutralSite: g.neutralSite, conferenceGame: g.conferenceGame, venue: g.venue || null,\n    away_id: g.awayId, away_team_name: resolved.away_school, away_conference: resolved.away_conference,\n    home_id: g.homeId, home_team_name: resolved.home_school, home_conference: resolved.home_conference,\n  };\n  fixtureNote = resolved.resolution_note;\n} else {\n  resolved = {\n    resolved: false, away_candidates: awayC, home_candidates: homeC,\n    requested_away: awayRaw, requested_home: homeRaw, target_date: targetDate || null,\n    resolution_note: note.length ? note.join('; ')\n      : ('candidates found but no scheduled game pairs ' + awayRaw + ' with ' + homeRaw +\n         (targetDate ? (' on ' + targetDate) : ' this week')),\n  };\n  fixtureNote = 'No FBS game resolved for ' + awayRaw + ' vs ' + homeRaw + ' — ' + resolved.resolution_note;\n}\n\nreturn [{ json: { fixture, fixtureFound: !!fixture, fixtureNote, resolved } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -188,11 +194,14 @@
           "id": "CFBD_API_CREDENTIAL_ID",
           "name": "CFBD API"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 2500
     },
     {
       "parameters": {
-        "jsCode": "// CFB analog of MLB Assemble Context. Builds the _str fields the Bobby Vegas\n// prompt reads from a single item. CFB swaps: schedule/records for pitchers,\n// venue + neutralSite for park factor. No lineups/bullpen/injury feed.\nconst fixture     = $('CFB Match Fixture').first().json.fixture;\nconst fixtureNote = $('CFB Match Fixture').first().json.fixtureNote;\n\nconst matchesTeam = (name, team) => {\n  if (!name || !team) return false;\n  const n = name.toLowerCase();\n  const t = team.toLowerCase();\n  if (n.includes(t) || t.includes(n)) return true;\n  const words = t.split(/\\s+/).filter(w =>\n    w.length > 3 &&\n    !['the','and','for','with','city','team','state','university'].includes(w)\n  );\n  return words.some(w => n.includes(w));\n};\n\n// Season records (W-L overall + home/away) from CFBD /records\nlet records = [];\ntry { records = $('CFBD Get Records').all().map(i => i.json); } catch(e) {}\n\nconst recLine = (label, teamName) => {\n  const r = records.find(x => matchesTeam(x.team, teamName));\n  if (!r) return label + ': record unavailable';\n  const t = r.total || {};\n  const h = r.homeGames || {};\n  const a = r.awayGames || {};\n  return label + ': ' +\n    (t.wins ?? 0) + '-' + (t.losses ?? 0) + ' overall | ' +\n    (h.wins ?? 0) + '-' + (h.losses ?? 0) + ' home | ' +\n    (a.wins ?? 0) + '-' + (a.losses ?? 0) + ' away';\n};\n\nlet formStr = 'Team form not available';\nlet gameStr = 'Matchup details not available';\nlet homeFieldStr = 'Venue unconfirmed';\n\nif (fixture) {\n  formStr = recLine(fixture.away_team_name, fixture.away_team_name) + ' || ' +\n            recLine(fixture.home_team_name, fixture.home_team_name);\n\n  gameStr = fixture.away_team_name + ' (' + (fixture.away_conference || 'n/a') + ') at ' +\n            fixture.home_team_name + ' (' + (fixture.home_conference || 'n/a') + ') | ' +\n            'Kickoff: ' + (fixture.gameDate || 'TBD') + ' | ' +\n            'Conference game: ' + (fixture.conferenceGame ? 'Yes' : 'No');\n\n  homeFieldStr = fixture.neutralSite\n    ? 'NEUTRAL SITE' + (fixture.venue ? ' (' + fixture.venue + ')' : '') + ' — apply NO home-field edge to either team'\n    : (fixture.venue || 'Home venue') + ' — home crowd and travel favor ' + fixture.home_team_name;\n}\n\nreturn [{\n  json: {\n    fixture,\n    fixtureNote,\n    form_str:       formStr,\n    game_str:       gameStr,\n    home_field_str: homeFieldStr,\n  }\n}];\n"
+        "jsCode": "// CFB analog of MLB Assemble Context. Records are matched BY CFBD teamId\n// (fixture.away_id / fixture.home_id) — the fix for the Miami (FL)/(OH)\n// record collision — with an EXACT normalized-name fallback when a record row\n// lacks teamId. No substring/first-match team matching happens here.\nconst fixture     = $('CFB Match Fixture').first().json.fixture;\nconst fixtureNote = $('CFB Match Fixture').first().json.fixtureNote;\n\nfunction flatten(rows) {\n  let out = [];\n  for (const r of rows) {\n    if (Array.isArray(r)) out = out.concat(r);\n    else if (r && Array.isArray(r.data)) out = out.concat(r.data);\n    else if (r && !r.error) out.push(r);\n  }\n  return out;\n}\nconst norm = s => (s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n  .toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\\s+/g, ' ').trim();\n\nlet records = [];\ntry { records = flatten($('CFBD Get Records').all().map(i => i.json)).filter(r => r && (r.teamId != null || r.team)); } catch (e) {}\n\nconst recFor = (teamId, teamName) => {\n  let r = (teamId != null) ? records.find(x => x.teamId === teamId) : null;\n  if (!r && teamName) { const tn = norm(teamName); r = records.find(x => norm(x.team) === tn); }\n  return r || null;\n};\nconst recLine = (teamId, teamName) => {\n  const r = recFor(teamId, teamName);\n  if (!r) return teamName + ': record unavailable';\n  const t = r.total || {}, h = r.homeGames || {}, a = r.awayGames || {};\n  return teamName + ': ' +\n    (t.wins ?? 0) + '-' + (t.losses ?? 0) + ' overall | ' +\n    (h.wins ?? 0) + '-' + (h.losses ?? 0) + ' home | ' +\n    (a.wins ?? 0) + '-' + (a.losses ?? 0) + ' away';\n};\n\nlet formStr = 'Team form not available';\nlet gameStr = 'Matchup details not available';\nlet homeFieldStr = 'Venue unconfirmed';\n\nif (fixture) {\n  formStr = recLine(fixture.away_id, fixture.away_team_name) + ' || ' +\n            recLine(fixture.home_id, fixture.home_team_name);\n\n  gameStr = fixture.away_team_name + ' (' + (fixture.away_conference || 'n/a') + ') at ' +\n            fixture.home_team_name + ' (' + (fixture.home_conference || 'n/a') + ') | ' +\n            'Kickoff: ' + (fixture.gameDate || 'TBD') + ' | ' +\n            'Conference game: ' + (fixture.conferenceGame ? 'Yes' : 'No');\n\n  homeFieldStr = fixture.neutralSite\n    ? 'NEUTRAL SITE' + (fixture.venue ? ' (' + fixture.venue + ')' : '') + ' — apply NO home-field edge to either team'\n    : (fixture.venue || 'Home venue') + ' — home crowd and travel favor ' + fixture.home_team_name;\n}\n\nreturn [{\n  json: {\n    fixture, fixtureNote,\n    form_str: formStr, game_str: gameStr, home_field_str: homeFieldStr,\n  }\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -220,7 +229,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Match the CFBD-confirmed game to its Odds API entry.\n// Odds API uses full \"School Mascot\" names (e.g. \"Texas Longhorns\",\n// \"Ohio State Buckeyes\"); CFBD uses short school names (\"Texas\", \"Ohio State\").\n// Match on the CFBD home/away pair — CFBD is the source of truth for the game.\n// Get CFB Odds may emit the board as many items (one game each) OR as a single\n// item whose json is the whole array. Flatten both shapes before matching.\nlet oddsGames = [];\nfor (const r of $input.all().map(i => i.json)) {\n  if (Array.isArray(r)) oddsGames = oddsGames.concat(r);\n  else if (r && r.home_team && r.away_team) oddsGames.push(r);\n  else if (r && Array.isArray(r.data)) oddsGames = oddsGames.concat(r.data);\n  else if (r && Array.isArray(r.body)) oddsGames = oddsGames.concat(r.body);\n}\noddsGames = oddsGames.filter(g => g && g.home_team && g.away_team);\n\nlet fixture = null;\ntry { fixture = $('CFB Match Fixture').first().json.fixture; } catch(e) {}\n\nconst empty = { odds_matched: false, odds_str: 'No sportsbook odds matched for this game', odds_raw: '' };\nif (!fixture) { return [{ json: empty }]; }\n\nconst cfbdAway = fixture.away_team_name || '';\nconst cfbdHome = fixture.home_team_name || '';\n\n// Normalize: strip accents, lowercase, & -> \"and\", drop punctuation,\n// collapse \"St\"/\"St.\" -> \"state\", squeeze spaces.\nconst norm = s => (s || '')\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n  .toLowerCase()\n  .replace(/&/g, ' and ')\n  .replace(/[^a-z0-9 ]/g, ' ')\n  .replace(/\\bst\\b/g, 'state')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\n// Score how well a CFBD short name matches an Odds API full name.\n// 3 = exact, 2 = CFBD is the leading words of the Odds name (mascot trails),\n// 1 = all CFBD words appear somewhere in the Odds name, 0 = no match.\nconst score = (cfbd, odds) => {\n  const a = norm(cfbd), b = norm(odds);\n  if (!a || !b) return 0;\n  if (a === b) return 3;\n  const aw = a.split(' '), bw = b.split(' ');\n  if (bw.length >= aw.length && aw.every((w, i) => bw[i] === w)) return 2;\n  if (aw.every(w => bw.includes(w))) return 1;\n  return 0;\n};\n\n// Find the best-scoring board game where BOTH CFBD teams match (either orientation).\nlet best = null, bestScore = 0;\nfor (const g of oddsGames) {\n  const o1 = (score(cfbdAway, g.away_team) && score(cfbdHome, g.home_team))\n    ? score(cfbdAway, g.away_team) + score(cfbdHome, g.home_team) : 0;\n  const o2 = (score(cfbdAway, g.home_team) && score(cfbdHome, g.away_team))\n    ? score(cfbdAway, g.home_team) + score(cfbdHome, g.away_team) : 0;\n  const gs = Math.max(o1, o2);\n  if (gs > bestScore) { bestScore = gs; best = g; }\n}\n\nif (!best) { return [{ json: empty }]; }\n\nconst px = p => (p > 0 ? '+' + p : '' + p);\nconst bm = (best.bookmakers || [])[0];\nconst mkts = bm ? (bm.markets || []) : [];\nconst h2h = mkts.find(m => m.key === 'h2h');\nconst spr = mkts.find(m => m.key === 'spreads');\n\nconst parts = [];\nif (h2h) {\n  const a  = (h2h.outcomes || []).find(o => o.name === best.away_team);\n  const hh = (h2h.outcomes || []).find(o => o.name === best.home_team);\n  if (a && hh) parts.push('Moneyline: ' + best.away_team + ' ' + px(a.price) + ' / ' + best.home_team + ' ' + px(hh.price));\n}\nif (spr) {\n  const a  = (spr.outcomes || []).find(o => o.name === best.away_team);\n  const hh = (spr.outcomes || []).find(o => o.name === best.home_team);\n  if (a && hh && a.point !== undefined && hh.point !== undefined)\n    parts.push('Spread: ' + best.away_team + ' ' + px(a.point) + ' / ' + best.home_team + ' ' + px(hh.point));\n}\n\nreturn [{\n  json: {\n    odds_matched: parts.length > 0,\n    odds_str:     parts.length ? parts.join(' | ') : 'Matched game but no h2h/spread markets posted yet',\n    odds_raw:     JSON.stringify(best).slice(0, 1500),\n    odds_book:    bm ? (bm.title || bm.key || 'book') : null,\n  }\n}];\n"
+        "jsCode": "// Match the CFBD-confirmed game to its Odds API entry.\n// Odds API uses full \"School Mascot\" names (e.g. \"Texas Longhorns\",\n// \"Ohio State Buckeyes\"); CFBD uses short school names (\"Texas\", \"Ohio State\").\n// Match on the CFBD home/away pair — CFBD is the source of truth for the game.\n// Get CFB Odds may emit the board as many items (one game each) OR as a single\n// item whose json is the whole array. Flatten both shapes before matching.\nlet oddsGames = [];\nfor (const r of $input.all().map(i => i.json)) {\n  if (Array.isArray(r)) oddsGames = oddsGames.concat(r);\n  else if (r && r.home_team && r.away_team) oddsGames.push(r);\n  else if (r && Array.isArray(r.data)) oddsGames = oddsGames.concat(r.data);\n  else if (r && Array.isArray(r.body)) oddsGames = oddsGames.concat(r.body);\n}\noddsGames = oddsGames.filter(g => g && g.home_team && g.away_team);\n\nlet fixture = null;\ntry { fixture = $('CFB Match Fixture').first().json.fixture; } catch(e) {}\n\nconst empty = { odds_matched: false, odds_str: 'No sportsbook odds matched for this game', odds_raw: '' };\nif (!fixture) { return [{ json: empty }]; }\n\nconst cfbdAway = fixture.away_team_name || '';\nconst cfbdHome = fixture.home_team_name || '';\n\n// Normalize: strip accents, lowercase, & -> \"and\", drop punctuation,\n// collapse \"St\"/\"St.\" -> \"state\", squeeze spaces.\nconst norm = s => (s || '')\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n  .toLowerCase()\n  .replace(/&/g, ' and ')\n  .replace(/[^a-z0-9 ]/g, ' ')\n  .replace(/\\bst\\b/g, 'state')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\n// Score how well a CFBD short name matches an Odds API full name.\n// 3 = exact, 2 = CFBD is the leading words of the Odds name (mascot trails),\n// 1 = all CFBD words appear somewhere in the Odds name, 0 = no match.\nconst score = (cfbd, odds) => {\n  const a = norm(cfbd), b = norm(odds);\n  if (!a || !b) return 0;\n  if (a === b) return 3;\n  const aw = a.split(' '), bw = b.split(' ');\n  if (bw.length >= aw.length && aw.every((w, i) => bw[i] === w)) return 2;\n  if (aw.every(w => bw.includes(w))) return 1;\n  return 0;\n};\n\n// Find the best-scoring board game where BOTH CFBD teams match (either orientation).\nlet best = null, bestScore = 0;\nfor (const g of oddsGames) {\n  const o1 = (score(cfbdAway, g.away_team) && score(cfbdHome, g.home_team))\n    ? score(cfbdAway, g.away_team) + score(cfbdHome, g.home_team) : 0;\n  const o2 = (score(cfbdAway, g.home_team) && score(cfbdHome, g.away_team))\n    ? score(cfbdAway, g.home_team) + score(cfbdHome, g.away_team) : 0;\n  const gs = Math.max(o1, o2);\n  if (gs > bestScore) { bestScore = gs; best = g; }\n}\n\nif (!best) { return [{ json: empty }]; }\n\nconst px = p => (p > 0 ? '+' + p : '' + p);\nconst bm = (best.bookmakers || [])[0];\nconst mkts = bm ? (bm.markets || []) : [];\nconst h2h = mkts.find(m => m.key === 'h2h');\nconst spr = mkts.find(m => m.key === 'spreads');\n\nconst parts = [];\nif (h2h) {\n  const a  = (h2h.outcomes || []).find(o => o.name === best.away_team);\n  const hh = (h2h.outcomes || []).find(o => o.name === best.home_team);\n  if (a && hh) parts.push('Moneyline: ' + best.away_team + ' ' + px(a.price) + ' / ' + best.home_team + ' ' + px(hh.price));\n}\nif (spr) {\n  const a  = (spr.outcomes || []).find(o => o.name === best.away_team);\n  const hh = (spr.outcomes || []).find(o => o.name === best.home_team);\n  if (a && hh && a.point !== undefined && hh.point !== undefined)\n    parts.push('Spread: ' + best.away_team + ' ' + px(a.point) + ' / ' + best.home_team + ' ' + px(hh.point));\n}\n\n// Favorite side (shortest/most-negative moneyline) mapped back to the CFBD\n// team id, so the sanity gate can flag a short favorite with a losing record.\nlet oddsFavoriteId = null, oddsFavoritePrice = null;\ntry {\n  if (h2h) {\n    const ao = (h2h.outcomes || []).find(o => o.name === best.away_team);\n    const ho = (h2h.outcomes || []).find(o => o.name === best.home_team);\n    const favOutcome = (ao && ho) ? (ao.price <= ho.price ? ao : ho) : (ao || ho);\n    if (favOutcome) {\n      oddsFavoritePrice = favOutcome.price;\n      const favIsAway = favOutcome.name === best.away_team;\n      // orientation: 'best' matched the CFBD pair; map by score to away/home id\n      const sAwayToAway = score(cfbdAway, best.away_team), sHomeToHome = score(cfbdHome, best.home_team);\n      const straight = (sAwayToAway && sHomeToHome);\n      oddsFavoriteId = favIsAway\n        ? (straight ? fixture.away_id : fixture.home_id)\n        : (straight ? fixture.home_id : fixture.away_id);\n    }\n  }\n} catch (e) {}\n\nreturn [{\n  json: {\n    odds_favorite_id: oddsFavoriteId,\n    odds_favorite_price: oddsFavoritePrice,\n    odds_matched: parts.length > 0,\n    odds_str:     parts.length ? parts.join(' | ') : 'Matched game but no h2h/spread markets posted yet',\n    odds_raw:     JSON.stringify(best).slice(0, 1500),\n    odds_book:    bm ? (bm.title || bm.key || 'book') : null,\n  }\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -323,6 +332,109 @@
       ],
       "name": "Respond to Webhook",
       "id": "v2-0014-respond"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== CFB Sanity Gate — halt before analysis on a data mismatch =====\n// Mirrors the three guards in the spec. On any trip it sets data_mismatch=true\n// with a reason; the IF node then routes to the logger + mismatch responder\n// instead of Bobby Vegas Analysis.\nconst incoming = $input.item ? $input.item.json : {};\nconst resolved = (() => { try { return $('CFB Match Fixture').first().json.resolved || {}; } catch (e) { return {}; } })();\n\nlet targetDate = '';\ntry { targetDate = (($('Webhook').first().json.body || {}).targetDate || '').slice(0, 10); } catch (e) {}\nif (!/^\\d{4}-\\d{2}-\\d{2}$/.test(targetDate)) targetDate = '';\n\nfunction flatten(rows) {\n  let out = [];\n  for (const r of rows) {\n    if (Array.isArray(r)) out = out.concat(r);\n    else if (r && Array.isArray(r.data)) out = out.concat(r.data);\n    else if (r) out.push(r);\n  }\n  return out;\n}\nconst norm = s => (s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\\s+/g, ' ').trim();\nlet records = [];\ntry { records = flatten($('CFBD Get Records').all().map(i => i.json)).filter(r => r && (r.teamId != null || r.team)); } catch (e) {}\nconst schoolOf = id => { if (id === resolved.away_id) return resolved.away_school; if (id === resolved.home_id) return resolved.home_school; return null; };\nconst recById = id => { let r = records.find(x => x.teamId === id); if (!r) { const nm = schoolOf(id); if (nm) { const n = norm(nm); r = records.find(x => norm(x.team) === n); } } return r || null; };\n\nlet oddsFavId = null, oddsFavPrice = null;\ntry {\n  const mo = $('Match CFB Odds').first().json;\n  oddsFavId = mo.odds_favorite_id != null ? mo.odds_favorite_id : null;\n  oddsFavPrice = mo.odds_favorite_price != null ? mo.odds_favorite_price : null;\n} catch (e) {}\n\nconst inputText = (() => {\n  const a = resolved.requested_away || '', h = resolved.requested_home || '';\n  return (a || h) ? (a + ' vs ' + h) : (incoming.teams || 'unknown matchup');\n})();\n\nlet mismatch = false, reason = '';\n\n// GUARD 1 — the two resolved teams must actually play each other (on the date).\nif (!resolved.resolved) {\n  mismatch = true;\n  reason = 'Resolved teams are not scheduled to play each other' +\n    (targetDate ? (' on ' + targetDate) : ' this week') + ' — ' + (resolved.resolution_note || 'no matching CFBD game');\n} else if (targetDate && String(resolved.game_date || '').slice(0, 10) !== targetDate) {\n  mismatch = true;\n  reason = 'Resolved game date ' + String(resolved.game_date || '').slice(0, 10) +\n    ' does not match the requested target date ' + targetDate;\n}\n\n// GUARD 2 — a -500-or-shorter favorite with a losing record = likely wrong team.\nif (!mismatch && oddsFavId != null && oddsFavPrice != null && oddsFavPrice <= -500) {\n  const r = recById(oddsFavId);\n  if (r && r.total && (r.total.wins ?? 0) < (r.total.losses ?? 0)) {\n    mismatch = true;\n    reason = 'Moneyline favorite (' + oddsFavPrice + ') carries a losing record ' +\n      (r.total.wins ?? 0) + '-' + (r.total.losses ?? 0) + ' (team id ' + oddsFavId +\n      ') — the odds likely describe a different team than the one resolved';\n  }\n}\n\n// GUARD 3 — the odds favorite id must be one of the two resolved team ids.\nif (!mismatch && oddsFavId != null && resolved.resolved &&\n    oddsFavId !== resolved.away_id && oddsFavId !== resolved.home_id) {\n  mismatch = true;\n  reason = 'Odds favorite team id ' + oddsFavId + ' matches neither resolved team (' +\n    resolved.away_id + ' / ' + resolved.home_id + ')';\n}\n\nconst resolvedIds = {\n  away_id: resolved.away_id ?? null, home_id: resolved.home_id ?? null,\n  away_school: resolved.away_school ?? null, home_school: resolved.home_school ?? null,\n  game_id: resolved.game_id ?? null, game_date: resolved.game_date ?? null,\n  target_date: targetDate || null,\n  away_candidates: resolved.away_candidates ?? null, home_candidates: resolved.home_candidates ?? null,\n};\n\nreturn [{\n  json: {\n    ...incoming,\n    data_mismatch: mismatch,\n    mismatch_reason: reason,\n    sanity_input_text: inputText,\n    sanity_resolved_ids: resolvedIds,\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        400
+      ],
+      "name": "CFB Sanity Gate",
+      "id": "v2-0017-sanitygate"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-mismatch",
+              "leftValue": "={{ $json.data_mismatch }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        400
+      ],
+      "name": "CFB Mismatch?",
+      "id": "v2-0018-ifmismatch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/data_mismatch_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  sport: 'NCAAFB',\n  input_text: $('CFB Sanity Gate').first().json.sanity_input_text,\n  resolved_ids: $('CFB Sanity Gate').first().json.sanity_resolved_ids,\n  reason: $('CFB Sanity Gate').first().json.mismatch_reason\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        900,
+        300
+      ],
+      "name": "Log Data Mismatch",
+      "id": "v2-0019-logmismatch",
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  status: 'complete',\n  analysis: '\\u26a0\\ufe0f DATA MISMATCH\\n\\nBobby could not verify this matchup against the college football schedule, so he is not making a pick.\\n\\nReason: ' + ($('CFB Sanity Gate').first().json.mismatch_reason || 'unknown') + '\\n\\nDouble-check the two team names and the date, then try again.'\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1080,
+        300
+      ],
+      "name": "Respond Mismatch",
+      "id": "v2-0020-respondmismatch"
     }
   ],
   "connections": {
@@ -451,7 +563,7 @@
       "main": [
         [
           {
-            "node": "Bobby Vegas Analysis",
+            "node": "CFB Sanity Gate",
             "type": "main",
             "index": 0
           }
@@ -474,6 +586,46 @@
         [
           {
             "node": "Get Kalshi Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CFB Sanity Gate": {
+      "main": [
+        [
+          {
+            "node": "CFB Mismatch?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CFB Mismatch?": {
+      "main": [
+        [
+          {
+            "node": "Log Data Mismatch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bobby Vegas Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Data Mismatch": {
+      "main": [
+        [
+          {
+            "node": "Respond Mismatch",
             "type": "main",
             "index": 0
           }
