@@ -146,8 +146,13 @@ const yesterdayLocalYmd = () => {
   return `${y}-${m}-${day}`;
 };
 const todayLocalYmd = () => {
+  // Local calendar date from local parts — never toISOString()/UTC, which rolls
+  // to tomorrow after ~5pm Pacific and shifted the pick's targetDate one day.
   const d = new Date();
-  return d.toLocaleDateString("en-CA", { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 };
 const resolveCanonicalTeam = (userTeam: string, matched: OddsApiGame | null): string => {
   if (!matched) return userTeam;

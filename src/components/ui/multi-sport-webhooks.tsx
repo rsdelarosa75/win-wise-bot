@@ -85,7 +85,11 @@ export const MultiSportWebhooks = () => {
     console.log('[MultiSportWebhooks] VITE_N8N_WEBHOOK_NBA =', nbaUrl ?? 'undefined (not set)');
   }, []);
   const [testPersona, setTestPersona] = useState('analytical');
-  const [testDate, setTestDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [testDate, setTestDate] = useState<string>(() => {
+    // Local parts, not toISOString()/UTC (which rolls forward a day after ~5pm Pacific).
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const { toast } = useToast();
 
   const testWebhook = async (sport: string, url: string) => {
