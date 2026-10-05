@@ -1,0 +1,379 @@
+{
+  "name": "BobbyVegas - NBA Picks",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nba-picks",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -192,
+        -80
+      ],
+      "name": "Webhook",
+      "id": "4f3c9392-0972-4f2f-a679-ce1398ada236",
+      "webhookId": "b6102d4c-9dd1-405c-82f0-99159918083b"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-001",
+              "name": "away_team",
+              "value": "={{ $json.body.teams.split('vs')[0].trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "field-002",
+              "name": "home_team",
+              "value": "={{ $json.body.teams.split('vs')[1].trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "field-003",
+              "name": "sport",
+              "value": "={{ $json.body.sport || 'NBA' }}",
+              "type": "string"
+            },
+            {
+              "id": "field-004",
+              "name": "teams",
+              "value": "={{ $json.body.teams }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -16,
+        -80
+      ],
+      "name": "Parse Teams",
+      "id": "96002ada-fef3-462a-b499-984711fd8aab"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4",
+          "mode": "list",
+          "cachedResultName": "GPT-4"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are Bobby Vegas — a sharp, witty AI sports betting advisor. You analyze odds data and give confident, entertaining picks. Your style is confident, clever, and fun. Always give a clear recommendation.",
+              "role": "system"
+            },
+            {
+              "content": "=={{ (() => {\n  const away = $('Parse Teams').item.json.away_team || '';\n  const home = $('Parse Teams').item.json.home_team || '';\n  const wh   = $('Webhook').item.json.body ?? $('Webhook').item.json;\n  const odds = wh.odds || wh.teams || 'Not provided';\n  const b2b  = wh.backToBack || 'No back to back detected';\n  const inj  = wh.injuries   || 'No injury data available';\n\n  let kalshiStr = 'No Kalshi market found for this game';\n  try {\n    const ke = $('Match Kalshi Teams').item.json.kalshi_edge;\n    if ($('Match Kalshi Teams').item.json.kalshi_available && ke) {\n      kalshiStr = ke.yes_team + ': ' + ke.yes_implied_pct + '% implied win | ' +\n                  ke.no_team  + ': ' + ke.no_implied_pct  + '% implied win | Volume: $' + ke.volume;\n    }\n  } catch(e) {}\n\n  const espnRecords = 'Live records not available — rely on news articles for team form.';\n\n  let oddsData = '';\n  try { oddsData = JSON.stringify($('Get NBA Odds').item.json).slice(0, 1500); } catch(e) {}\n\n  let newsData = '';\n  try { newsData = JSON.stringify($('Get Team News').item.json).slice(0, 800); } catch(e) {}\n\n  return 'You are Bobby Vegas \\u2014 a sharp, witty AI sports betting advisor.\\n\\n' +\n    'The user requested: ' + away + ' vs ' + home + '\\n\\n' +\n    'CRITICAL INSTRUCTIONS:\\n' +\n    '- ONLY analyze the game: ' + away + ' vs ' + home + ' \\u2014 do NOT reference any other game\\n' +\n    '- Use the NEWS ARTICLES below as your PRIMARY source for current roster info, injuries, and team form\\n' +\n    '- Your internal training data may be OUTDATED \\u2014 do NOT rely on it for player rosters or recent trades\\n' +\n    '- Always trust the news over your own knowledge for anything about the current season\\n' +\n    '- BACK TO BACK GAMES: Factor in fatigue heavily \\u2014 teams on back to backs underperform especially on defense\\n' +\n    '- INJURIES: Factor in all injury statuses heavily\\n' +\n    '- TEAM RECORDS: Use ESPN records provided for the matched game only\\n' +\n    '- KEY PLAYERS: Identify star players from the news. Note recent scoring, assists, and injuries.\\n' +\n    '- PREDICTION MARKETS: You have Kalshi prediction market data. yes_implied_pct = implied win probability. Use this to find edges vs sportsbook lines.\\n' +\n    '- EDGE DIRECTION LOGIC:\\n' +\n    '  * Convert American odds to implied probability using plain arithmetic only \\u2014 NO LaTeX, NO fractions\\n' +\n    '  * Negative odds: divide absolute value by (absolute value + 100). Example: -190 becomes 190 / 290 = 65.5%\\n' +\n    '  * Positive odds: divide 100 by (odds + 100). Example: +160 becomes 100 / 260 = 38.5%\\n' +\n    '  * If SPORTSBOOK implied % is HIGHER than Kalshi % by 5%+: Books overvaluing favorite \\u2014 VALUE ON UNDERDOG\\n' +\n    '  * If KALSHI % is HIGHER than Sportsbook % by 5%+: Smart money on favorite \\u2014 VALUE ON FAVORITE\\n\\n' +\n    'ODDS FROM APP (use these first):\\n' + odds + '\\n\\n' +\n    'BACK TO BACK STATUS:\\n' + b2b + '\\n\\n' +\n    'INJURY REPORT:\\n' + inj + '\\n\\n' +\n    'ESPN GAME DATA (filtered to requested matchup only):\\n' + espnRecords + '\\n\\n' +\n    'ALL AVAILABLE ODDS DATA:\\n' + oddsData + '\\n\\n' +\n    'KALSHI PREDICTION MARKET (matched games only):\\n' + kalshiStr + '\\n\\n' +\n    'ESPN NBA NEWS:\\n' + newsData + '\\n\\n' +\n    'Provide in this EXACT format \\u2014 plain text only, NO LaTeX, NO math symbols, NO brackets:\\n\\n' +\n    '🏀 **GAME:** Full team names\\n\\n' +\n    '\\ud83d\\udcca **ODDS BREAKDOWN:** Moneyline in plain text\\n\\n' +\n    '\\ud83d\\udd04 **BACK TO BACK ALERT:** Note if either team is on a back to back\\n\\n' +\n    '\\ud83c\\udfe5 **INJURY REPORT:** Key injuries and impact\\n\\n' +\n    '\\u2b50 **KEY PLAYERS:** 2-3 key players per team from the news\\n\\n' +\n    '\\ud83d\\udcc8 **TEAM FORM:** Records (W-L), home/away splits, current streak\\n\\n' +\n    '\\ud83d\\udcf0 **NEWS INTEL:** Current roster news and recent form\\n\\n' +\n    '\\ud83d\\udd00 **EDGE ALERT:** Use this exact format:\\n' +\n    'Sportsbook: [Team] X% | Kalshi: [Team] Y% | Gap: Z%\\n' +\n    '\\u2192 [Books overvaluing favorite OR Smart money on favorite] \\u2192 VALUE ON [TEAM] [odds]\\n' +\n    'If gap under 5%: \"Markets agree \\u2014 no significant edge detected\"\\n' +\n    'If no Kalshi data: \"Kalshi data not available for this game\"\\n\\n' +\n    '\\ud83c\\udfaf **BOBBY\\'S PICK:** Clear recommendation \\u2014 state if going WITH or AGAINST the sportsbook based on Kalshi gap\\n\\n' +\n    '\\ud83d\\udca1 **REASONING:** 2-3 sentences max\\n\\n' +\n    '\\ud83d\\udd25 **CONFIDENCE:** High/Medium/Low\\n\\n' +\n    '\\u26a0\\ufe0f **LINE ALERT:** Odds sourced from multiple bookmakers and Kalshi prediction market \\u2014 verify current lines before placing any bet as lines may have moved.';\n})() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1168,
+        -80
+      ],
+      "name": "Bobby Vegas Analysis",
+      "id": "4b61303b-06d9-428e-851a-b2a24dc30c6f",
+      "executeOnce": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "UE6lVYW9gMLdjD4T",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"analysis\": {{ JSON.stringify($json.message.content) }},\n  \"teams\": {{ JSON.stringify($('Parse Teams').item.json.teams) }},\n  \"sport\": {{ JSON.stringify($('Parse Teams').item.json.sport) }},\n  \"confidence\": \"High\",\n  \"timestamp\": {{ JSON.stringify($now) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1536,
+        -80
+      ],
+      "name": "Send Response",
+      "id": "3bc6eb10-8e38-48cc-b6b3-0737e4180cbb"
+    },
+    {
+      "parameters": {
+        "url": "https://newsapi.org/v2/everything",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "=={{ '\"' + $('Parse Teams').item.json.away_team + '\" AND \"' + $('Parse Teams').item.json.home_team + '\" NBA' }}"
+            },
+            {
+              "name": "sortBy",
+              "value": "publishedAt"
+            },
+            {
+              "name": "pageSize",
+              "value": "5"
+            },
+            {
+              "name": "apiKey",
+              "value": "1852f2134b054338ab5ee1030932f74a"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        352,
+        -80
+      ],
+      "id": "462c34df-999f-4603-ba17-9bbcbc423f8c",
+      "name": "Get News"
+    },
+    {
+      "parameters": {
+        "url": "https://api.the-odds-api.com/v4/sports/basketball_nba/odds/?regions=us&markets=h2h,spreads&oddsFormat=american&apiKey=bc8b24096b97b911b25e5679919a9f0a",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        176,
+        -80
+      ],
+      "id": "d0cca693-dd85-47de-bae8-6e8d7c9aed0a",
+      "name": "Get NBA Odds",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "https://newsapi.org/v2/everything",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ '\"' + $('Parse Teams').item.json.away_team + '\" OR \"' + $('Parse Teams').item.json.home_team + '\" NBA injury OR roster' }}"
+            },
+            {
+              "name": "sortBy",
+              "value": "publishedAt"
+            },
+            {
+              "name": "pageSize",
+              "value": "10"
+            },
+            {
+              "name": "apiKey",
+              "value": "1852f2134b054338ab5ee1030932f74a"
+            },
+            {
+              "name": "domains",
+              "value": "espn.com,nba.com,bleacherreport.com,theathletic.com"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        512,
+        -80
+      ],
+      "id": "a62ee6b1-a9e8-446c-9011-937c54bd5d55",
+      "name": "Get Team News",
+      "alwaysOutputData": true,
+      "retryOnFail": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://mocdziwqxbvjibylqxoz.supabase.co/rest/v1/odds_cache?sport=eq.NBA&select=data,updated_at",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "*"
+            },
+            {
+              "name": "sport",
+              "value": "eq.NBA"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "d5b96d69-41bf-450b-9cd2-2870e0f2c6b3",
+      "name": "Get Kalshi Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        768,
+        -80
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const items    = $input.all();\nconst awayTeam = $('Parse Teams').item.json.away_team || '';\nconst homeTeam = $('Parse Teams').item.json.home_team || '';\n\n// Return true if the market title contains at least one significant word from `team`\nconst titleMatchesTeam = (title, team) => {\n  const ti = (title || '').toLowerCase();\n  const t  = (team  || '').toLowerCase();\n  if (!t || !ti) return false;\n  if (ti.includes(t)) return true;\n  const words = t.split(/\\s+/).filter(w =>\n    w.length > 3 &&\n    !['the','and','for','with','city','team','state'].includes(w)\n  );\n  return words.some(w => ti.includes(w));\n};\n\n// Return true if `sub` (yes_sub_title / no_sub_title) contains a word from `team`\nconst subMatchesTeam = (sub, team) => {\n  const s = (sub  || '').toLowerCase();\n  const t = (team || '').toLowerCase();\n  if (!s || !t) return false;\n  if (s.includes(t) || t.includes(s)) return true;\n  const words = t.split(/\\s+/).filter(w =>\n    w.length > 3 &&\n    !['the','and','for','with','city','team','state'].includes(w)\n  );\n  return words.some(w => s.includes(w));\n};\n\nlet kalshiEdge = null;\n\ntry {\n  const cacheRow = items[0]?.json;\n  const markets  = cacheRow?.data?.markets;\n\n  if (Array.isArray(markets) && markets.length > 0 &&\n      homeTeam && homeTeam !== 'General') {\n\n    // Step 1 — find markets whose title mentions BOTH teams\n    const gameMarkets = markets.filter(m =>\n      titleMatchesTeam(m.title, awayTeam) &&\n      titleMatchesTeam(m.title, homeTeam)\n    );\n\n    if (gameMarkets.length > 0) {\n      // Step 2 — prefer the market where YES side = home team\n      // Kalshi uses yes_sub_title e.g. \"Indiana\" for \"Indiana wins?\"\n      const homeMarket =\n        gameMarkets.find(m => subMatchesTeam(m.yes_sub_title, homeTeam)) ||\n        gameMarkets[0];\n\n      // Prices are dollar strings \"0.52\" meaning $0.52 per $1 contract = 52 % prob\n      const yesDollars = homeMarket.yes_bid_dollars ?? homeMarket.last_price_dollars ?? null;\n      const noDollars  = homeMarket.no_bid_dollars  ?? null;\n\n      if (yesDollars !== null) {\n        const yesProb = parseFloat(yesDollars) * 100;   // e.g. 52.0\n        const noProb  = noDollars !== null\n          ? parseFloat(noDollars) * 100\n          : 100 - yesProb;\n\n        kalshiEdge = {\n          market:           homeMarket.title,\n          ticker:           homeMarket.ticker,\n          yes_team:         homeMarket.yes_sub_title || homeTeam,\n          no_team:          homeMarket.no_sub_title  || awayTeam,\n          yes_implied_pct:  yesProb.toFixed(1),   // home team win probability %\n          no_implied_pct:   noProb.toFixed(1),    // away team win probability %\n          yes_bid_dollars:  parseFloat(yesDollars).toFixed(2),\n          no_bid_dollars:   noDollars !== null ? parseFloat(noDollars).toFixed(2) : null,\n          volume:           parseFloat(homeMarket.volume_fp       ?? 0).toFixed(0),\n          open_interest:    parseFloat(homeMarket.open_interest_fp ?? 0).toFixed(0),\n          last_updated:     homeMarket.updated_time ?? null,\n        };\n      }\n    }\n  }\n} catch(e) {\n  // cache miss or malformed data — silently skip\n}\n\nreturn [{\n  json: {\n    ...(items[0]?.json || {}),\n    kalshi_edge:      kalshiEdge,\n    kalshi_available: kalshiEdge !== null,\n  }\n}];"
+      },
+      "id": "fec3a7ba-99f8-474e-901a-14cab78ca4e6",
+      "name": "Match Kalshi Teams",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Teams": {
+      "main": [
+        [
+          {
+            "node": "Get NBA Odds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bobby Vegas Analysis": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get News": {
+      "main": [
+        [
+          {
+            "node": "Get Team News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get NBA Odds": {
+      "main": [
+        [
+          {
+            "node": "Get News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Team News": {
+      "main": [
+        [
+          {
+            "node": "Get Kalshi Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Kalshi Cache": {
+      "main": [
+        [
+          {
+            "node": "Match Kalshi Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Kalshi Teams": {
+      "main": [
+        [
+          {
+            "node": "Bobby Vegas Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}
