@@ -226,6 +226,9 @@ const Profile = ({ onSignOut, onBack }: ProfileProps) => {
               Terms of Service
             </Link>
           </div>
+          <p className="mt-3 text-center text-[10px] text-muted-foreground/60 tabular-nums">
+            build {__BUILD_SHA__} · {__BUILD_TIME__.slice(0, 16).replace("T", " ")} UTC
+          </p>
         </CardContent>
       </Card>
     </div>

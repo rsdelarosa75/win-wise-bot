@@ -52,4 +52,10 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Build stamp injected at build time. Vercel sets VERCEL_GIT_COMMIT_SHA; locally it
+  // falls back to "dev". Surfaced on the Profile screen to confirm which build is live.
+  define: {
+    __BUILD_SHA__: JSON.stringify((process.env.VERCEL_GIT_COMMIT_SHA || "").slice(0, 7) || "dev"),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
 }));
