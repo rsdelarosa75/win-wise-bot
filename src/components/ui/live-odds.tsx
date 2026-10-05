@@ -96,7 +96,11 @@ export const LiveOdds = ({ sport = "NBA", onGameSelect }: LiveOddsProps = {}) =>
     const handleTap = () => {
       if (!interactive) return;
       const teams = `${game.team1} vs ${game.team2}`;
-      const date = game.commence_time.split('T')[0];
+      // Local calendar date of kickoff, from local parts — NOT commence_time.split('T')[0],
+      // which is the UTC date and rolls a day forward for evening kickoffs (a 5:15pm PT
+      // game is 00:15 UTC the next day), shifting the pick's target date +1.
+      const kd = new Date(game.commence_time);
+      const date = `${kd.getFullYear()}-${String(kd.getMonth() + 1).padStart(2, "0")}-${String(kd.getDate()).padStart(2, "0")}`;
       const odds: GameOdds = {
         team1: game.team1,
         team2: game.team2,
