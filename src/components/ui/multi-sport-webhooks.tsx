@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { todayLocalYmd } from '@/lib/dates';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,11 +86,7 @@ export const MultiSportWebhooks = () => {
     console.log('[MultiSportWebhooks] VITE_N8N_WEBHOOK_NBA =', nbaUrl ?? 'undefined (not set)');
   }, []);
   const [testPersona, setTestPersona] = useState('analytical');
-  const [testDate, setTestDate] = useState<string>(() => {
-    // Local parts, not toISOString()/UTC (which rolls forward a day after ~5pm Pacific).
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  });
+  const [testDate, setTestDate] = useState<string>(() => todayLocalYmd());   // -> @/lib/dates
   const { toast } = useToast();
 
   const testWebhook = async (sport: string, url: string) => {

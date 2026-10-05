@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import type { GameOdds } from "@/components/ui/live-odds";
+import { toLocalYmd } from "@/lib/dates";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,13 +82,7 @@ const parseMatchupTeams = (raw: string): [string, string] | null => {
 const gameMatchesUserTeams = (game: OddsApiGame, u1: string, u2: string) =>
   (teamMatchesUser(game.away_team, u1) && teamMatchesUser(game.home_team, u2)) ||
   (teamMatchesUser(game.away_team, u2) && teamMatchesUser(game.home_team, u1));
-const localYmd = (iso: string) => {
-  const d = new Date(iso);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
+const localYmd = (iso: string) => toLocalYmd(iso);   // -> @/lib/dates
 const extractMlSpread = (game: OddsApiGame) => {
   let awayMl = "N/A";
   let homeMl = "N/A";
@@ -136,24 +131,13 @@ const pickBestGame = (candidates: OddsApiGame[], targetDate: string): OddsApiGam
     (a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime()
   )[0];
 };
-/** Local calendar date for "yesterday" (back-to-back detection). */
+/** Local "yesterday" (back-to-back detection) — via @/lib/dates. */
 const yesterdayLocalYmd = () => {
   const d = new Date();
   d.setDate(d.getDate() - 1);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return toLocalYmd(d);
 };
-const todayLocalYmd = () => {
-  // Local calendar date from local parts — never toISOString()/UTC, which rolls
-  // to tomorrow after ~5pm Pacific and shifted the pick's targetDate one day.
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
+const todayLocalYmd = () => toLocalYmd(new Date());   // -> @/lib/dates
 const resolveCanonicalTeam = (userTeam: string, matched: OddsApiGame | null): string => {
   if (!matched) return userTeam;
   if (teamMatchesUser(matched.away_team, userTeam)) return matched.away_team;

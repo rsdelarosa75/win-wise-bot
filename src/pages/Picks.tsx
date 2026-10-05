@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { toLocalYmd } from "@/lib/dates";
 import { ChevronLeft, RefreshCw, TrendingUp } from "lucide-react";
 import { N8nIntegration } from "@/components/ui/n8n-integration";
 import { Card } from "@/components/ui/card";
@@ -343,7 +344,7 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
     onPendingPickConsumed?.();
   }, [pendingPick]);
 
-  const todayYmd = new Date().toLocaleDateString("en-CA");
+  const todayYmd = toLocalYmd(new Date());   // -> @/lib/dates (local calendar day)
 
   // ── Bobby's analysis view ────────────────────────────────────────────
   if (selected) {
