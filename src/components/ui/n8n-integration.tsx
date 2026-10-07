@@ -895,100 +895,173 @@ const renderAnalysis = (text: string) => {
   if (!text) return null;
 
   const lines = text.split("\n");
+
+  // ── Format A: BOBBY'S PICK: ... (MLB, NBA, Soccer, F1, etc.) ──────────────
   const pickLineIdx = lines.findIndex(l =>
     /^(BOBBY'S PICK|BOBBY S PICK|Bobby's Pick)\s*[:\-]/i.test(l.trim())
   );
 
-  if (pickLineIdx === -1) {
+  if (pickLineIdx !== -1) {
+    const PICK_KEY = /^(BOBBY'S PICK|BOBBY S PICK|Bobby's Pick|BET TYPE|Bet Type|CONFIDENCE|Confidence|UNITS|Units|REASONING|Reasoning)\s*[:\-]/i;
+    const pickFieldLines: string[] = [];
+    let afterIdx = pickLineIdx;
+    while (afterIdx < lines.length) {
+      const l = lines[afterIdx].trim();
+      if (l === '') { afterIdx++; continue; }
+      if (PICK_KEY.test(l)) { pickFieldLines.push(lines[afterIdx]); afterIdx++; }
+      else break;
+    }
+
+    const beforeLines = lines.slice(0, pickLineIdx);
+    const afterLines  = lines.slice(afterIdx);
+
+    const getField = (re: RegExp) => {
+      const found = pickFieldLines.find(l => re.test(l.trim()));
+      if (!found) return null;
+      return found.replace(/^[^:\-]+[:\-]\s*/, '').replace(/\*\*/g, '').trim();
+    };
+
+    const pickValue  = getField(/^(BOBBY'S PICK|BOBBY S PICK|Bobby's Pick)\s*[:\-]/i);
+    const confidence = getField(/^(CONFIDENCE|Confidence)\s*[:\-]/i);
+    const betType    = getField(/^(BET TYPE|Bet Type)\s*[:\-]/i);
+    const units      = getField(/^(UNITS|Units)\s*[:\-]/i);
+    const reasoning  = getField(/^(REASONING|Reasoning)\s*[:\-]/i);
+
+    const confNorm = confidence?.toLowerCase() ?? '';
+    const badgeStyle: React.CSSProperties = confNorm.includes('high')
+      ? { background: '#F5A100', color: '#1a1a1a', border: 'none' }
+      : confNorm.includes('med')
+      ? { background: 'transparent', color: '#F5A100', border: '2px solid #F5A100' }
+      : { background: '#444', color: '#999', border: 'none' };
+
     return (
       <div className="text-sm leading-relaxed" style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
-        {lines.map((line, idx) => renderLine(line, idx))}
+        {beforeLines.map((line, idx) => renderLine(line, idx))}
+        <div style={{
+          background: 'rgba(245, 161, 0, 0.08)',
+          border: '2px solid #F5A100',
+          borderRadius: '10px',
+          padding: '16px',
+          marginTop: '12px',
+          marginBottom: '8px',
+        }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', color: '#F5A100', opacity: 0.75, marginBottom: '8px', textTransform: 'uppercase' }}>
+            🎲 Bobby's Pick
+          </div>
+          {pickValue && (
+            <div style={{ fontSize: '19px', fontWeight: 800, color: '#F5A100', textTransform: 'uppercase', lineHeight: 1.2, marginBottom: '12px' }}>
+              {pickValue}
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {confidence && (
+              <span style={{ ...badgeStyle, padding: '5px 14px', borderRadius: '9999px', fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em' }}>
+                {confidence.toUpperCase()}
+              </span>
+            )}
+            {betType && <span style={{ fontSize: '12px', color: '#aaa', fontWeight: 500 }}>{betType}</span>}
+            {units   && <span style={{ fontSize: '12px', color: '#aaa', fontWeight: 500 }}>{units} units</span>}
+          </div>
+          {reasoning && (
+            <p style={{ marginTop: '10px', fontSize: '12px', color: '#999', fontStyle: 'italic', lineHeight: 1.5 }}>
+              {reasoning}
+            </p>
+          )}
+        </div>
+        {afterLines.some(l => l.trim()) && (
+          <div style={{ color: '#999', fontSize: '12px', fontStyle: 'italic', marginTop: '4px' }}>
+            {afterLines.map((line, idx) => renderLine(line, beforeLines.length + pickFieldLines.length + idx))}
+          </div>
+        )}
       </div>
     );
   }
 
-  // Collect structured pick fields starting at BOBBY'S PICK line
-  const PICK_KEY = /^(BOBBY'S PICK|BOBBY S PICK|Bobby's Pick|BET TYPE|Bet Type|CONFIDENCE|Confidence|UNITS|Units|REASONING|Reasoning)\s*[:\-]/i;
-  const pickFieldLines: string[] = [];
-  let afterIdx = pickLineIdx;
-  while (afterIdx < lines.length) {
-    const l = lines[afterIdx].trim();
-    if (l === '') { afterIdx++; continue; }
-    if (PICK_KEY.test(l)) { pickFieldLines.push(lines[afterIdx]); afterIdx++; }
-    else break;
-  }
+  // ── Format B: NFL edge format ─────────────────────────────────────────────
+  // ✅ EDGE DETECTED  |  ❌ NO EDGE  |  PASS
+  // BUCCANEERS ML +351 · Kalshi
+  // Bobby 50% · Break-even 22.2% · Edge +27.5%
+  // 🧭 BOBBY'S TAKE: ...
+  const edgeLineIdx = lines.findIndex(l =>
+    /[✅❌]?\s*(EDGE DETECTED|NO EDGE|PASS)\s*$/i.test(l.trim())
+  );
 
-  const beforeLines = lines.slice(0, pickLineIdx);
-  const afterLines = lines.slice(afterIdx);
+  if (edgeLineIdx !== -1) {
+    const edgeHeader = lines[edgeLineIdx].trim();
+    const hasEdge    = /EDGE DETECTED/i.test(edgeHeader);
+    const isPass     = /NO EDGE|PASS/i.test(edgeHeader);
 
-  const getField = (re: RegExp) => {
-    const found = pickFieldLines.find(l => re.test(l.trim()));
-    if (!found) return null;
-    return found.replace(/^[^:\-]+[:\-]\s*/, '').replace(/\*\*/g, '').trim();
-  };
+    // Collect the 2–3 lines that form the pick block
+    const nonEmpty = (idx: number) => {
+      while (idx < lines.length && !lines[idx].trim()) idx++;
+      return idx;
+    };
 
-  const pickValue  = getField(/^(BOBBY'S PICK|BOBBY S PICK|Bobby's Pick)\s*[:\-]/i);
-  const confidence = getField(/^(CONFIDENCE|Confidence)\s*[:\-]/i);
-  const betType    = getField(/^(BET TYPE|Bet Type)\s*[:\-]/i);
-  const units      = getField(/^(UNITS|Units)\s*[:\-]/i);
-  const reasoning  = getField(/^(REASONING|Reasoning)\s*[:\-]/i);
+    const betLineIdx  = nonEmpty(edgeLineIdx + 1);
+    const betLine     = betLineIdx < lines.length ? lines[betLineIdx].trim() : null;
 
-  const confNorm = confidence?.toLowerCase() ?? '';
-  const badgeStyle: React.CSSProperties = confNorm.includes('high')
-    ? { background: '#F5A100', color: '#1a1a1a', border: 'none' }
-    : confNorm.includes('med')
-    ? { background: 'transparent', color: '#F5A100', border: '2px solid #F5A100' }
-    : { background: '#444', color: '#999', border: 'none' };
+    const probLineIdx = nonEmpty(betLineIdx + 1);
+    const probLine    = (probLineIdx < lines.length && /%/.test(lines[probLineIdx]))
+      ? lines[probLineIdx].trim() : null;
 
-  return (
-    <div className="text-sm leading-relaxed" style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
-      {beforeLines.map((line, idx) => renderLine(line, idx))}
+    const takeStartIdx = probLine ? probLineIdx + 1 : betLineIdx + 1;
+    const takeLineIdx  = lines.findIndex((l, i) =>
+      i >= takeStartIdx && /BOBBY'S TAKE|🧭/i.test(l)
+    );
+    const takeLine = takeLineIdx !== -1
+      ? lines[takeLineIdx].replace(/^[🧭\s]*BOBBY'S TAKE\s*[:\-]?\s*/i, '').trim()
+      : null;
 
-      <div style={{
-        background: 'rgba(245, 161, 0, 0.08)',
-        border: '2px solid #F5A100',
-        borderRadius: '10px',
-        padding: '16px',
-        marginTop: '12px',
-        marginBottom: '8px',
-      }}>
-        <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', color: '#F5A100', opacity: 0.75, marginBottom: '8px', textTransform: 'uppercase' }}>
-          🎲 Bobby's Pick
+    const afterIdx2    = takeLineIdx !== -1 ? takeLineIdx + 1 : (probLine ? probLineIdx + 1 : betLineIdx + 1);
+    const beforeLines2 = lines.slice(0, edgeLineIdx);
+    const afterLines2  = lines.slice(afterIdx2);
+
+    const gold = '#F5A100';
+    const boxStyle: React.CSSProperties = isPass
+      ? { background: 'rgba(120,120,120,0.08)', border: '2px solid #555', borderRadius: '10px', padding: '16px', marginTop: '12px', marginBottom: '8px' }
+      : { background: 'rgba(245,161,0,0.08)',   border: `2px solid ${gold}`, borderRadius: '10px', padding: '16px', marginTop: '12px', marginBottom: '8px' };
+    const labelColor  = isPass ? '#888' : gold;
+    const pickColor   = isPass ? '#888' : gold;
+    const labelText   = isPass ? (hasEdge ? '✅ EDGE DETECTED' : edgeHeader.replace(/^[✅❌]\s*/, '')) : '✅ EDGE DETECTED';
+
+    return (
+      <div className="text-sm leading-relaxed" style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
+        {beforeLines2.map((line, idx) => renderLine(line, idx))}
+
+        <div style={boxStyle}>
+          <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', color: labelColor, opacity: 0.8, marginBottom: '8px', textTransform: 'uppercase' }}>
+            🎲 {isPass ? edgeHeader.replace(/^[✅❌]\s*/, '') : 'Edge Detected'}
+          </div>
+          {betLine && (
+            <div style={{ fontSize: '19px', fontWeight: 800, color: pickColor, textTransform: 'uppercase', lineHeight: 1.2, marginBottom: probLine ? '8px' : '12px' }}>
+              {betLine}
+            </div>
+          )}
+          {probLine && (
+            <div style={{ fontSize: '12px', color: '#aaa', fontWeight: 500, marginBottom: takeLine ? '10px' : '0' }}>
+              {probLine}
+            </div>
+          )}
+          {takeLine && (
+            <p style={{ fontSize: '12px', color: '#999', fontStyle: 'italic', lineHeight: 1.5, marginTop: probLine ? '0' : '10px' }}>
+              {takeLine}
+            </p>
+          )}
         </div>
-        {pickValue && (
-          <div style={{ fontSize: '19px', fontWeight: 800, color: '#F5A100', textTransform: 'uppercase', lineHeight: 1.2, marginBottom: '12px' }}>
-            {pickValue}
+
+        {afterLines2.some(l => l.trim()) && (
+          <div style={{ color: '#999', fontSize: '12px', fontStyle: 'italic', marginTop: '4px' }}>
+            {afterLines2.map((line, idx) => renderLine(line, beforeLines2.length + (afterIdx2 - edgeLineIdx) + idx))}
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {confidence && (
-            <span style={{ ...badgeStyle, padding: '5px 14px', borderRadius: '9999px', fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em' }}>
-              {confidence.toUpperCase()}
-            </span>
-          )}
-          {betType && (
-            <span style={{ fontSize: '12px', color: '#aaa', fontWeight: 500 }}>
-              {betType}
-            </span>
-          )}
-          {units && (
-            <span style={{ fontSize: '12px', color: '#aaa', fontWeight: 500 }}>
-              {units} units
-            </span>
-          )}
-        </div>
-        {reasoning && (
-          <p style={{ marginTop: '10px', fontSize: '12px', color: '#999', fontStyle: 'italic', lineHeight: 1.5 }}>
-            {reasoning}
-          </p>
-        )}
       </div>
+    );
+  }
 
-      {afterLines.some(l => l.trim()) && (
-        <div style={{ color: '#999', fontSize: '12px', fontStyle: 'italic', marginTop: '4px' }}>
-          {afterLines.map((line, idx) => renderLine(line, beforeLines.length + pickFieldLines.length + idx))}
-        </div>
-      )}
+  // ── Fallback: plain render ────────────────────────────────────────────────
+  return (
+    <div className="text-sm leading-relaxed" style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
+      {lines.map((line, idx) => renderLine(line, idx))}
     </div>
   );
 };
