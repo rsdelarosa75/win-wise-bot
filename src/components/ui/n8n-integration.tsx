@@ -868,32 +868,127 @@ const renderInline = (raw: string) => {
       : <span key={i}>{part}</span>
   );
 };
+const renderLine = (line: string, idx: number) => {
+  if (!line.trim()) return <div key={idx} className="h-2" />;
+  const trimmed = line.trim();
+  if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
+    return (
+      <p key={idx} className="flex gap-1.5 mb-0.5">
+        <span className="shrink-0 text-muted-foreground mt-0.5">•</span>
+        <span className="flex-1 min-w-0 break-words">{renderInline(trimmed.replace(/^[-•]\s+/, ""))}</span>
+      </p>
+    );
+  }
+  const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+  if (numMatch) {
+    return (
+      <p key={idx} className="flex gap-1.5 mb-0.5">
+        <span className="shrink-0 text-muted-foreground">{numMatch[1]}.</span>
+        <span className="flex-1 min-w-0 break-words">{renderInline(numMatch[2])}</span>
+      </p>
+    );
+  }
+  return <p key={idx} className="mb-1">{renderInline(line)}</p>;
+};
+
 const renderAnalysis = (text: string) => {
   if (!text) return null;
+
+  const lines = text.split("\n");
+  const pickLineIdx = lines.findIndex(l =>
+    /^(BOBBY'S PICK|BOBBY S PICK|Bobby's Pick)\s*[:\-]/i.test(l.trim())
+  );
+
+  if (pickLineIdx === -1) {
+    return (
+      <div className="text-sm leading-relaxed" style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
+        {lines.map((line, idx) => renderLine(line, idx))}
+      </div>
+    );
+  }
+
+  // Collect structured pick fields starting at BOBBY'S PICK line
+  const PICK_KEY = /^(BOBBY'S PICK|BOBBY S PICK|Bobby's Pick|BET TYPE|Bet Type|CONFIDENCE|Confidence|UNITS|Units|REASONING|Reasoning)\s*[:\-]/i;
+  const pickFieldLines: string[] = [];
+  let afterIdx = pickLineIdx;
+  while (afterIdx < lines.length) {
+    const l = lines[afterIdx].trim();
+    if (l === '') { afterIdx++; continue; }
+    if (PICK_KEY.test(l)) { pickFieldLines.push(lines[afterIdx]); afterIdx++; }
+    else break;
+  }
+
+  const beforeLines = lines.slice(0, pickLineIdx);
+  const afterLines = lines.slice(afterIdx);
+
+  const getField = (re: RegExp) => {
+    const found = pickFieldLines.find(l => re.test(l.trim()));
+    if (!found) return null;
+    return found.replace(/^[^:\-]+[:\-]\s*/, '').replace(/\*\*/g, '').trim();
+  };
+
+  const pickValue  = getField(/^(BOBBY'S PICK|BOBBY S PICK|Bobby's Pick)\s*[:\-]/i);
+  const confidence = getField(/^(CONFIDENCE|Confidence)\s*[:\-]/i);
+  const betType    = getField(/^(BET TYPE|Bet Type)\s*[:\-]/i);
+  const units      = getField(/^(UNITS|Units)\s*[:\-]/i);
+  const reasoning  = getField(/^(REASONING|Reasoning)\s*[:\-]/i);
+
+  const confNorm = confidence?.toLowerCase() ?? '';
+  const badgeStyle: React.CSSProperties = confNorm.includes('high')
+    ? { background: '#F5A100', color: '#1a1a1a', border: 'none' }
+    : confNorm.includes('med')
+    ? { background: 'transparent', color: '#F5A100', border: '2px solid #F5A100' }
+    : { background: '#444', color: '#999', border: 'none' };
+
   return (
     <div className="text-sm leading-relaxed" style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
-      {text.split("\n").map((line, idx) => {
-        if (!line.trim()) return <div key={idx} className="h-2" />;
-        const trimmed = line.trim();
-        if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
-          return (
-            <p key={idx} className="flex gap-1.5 mb-0.5">
-              <span className="shrink-0 text-muted-foreground mt-0.5">•</span>
-              <span className="flex-1 min-w-0 break-words">{renderInline(trimmed.replace(/^[-•]\s+/, ""))}</span>
-            </p>
-          );
-        }
-        const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
-        if (numMatch) {
-          return (
-            <p key={idx} className="flex gap-1.5 mb-0.5">
-              <span className="shrink-0 text-muted-foreground">{numMatch[1]}.</span>
-              <span className="flex-1 min-w-0 break-words">{renderInline(numMatch[2])}</span>
-            </p>
-          );
-        }
-        return <p key={idx} className="mb-1">{renderInline(line)}</p>;
-      })}
+      {beforeLines.map((line, idx) => renderLine(line, idx))}
+
+      <div style={{
+        background: 'rgba(245, 161, 0, 0.08)',
+        border: '2px solid #F5A100',
+        borderRadius: '10px',
+        padding: '16px',
+        marginTop: '12px',
+        marginBottom: '8px',
+      }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', color: '#F5A100', opacity: 0.75, marginBottom: '8px', textTransform: 'uppercase' }}>
+          🎲 Bobby's Pick
+        </div>
+        {pickValue && (
+          <div style={{ fontSize: '19px', fontWeight: 800, color: '#F5A100', textTransform: 'uppercase', lineHeight: 1.2, marginBottom: '12px' }}>
+            {pickValue}
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {confidence && (
+            <span style={{ ...badgeStyle, padding: '5px 14px', borderRadius: '9999px', fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em' }}>
+              {confidence.toUpperCase()}
+            </span>
+          )}
+          {betType && (
+            <span style={{ fontSize: '12px', color: '#aaa', fontWeight: 500 }}>
+              {betType}
+            </span>
+          )}
+          {units && (
+            <span style={{ fontSize: '12px', color: '#aaa', fontWeight: 500 }}>
+              {units} units
+            </span>
+          )}
+        </div>
+        {reasoning && (
+          <p style={{ marginTop: '10px', fontSize: '12px', color: '#999', fontStyle: 'italic', lineHeight: 1.5 }}>
+            {reasoning}
+          </p>
+        )}
+      </div>
+
+      {afterLines.some(l => l.trim()) && (
+        <div style={{ color: '#999', fontSize: '12px', fontStyle: 'italic', marginTop: '4px' }}>
+          {afterLines.map((line, idx) => renderLine(line, beforeLines.length + pickFieldLines.length + idx))}
+        </div>
+      )}
     </div>
   );
 };
