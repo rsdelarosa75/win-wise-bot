@@ -29,3 +29,6 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Vite temp config bundles
+vite.config.ts.timestamp-*
