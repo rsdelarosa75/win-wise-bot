@@ -11,10 +11,15 @@ import { Clock3 } from "lucide-react";
 // real API call later; nothing in this file's UI or Dashboard's wiring needs
 // to change as long as the returned shape is preserved.
 //
-// Race 5 intentionally matches the existing hand-built Keeneland sample race
-// card in the Bobby Vegas Horse Racing Picks (PROTOTYPE) n8n workflow (6
-// Furlongs, Dirt, 9 horses, favorite Bayou Bandit at 3-1) so tapping it is a
-// real end-to-end test, not just a UI mock.
+// The favorite is COMPUTED from each race's field (lowest decimal odds), not
+// hardcoded — a hand-picked favorite drifted out of sync with the field once
+// (Bayou Bandit at 3-1 was shown while Chalk Eater at 5-2, a shorter price,
+// was sitting right there in the same field).
+//
+// Race 5's field matches the existing hand-built Keeneland sample race card
+// in the Bobby Vegas Horse Racing Picks (PROTOTYPE) n8n workflow exactly (6
+// Furlongs, Dirt, 9 horses) so tapping it is a real end-to-end test, not just
+// a UI mock.
 // ============================================================================
 
 export interface UpcomingRace {
@@ -29,13 +34,123 @@ export interface UpcomingRace {
   favorite: { name: string; morningLine: string };
 }
 
-const RACE_DETAILS: Record<number, Omit<UpcomingRace, "id" | "track" | "raceNumber" | "postTime">> = {
-  3: { distance: "5 Furlongs", surface: "Dirt", condition: "Fast", horseCount: 8, favorite: { name: "Quick Draw McGraw", morningLine: "2-1" } },
-  4: { distance: "1 Mile", surface: "Turf", condition: "Firm", horseCount: 10, favorite: { name: "Turf Baron", morningLine: "7-2" } },
-  5: { distance: "6 Furlongs", surface: "Dirt", condition: "Fast", horseCount: 9, favorite: { name: "Bayou Bandit", morningLine: "3-1" } },
-  6: { distance: "6.5 Furlongs", surface: "Dirt", condition: "Fast", horseCount: 7, favorite: { name: "Night Train", morningLine: "5-2" } },
-  7: { distance: "1 1/16 Mile", surface: "Dirt", condition: "Fast", horseCount: 9, favorite: { name: "Final Call", morningLine: "9-5" } },
-  8: { distance: "7 Furlongs", surface: "Turf", condition: "Firm", horseCount: 8, favorite: { name: "Last Call Lily", morningLine: "3-1" } },
+interface SampleEntrant {
+  name: string;
+  morningLine: string; // "5-2" style, odds-to-1
+}
+
+interface SampleRaceInfo {
+  distance: string;
+  surface: string;
+  condition: string;
+  horses: SampleEntrant[];
+}
+
+// "8-1" / "5-2" -> decimal price (odds-to-1). Lower = more favored.
+function parseMorningLine(ml: string): number | null {
+  const m = ml.match(/(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const num = parseFloat(m[1]);
+  const den = parseFloat(m[2]);
+  return den ? num / den : null;
+}
+
+function computeFavorite(horses: SampleEntrant[]): { name: string; morningLine: string } {
+  let best: SampleEntrant = horses[0];
+  let bestPrice = parseMorningLine(best.morningLine) ?? Infinity;
+  for (const h of horses.slice(1)) {
+    const price = parseMorningLine(h.morningLine) ?? Infinity;
+    if (price < bestPrice) {
+      best = h;
+      bestPrice = price;
+    }
+  }
+  return { name: best.name, morningLine: best.morningLine };
+}
+
+// Race 5's field matches the n8n Sample Race Card node exactly.
+const RACE_FIELDS: Record<number, SampleRaceInfo> = {
+  3: {
+    distance: "5 Furlongs", surface: "Dirt", condition: "Fast",
+    horses: [
+      { name: "Quick Draw McGraw", morningLine: "2-1" },
+      { name: "Silver Bullet", morningLine: "3-1" },
+      { name: "Hot Ticket", morningLine: "9-2" },
+      { name: "Night Owl", morningLine: "5-1" },
+      { name: "Lucky Strike", morningLine: "6-1" },
+      { name: "Final Word", morningLine: "8-1" },
+      { name: "Morning Glory", morningLine: "10-1" },
+      { name: "Cash Only", morningLine: "12-1" },
+    ],
+  },
+  4: {
+    distance: "1 Mile", surface: "Turf", condition: "Firm",
+    horses: [
+      { name: "Turf Baron", morningLine: "7-2" },
+      { name: "Ocean Drive", morningLine: "3-1" },
+      { name: "Grass Stain", morningLine: "9-2" },
+      { name: "Linen Suit", morningLine: "5-1" },
+      { name: "Silk Road", morningLine: "6-1" },
+      { name: "Emerald Isle", morningLine: "8-1" },
+      { name: "Fairway Dancer", morningLine: "10-1" },
+      { name: "Lawn Order", morningLine: "12-1" },
+      { name: "Green Light Go", morningLine: "15-1" },
+      { name: "Meadow Lark", morningLine: "20-1" },
+    ],
+  },
+  5: {
+    distance: "6 Furlongs", surface: "Dirt", condition: "Fast",
+    horses: [
+      { name: "Harborline", morningLine: "8-1" },
+      { name: "Quiet Larceny", morningLine: "5-1" },
+      { name: "Mo Stable Genius", morningLine: "9-2" },
+      { name: "Bayou Bandit", morningLine: "3-1" },
+      { name: "Off The Record", morningLine: "15-1" },
+      { name: "Sloppy Sam", morningLine: "12-1" },
+      { name: "Chalk Eater", morningLine: "5-2" },
+      { name: "Turf Tantrum", morningLine: "10-1" },
+      { name: "Night Shift Nancy", morningLine: "20-1" },
+    ],
+  },
+  6: {
+    distance: "6.5 Furlongs", surface: "Dirt", condition: "Fast",
+    horses: [
+      { name: "Night Train", morningLine: "5-2" },
+      { name: "Midnight Express", morningLine: "2-1" },
+      { name: "Full Throttle", morningLine: "7-2" },
+      { name: "Steel Wheels", morningLine: "9-2" },
+      { name: "Last Call", morningLine: "6-1" },
+      { name: "Iron Horse", morningLine: "8-1" },
+      { name: "Copper Line", morningLine: "10-1" },
+    ],
+  },
+  7: {
+    distance: "1 1/16 Mile", surface: "Dirt", condition: "Fast",
+    horses: [
+      { name: "Final Call", morningLine: "9-5" },
+      { name: "Second Wind", morningLine: "5-2" },
+      { name: "Long Shot Lonnie", morningLine: "7-2" },
+      { name: "Home Stretch", morningLine: "4-1" },
+      { name: "Morning Line Mike", morningLine: "9-2" },
+      { name: "Back Straight", morningLine: "6-1" },
+      { name: "Photo Finish", morningLine: "8-1" },
+      { name: "Dead Heat", morningLine: "10-1" },
+      { name: "Also Eligible", morningLine: "15-1" },
+    ],
+  },
+  8: {
+    distance: "7 Furlongs", surface: "Turf", condition: "Firm",
+    horses: [
+      { name: "Last Call Lily", morningLine: "3-1" },
+      { name: "Grass Note", morningLine: "5-2" },
+      { name: "Fairway Flyer", morningLine: "7-2" },
+      { name: "Divot Dancer", morningLine: "9-2" },
+      { name: "Rough Cut", morningLine: "6-1" },
+      { name: "Sand Trap Sally", morningLine: "8-1" },
+      { name: "Out Of Bounds", morningLine: "10-1" },
+      { name: "Birdie Belle", morningLine: "12-1" },
+    ],
+  },
 };
 
 /**
@@ -54,13 +169,17 @@ export function getUpcomingRaces(): UpcomingRace[] {
 
   return [3, 4, 5, 6, 7, 8].map((raceNumber, i) => {
     const postTime = new Date(anchor.getTime() + i * 30 * 60 * 1000);
-    const details = RACE_DETAILS[raceNumber];
+    const { distance, surface, condition, horses } = RACE_FIELDS[raceNumber];
     return {
       id: `keeneland-r${raceNumber}`,
       track: "Keeneland",
       raceNumber,
       postTime: postTime.toISOString(),
-      ...details,
+      distance,
+      surface,
+      condition,
+      horseCount: horses.length,
+      favorite: computeFavorite(horses),
     };
   });
 }
