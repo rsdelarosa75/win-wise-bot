@@ -269,7 +269,10 @@ function getEdgeStyle(score: number) {
 }
 
 interface PicksProps {
-  pendingPick?: { teams: string; date: string; odds?: GameOdds; sport?: Sport } | null;
+  pendingPick?: {
+    teams: string; date: string; odds?: GameOdds; sport?: Sport;
+    track?: string; raceNumber?: string;
+  } | null;
   onPendingPickConsumed?: () => void;
   onBack?: () => void;
 }
@@ -341,7 +344,7 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
     return () => { cancelled = true; };
   }, [edges]);
 
-  // Game tapped from Live Odds on Dashboard → auto-open Bobby's analysis
+  // Game (or Racing card) tapped from Dashboard → auto-open Bobby's analysis
   useEffect(() => {
     if (!pendingPick) return;
     setSelected({
@@ -349,6 +352,8 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
       sport: (pendingPick.sport ?? "NBA") as Sport,
       date:  pendingPick.date,
       odds:  pendingPick.odds,
+      track: pendingPick.track,
+      raceNumber: pendingPick.raceNumber,
     });
     onPendingPickConsumed?.();
   }, [pendingPick]);

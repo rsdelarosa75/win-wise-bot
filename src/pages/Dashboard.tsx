@@ -2,16 +2,20 @@ import React, { useState } from "react";
 import { Sun, Moon } from "lucide-react";
 import { TelegramAnalyses } from "@/components/ui/telegram-analyses";
 import { LiveOdds } from "@/components/ui/live-odds";
+import { UpcomingRaces } from "@/components/ui/upcoming-races";
 import { Card } from "@/components/ui/card";
 import type { GameOdds } from "@/components/ui/live-odds";
 import { useTheme } from "@/hooks/use-theme";
 import { SPORT_ORDER, DEFAULT_SPORT } from "@/lib/sports";
 
-type Sport = "Soccer" | "NHL" | "WNBA" | "MLB" | "NFL" | "NCAAFB" | "NBA";
+type Sport = "Soccer" | "NHL" | "WNBA" | "MLB" | "NFL" | "NCAAFB" | "NBA" | "Racing";
 
 interface DashboardProps {
   onPicksTabClick: () => void;
   onGameSelect: (teams: string, date: string, odds?: GameOdds, sport?: Sport) => void;
+  // PREVIEW ONLY — horse-racing-preview branch. Fired when a race card's
+  // "Get Bobby's Pick" is tapped.
+  onRaceSelect: (track: string, raceNumber: number, date: string) => void;
 }
 
 const getGreeting = () => {
@@ -23,12 +27,16 @@ const getGreeting = () => {
 
 // Emoji per sport; pill order/content is derived from the shared SPORT_ORDER.
 const SPORT_EMOJI: Record<Sport, string> = {
-  NFL: "🏈", NCAAFB: "🏈", MLB: "⚾", NBA: "🏀", NHL: "🏒", WNBA: "🏀", Soccer: "⚽",
+  NFL: "🏈", NCAAFB: "🏈", MLB: "⚾", NBA: "🏀", NHL: "🏒", WNBA: "🏀", Soccer: "⚽", Racing: "🏇",
 };
-const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] =
-  SPORT_ORDER.map((sport) => ({ sport, emoji: SPORT_EMOJI[sport], label: sport }));
+// Racing is appended here (PREVIEW ONLY) since it has no Live Odds feed —
+// same pattern as F1 being appended to the manual matchup selector.
+const SPORT_BUTTONS: { sport: Sport; emoji: string; label: string }[] = [
+  ...SPORT_ORDER.map((sport) => ({ sport, emoji: SPORT_EMOJI[sport], label: sport })),
+  { sport: "Racing" as Sport, emoji: SPORT_EMOJI.Racing, label: "Racing" },
+];
 
-const Dashboard = ({ onPicksTabClick, onGameSelect }: DashboardProps) => {
+const Dashboard = ({ onPicksTabClick, onGameSelect, onRaceSelect }: DashboardProps) => {
   const [oddsSport, setOddsSport] = useState<Sport>(DEFAULT_SPORT);
   const [picksLabel, setPicksLabel] = useState("Today's Picks");
   const { theme, toggleTheme } = useTheme();
@@ -106,7 +114,11 @@ const Dashboard = ({ onPicksTabClick, onGameSelect }: DashboardProps) => {
         </div>
 
         <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-x-hidden">
-          <LiveOdds sport={oddsSport} onGameSelect={onGameSelect} />
+          {oddsSport === "Racing" ? (
+            <UpcomingRaces onRaceSelect={onRaceSelect} />
+          ) : (
+            <LiveOdds sport={oddsSport} onGameSelect={onGameSelect} />
+          )}
         </Card>
       </div>
 

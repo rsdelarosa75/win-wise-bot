@@ -13,12 +13,29 @@ type Tab = "home" | "picks" | "tracker" | "profile";
 const Index = () => {
   const { user, loading, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("home");
-  type Sport = "Soccer" | "NHL" | "WNBA" | "MLB" | "NFL" | "NCAAFB" | "NBA" | "F1";
-  const [pendingPick, setPendingPick] = useState<{ teams: string; date: string; odds?: GameOdds; sport?: Sport } | null>(null);
+  type Sport = "Soccer" | "NHL" | "WNBA" | "MLB" | "NFL" | "NCAAFB" | "NBA" | "F1" | "Racing";
+  const [pendingPick, setPendingPick] = useState<{
+    teams: string; date: string; odds?: GameOdds; sport?: Sport;
+    track?: string; raceNumber?: string;
+  } | null>(null);
 
   const handleGameSelect = useCallback((teams: string, date: string, odds?: GameOdds, sport?: Sport) => {
     console.log("[Index] Game selected:", teams, "| sport:", sport);
     setPendingPick({ teams, date, odds, sport });
+    setActiveTab("picks");
+  }, []);
+
+  // PREVIEW ONLY — horse-racing-preview branch. "Get Bobby's Pick" on an
+  // Upcoming Races card pre-fills Racing + Track/Race Number and auto-runs.
+  const handleRaceSelect = useCallback((track: string, raceNumber: number, date: string) => {
+    console.log("[Index] Race selected:", track, raceNumber, date);
+    setPendingPick({
+      teams: `${track} — Race ${raceNumber}`,
+      date,
+      sport: "Racing",
+      track,
+      raceNumber: String(raceNumber),
+    });
     setActiveTab("picks");
   }, []);
 
@@ -41,7 +58,7 @@ const Index = () => {
   const renderPage = () => {
     switch (activeTab) {
       case "home":
-        return <Dashboard onPicksTabClick={() => setActiveTab("picks")} onGameSelect={handleGameSelect} />;
+        return <Dashboard onPicksTabClick={() => setActiveTab("picks")} onGameSelect={handleGameSelect} onRaceSelect={handleRaceSelect} />;
       case "picks":
         return <Picks pendingPick={pendingPick} onPendingPickConsumed={() => setPendingPick(null)} onBack={() => setActiveTab("home")} />;
       case "tracker":
