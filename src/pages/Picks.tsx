@@ -17,15 +17,17 @@ const SUPABASE_URL = "https://mocdziwqxbvjibylqxoz.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vY2R6aXdxeGJ2amlieWxxeG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzU3MzUsImV4cCI6MjA4Njk1MTczNX0.2nRMRP55DYk8a5WRdK6NHTn4fADmiGH99kqbWo2TquI";
 
-type Sport = "Soccer" | "NHL" | "WNBA" | "MLB" | "NFL" | "NCAAFB" | "NBA" | "F1";
+type Sport = "Soccer" | "NHL" | "WNBA" | "MLB" | "NFL" | "NCAAFB" | "NBA" | "F1" | "Racing";
 
 const SPORT_EMOJIS: Record<string, string> = {
-  NBA: "🏀", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽", MLB: "⚾", F1: "🏎️",
+  NBA: "🏀", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽", MLB: "⚾", F1: "🏎️", Racing: "🏇",
 };
 
 // Sport order + example placeholders for the manual matchup entry. Follows the
-// shared SPORT_ORDER; F1 is appended here since it has no Live Odds pill.
-const MANUAL_SPORTS: Sport[] = [...SPORT_ORDER, "F1"];
+// shared SPORT_ORDER; F1 and Racing are appended here since neither has a
+// Live Odds pill. Racing is PREVIEW ONLY — prototype n8n workflow, sample
+// data, not wired into the live app's main sport list.
+const MANUAL_SPORTS: Sport[] = [...SPORT_ORDER, "F1", "Racing"];
 const MATCHUP_PLACEHOLDER: Record<Sport, string> = {
   NBA: "e.g., Lakers vs Warriors",
   WNBA: "e.g., Liberty vs Aces",
@@ -35,6 +37,7 @@ const MATCHUP_PLACEHOLDER: Record<Sport, string> = {
   Soccer: "e.g., Brazil vs Argentina",
   MLB: "e.g., Red Sox vs Yankees",
   F1: "e.g., Verstappen vs Norris",
+  Racing: "e.g., Keeneland",
 };
 
 interface KalshiMarket {
@@ -275,9 +278,15 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
   const [edges, setEdges]       = useState<EdgeItem[]>([]);
   const [loading, setLoading]   = useState(true);
   const [lastFetch, setLastFetch] = useState<string | null>(null);
-  const [selected, setSelected] = useState<{ teams: string; sport: Sport; date: string; odds?: GameOdds } | null>(null);
+  const [selected, setSelected] = useState<{
+    teams: string; sport: Sport; date: string; odds?: GameOdds;
+    track?: string; raceNumber?: string;
+  } | null>(null);
   const [manualTeams, setManualTeams] = useState("");
   const [manualSport, setManualSport] = useState<Sport>(DEFAULT_SPORT);
+  // Racing preview — Track / Race Number replace the free-text matchup field
+  const [manualTrack, setManualTrack] = useState("");
+  const [manualRaceNumber, setManualRaceNumber] = useState("");
 
   type PolySignals = { probDiv: PolymarketProbDivergence[]; volSkew: PolymarketVolumeSkew | null };
   const [polySignals, setPolySignals] = useState<Map<string, PolySignals>>(new Map());
@@ -366,7 +375,10 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
           </div>
           <N8nIntegration
             sport={selected.sport}
-            pendingPick={{ teams: selected.teams, date: selected.date, odds: selected.odds, sport: selected.sport }}
+            pendingPick={{
+              teams: selected.teams, date: selected.date, odds: selected.odds, sport: selected.sport,
+              track: selected.track, raceNumber: selected.raceNumber,
+            }}
             onPendingPickConsumed={() => {}}
           />
         </div>
@@ -414,6 +426,19 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              if (manualSport === "Racing") {
+                const track = manualTrack.trim();
+                if (!track || !manualRaceNumber.trim()) return;
+                setSelected({
+                  teams: `${track} — Race ${manualRaceNumber.trim()}`,
+                  sport: "Racing",
+                  date: todayYmd,
+                  odds: undefined,
+                  track,
+                  raceNumber: manualRaceNumber.trim(),
+                });
+                return;
+              }
               const teams = manualTeams.trim();
               if (!teams) return;
               setSelected({ teams, sport: manualSport, date: todayYmd, odds: undefined });
@@ -424,6 +449,14 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
               <TrendingUp className="w-4 h-4 text-primary shrink-0" />
               <h2 className="text-sm font-semibold">Analyze any matchup</h2>
             </div>
+            {manualSport === "Racing" && (
+              <div className="flex items-center gap-2 -mt-1">
+                <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  Sample Data
+                </span>
+                <span className="text-[11px] text-muted-foreground">Preview — not a live race feed</span>
+              </div>
+            )}
             <div className="flex gap-2">
               <select
                 value={manualSport}
@@ -437,18 +470,40 @@ const Picks = ({ pendingPick, onPendingPickConsumed, onBack }: PicksProps = {}) 
                   </option>
                 ))}
               </select>
-              <input
-                type="text"
-                value={manualTeams}
-                onChange={(e) => setManualTeams(e.target.value)}
-                placeholder={MATCHUP_PLACEHOLDER[manualSport]}
-                aria-label="Matchup (Away vs Home)"
-                className="h-11 min-w-0 flex-1 rounded-md border border-border bg-background/50 px-3 text-sm"
-              />
+              {manualSport === "Racing" ? (
+                <>
+                  <input
+                    type="text"
+                    value={manualTrack}
+                    onChange={(e) => setManualTrack(e.target.value)}
+                    placeholder={MATCHUP_PLACEHOLDER.Racing}
+                    aria-label="Track"
+                    className="h-11 min-w-0 flex-1 rounded-md border border-border bg-background/50 px-3 text-sm"
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    value={manualRaceNumber}
+                    onChange={(e) => setManualRaceNumber(e.target.value)}
+                    placeholder="Race #"
+                    aria-label="Race Number"
+                    className="h-11 w-20 shrink-0 rounded-md border border-border bg-background/50 px-2 text-sm"
+                  />
+                </>
+              ) : (
+                <input
+                  type="text"
+                  value={manualTeams}
+                  onChange={(e) => setManualTeams(e.target.value)}
+                  placeholder={MATCHUP_PLACEHOLDER[manualSport]}
+                  aria-label="Matchup (Away vs Home)"
+                  className="h-11 min-w-0 flex-1 rounded-md border border-border bg-background/50 px-3 text-sm"
+                />
+              )}
             </div>
             <button
               type="submit"
-              disabled={!manualTeams.trim()}
+              disabled={manualSport === "Racing" ? (!manualTrack.trim() || !manualRaceNumber.trim()) : !manualTeams.trim()}
               className="w-full min-h-[44px] rounded-md text-sm font-black text-black uppercase tracking-wide disabled:opacity-50"
               style={{ backgroundColor: "#F5A100" }}
             >

@@ -1076,7 +1076,7 @@ const renderAnalysis = (text: string) => {
     </div>
   );
 };
-type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB" | "Soccer" | "F1";
+type Sport = "NBA" | "MLB" | "WNBA" | "NHL" | "NFL" | "NCAAFB" | "Soccer" | "F1" | "Racing";
 const SPORT_CONFIG: Record<Sport, { webhookUrl: string }> = {
   NBA:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/nba-picks"    },
   MLB:    { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/mlb-picks"    },
@@ -1086,10 +1086,16 @@ const SPORT_CONFIG: Record<Sport, { webhookUrl: string }> = {
   NCAAFB: { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/ncaafb-picks" },
   Soccer: { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/soccer-picks" },
   F1:     { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/f1-picks"     },
+  // PREVIEW ONLY — prototype workflow, sample data behind the scenes. See
+  // workflow-backups/horse-racing-prototype.json. Not wired into main.
+  Racing: { webhookUrl: "https://eleven48ai.app.n8n.cloud/webhook/horse-picks" },
 };
 interface N8nIntegrationProps {
   sport?: Sport;
-  pendingPick?: { teams: string; date: string; odds?: GameOdds; sport?: Sport } | null;
+  pendingPick?: {
+    teams: string; date: string; odds?: GameOdds; sport?: Sport;
+    track?: string; raceNumber?: string;
+  } | null;
   onPendingPickConsumed?: () => void;
 }
 const NCAAFB_PROMPT = (teams: string, dateValue: string, oddsPayload: string): string => [
@@ -1122,6 +1128,9 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
   const [briefContent, setBriefContent] = useState("");
   const [specificTeams, setSpecificTeams] = useState("");
   const [targetDate, setTargetDate] = useState(() => todayLocalYmd());
+  // Racing preview — Track / Race Number replace the free-text Teams field
+  const [trackValue, setTrackValue] = useState("");
+  const [raceNumberValue, setRaceNumberValue] = useState("");
   const [pickSaved, setPickSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
@@ -1143,7 +1152,10 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
   // Reset saved state whenever new content arrives
   useEffect(() => { setPickSaved(false); }, [briefContent]);
   // Core fetch logic — called from both form submit and auto-trigger
-  const triggerFetch = async (teamsValue: string, dateValue: string, odds?: GameOdds, sportOverride?: Sport) => {
+  const triggerFetch = async (
+    teamsValue: string, dateValue: string, odds?: GameOdds, sportOverride?: Sport,
+    trackOverride?: string, raceNumberOverride?: string
+  ) => {
     console.log("[DEBUG] sportRef.current at fetch time:", sportRef.current);
     console.log("[DEBUG] sportOverride:", sportOverride);
     const currentSport = sportOverride ?? sportRef.current;
@@ -1321,6 +1333,75 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         }
         return;
       }
+      // ── Racing (PREVIEW, SAMPLE DATA): async Supabase polling pattern ──
+      if (currentSport === "Racing") {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 180_000);
+        try {
+          const racingPayload = {
+            track: (trackOverride ?? trackValue).trim(),
+            race_number: Number(raceNumberOverride ?? raceNumberValue),
+            date: dateValue,
+          };
+          console.log("[Racing] Triggering webhook:", url, racingPayload);
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify(racingPayload),
+            signal: controller.signal,
+          });
+          if (res.status === 403) throw new Error("403");
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const initJson = await res.json();
+          const jobId = (Array.isArray(initJson) ? initJson[0] : initJson)?.jobId as string | undefined;
+          console.log("[Racing] Got jobId:", jobId);
+          if (!jobId) throw new Error("No jobId returned from Racing webhook");
+          const analysis = await pollSupabasePick("horse_picks", jobId, controller.signal);
+          clearTimeout(timeoutId);
+          setLastTriggered(new Date());
+          toast({ title: "Bobby's Racing pick is ready 🏇" });
+          const cleanContent = cleanHtmlContent(analysis);
+          setBriefContent(cleanContent);
+          const label = `${racingPayload.track} — Race ${racingPayload.race_number}`;
+          const isRealAnalysis = (text: string) => {
+            if (!text || text.trim().length < 50) return false;
+            const lower = text.toLowerCase();
+            if (lower.includes('"status"') || lower.includes('"jobid"') || lower.includes('"processing"')) return false;
+            return /RACE:|PICK:|CONFIDENCE:|BOBBY'S PICK|BET TYPE/i.test(text);
+          };
+          if (isRealAnalysis(cleanContent)) {
+            const pickText  = extractField(cleanContent, "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation");
+            const confMatch = cleanContent.match(/CONFIDENCE[^:\n]*:\s*\*{0,2}(High|Medium|Low)\*{0,2}/i);
+            const confNorm  = (confMatch ? confMatch[1] : "Medium") as "High" | "Medium" | "Low";
+            const newAnalysis = {
+              id: Date.now().toString(),
+              timestamp: new Date().toISOString(),
+              command: "/webhook",
+              teams: label,
+              persona: "bobby_vegas",
+              analysis: cleanContent,
+              confidence: confNorm,
+              status: "win" as const,
+              odds: null,
+              sport: "Racing" as Sport,
+              recommendation: pickText ?? null,
+            };
+            const existing: unknown[] = JSON.parse(localStorage.getItem("webhook_analyses") ?? "[]");
+            const updated = [newAnalysis, ...existing]
+              .filter((a) => isRealAnalysis((a as { analysis?: string }).analysis ?? ""))
+              .filter((a, i, arr) =>
+                arr.findIndex((x) => (x as { id: string }).id === (a as { id: string }).id) === i
+              )
+              .slice(0, 10);
+            localStorage.setItem("webhook_analyses", JSON.stringify(updated));
+            window.dispatchEvent(new CustomEvent("webhookAnalysisAdded", { detail: newAnalysis }));
+          }
+        } finally {
+          clearTimeout(timeoutId);
+          setIsLoading(false);
+        }
+        return;
+      }
       // ── All other sports: synchronous webhook response ───────────────
       const payload: Record<string, unknown> = {
         sport: currentSport,
@@ -1449,17 +1530,27 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
   const pendingPickRef = useRef<string | null>(null);
   useEffect(() => {
     if (!pendingPick) return;
-    const key = `${pendingPick.teams}|${pendingPick.date}`;
+    const isRacing = pendingPick.sport === "Racing";
+    const key = isRacing
+      ? `racing|${pendingPick.track}|${pendingPick.raceNumber}|${pendingPick.date}`
+      : `${pendingPick.teams}|${pendingPick.date}`;
     if (pendingPickRef.current === key) return;
     pendingPickRef.current = key;
     setSpecificTeams(pendingPick.teams);
     setTargetDate(pendingPick.date);
+    if (isRacing) {
+      setTrackValue(pendingPick.track ?? "");
+      setRaceNumberValue(pendingPick.raceNumber ?? "");
+    }
     onPendingPickConsumed?.();
-    triggerFetch(pendingPick.teams, pendingPick.date, pendingPick.odds, pendingPick.sport);
+    triggerFetch(
+      pendingPick.teams, pendingPick.date, pendingPick.odds, pendingPick.sport,
+      pendingPick.track, pendingPick.raceNumber
+    );
   }, [pendingPick]);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await triggerFetch(specificTeams, targetDate);
+    await triggerFetch(specificTeams, targetDate, undefined, undefined, trackValue, raceNumberValue);
   };
   const handleSavePick = async () => {
     if (!user) {
@@ -1468,7 +1559,9 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
     }
     setIsSaving(true);
     try {
-      const teams = specificTeams.trim() || `${sportRef.current} Analysis`;
+      const teams = sportRef.current === "Racing"
+        ? (trackValue.trim() ? `${trackValue.trim()} — Race ${raceNumberValue}` : "Racing Analysis")
+        : (specificTeams.trim() || `${sportRef.current} Analysis`);
       const pick = extractField(
         briefContent,
         "BOBBY'S PICK", "Bobby's Pick", "Pick", "Recommendation", "BET", "My Pick"
@@ -1499,27 +1592,64 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
       {/* Form card */}
       <Card className="p-4 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="teams" className="text-sm font-medium">
-              Teams / Matchup
-            </Label>
-            <Input
-              id="teams"
-              placeholder={
-                sport === "MLB"    ? "e.g., Red Sox vs Yankees"    :
-                sport === "WNBA"   ? "e.g., Liberty vs Aces"       :
-                sport === "NHL"    ? "e.g., Panthers vs Oilers"    :
-                sport === "NFL"    ? "e.g., Chiefs vs Bills"        :
-                sport === "NCAAFB" ? "e.g., Alabama vs Georgia"    :
-                sport === "Soccer" ? "e.g., Brazil vs Argentina"   :
-                sport === "F1"     ? "e.g., Verstappen vs Norris"  :
-                                     "e.g., Lakers vs Warriors"
-              }
-              value={specificTeams}
-              onChange={(e) => setSpecificTeams(e.target.value)}
-              className="h-11 text-sm bg-background/50"
-            />
-          </div>
+          {sport === "Racing" ? (
+            <>
+              <div className="flex items-center gap-2 -mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  Sample Data
+                </span>
+                <span className="text-[11px] text-muted-foreground">Preview — not a live race feed</span>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="track" className="text-sm font-medium">
+                  Track
+                </Label>
+                <Input
+                  id="track"
+                  placeholder="e.g., Keeneland"
+                  value={trackValue}
+                  onChange={(e) => setTrackValue(e.target.value)}
+                  className="h-11 text-sm bg-background/50"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="race-number" className="text-sm font-medium">
+                  Race Number
+                </Label>
+                <Input
+                  id="race-number"
+                  type="number"
+                  min="1"
+                  placeholder="e.g., 5"
+                  value={raceNumberValue}
+                  onChange={(e) => setRaceNumberValue(e.target.value)}
+                  className="h-11 text-sm bg-background/50"
+                />
+              </div>
+            </>
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="teams" className="text-sm font-medium">
+                Teams / Matchup
+              </Label>
+              <Input
+                id="teams"
+                placeholder={
+                  sport === "MLB"    ? "e.g., Red Sox vs Yankees"    :
+                  sport === "WNBA"   ? "e.g., Liberty vs Aces"       :
+                  sport === "NHL"    ? "e.g., Panthers vs Oilers"    :
+                  sport === "NFL"    ? "e.g., Chiefs vs Bills"        :
+                  sport === "NCAAFB" ? "e.g., Alabama vs Georgia"    :
+                  sport === "Soccer" ? "e.g., Brazil vs Argentina"   :
+                  sport === "F1"     ? "e.g., Verstappen vs Norris"  :
+                                       "e.g., Lakers vs Warriors"
+                }
+                value={specificTeams}
+                onChange={(e) => setSpecificTeams(e.target.value)}
+                className="h-11 text-sm bg-background/50"
+              />
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="target-date" className="text-sm font-medium">
               Target Date
@@ -1554,7 +1684,7 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
         <Card className="p-8 bg-gradient-to-br from-card to-card/50 border-primary/20 overflow-hidden">
           <div className="flex flex-col items-center justify-center gap-4 py-4">
             <span className="text-6xl animate-bounce">
-              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽", F1: "🏎️" } as Record<string, string>)[sport] ?? "🎲"}
+              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽", F1: "🏎️", Racing: "🏇" } as Record<string, string>)[sport] ?? "🎲"}
             </span>
             <p className="text-sm font-medium text-foreground/80 text-center transition-all duration-500">
               {LOADING_MESSAGES[loadingMsgIdx]}
@@ -1568,9 +1698,14 @@ export const N8nIntegration = ({ sport = "NBA", pendingPick, onPendingPickConsum
           {/* Card header */}
           <div className="flex items-center gap-2 px-4 pt-4 pb-0 shrink-0">
             <span className="text-base leading-none">
-              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽", F1: "🏎️" } as Record<string, string>)[sport] ?? "🎲"}
+              {({ NBA: "🏀", MLB: "⚾", WNBA: "🏀", NHL: "🏒", NFL: "🏈", NCAAFB: "🏈", Soccer: "⚽", F1: "🏎️", Racing: "🏇" } as Record<string, string>)[sport] ?? "🎲"}
             </span>
             <h3 className="text-sm font-semibold">Bobby's Pick</h3>
+            {sport === "Racing" && (
+              <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                Sample Data
+              </span>
+            )}
             <span className="ml-auto text-xs text-muted-foreground">
               {new Date().toLocaleTimeString()}
             </span>
